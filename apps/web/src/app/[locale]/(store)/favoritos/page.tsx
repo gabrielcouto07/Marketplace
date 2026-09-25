@@ -18,8 +18,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function FavoritesPage({ params }: PageProps) {
   const { locale } = await params;
   setRequestLocale(locale);
+  const t = await getTranslations({ locale, namespace: "catalog" });
   return (
-    <StoreShell>
+    <StoreShell title={t("favoritesTitle")}>
       <FavoritesView />
     </StoreShell>
   );

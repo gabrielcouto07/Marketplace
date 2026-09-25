@@ -18,7 +18,7 @@ interface QuantityStepperProps {
   label?: string;
 }
 
-/** Trilho cinza com dois botões brancos e o número em negrito no meio (−/+; lixeira no mínimo). */
+/** Trilho com borda fina: −, número em tabular-nums e +. Lixeira no mínimo quando `allowRemove`. */
 export function QuantityStepper({
   value,
   min = 1,
@@ -34,15 +34,18 @@ export function QuantityStepper({
   const atMin = value <= min;
   const atMax = value >= max;
   const btn = cn(
-    "pressable flex items-center justify-center rounded-[11px] bg-card text-foreground shadow-card transition-colors hover:bg-surface disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-    size === "md" ? "size-10" : "size-9",
+    "flex pressable items-center justify-center rounded-sm text-foreground transition-colors hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-40 focus-ring",
+    size === "md" ? "size-10" : "size-8",
   );
 
   return (
     <div
       role="group"
       aria-label={label ?? t("quantity")}
-      className={cn("inline-flex items-center rounded-lg bg-surface p-[3px]", className)}
+      className={cn(
+        "inline-flex items-center rounded-md border border-border-strong bg-surface p-0.5",
+        className,
+      )}
     >
       <button
         type="button"
@@ -52,9 +55,9 @@ export function QuantityStepper({
         onClick={() => (atMin && allowRemove ? onRemove?.() : onChange(Math.max(min, value - 1)))}
       >
         {atMin && allowRemove ? (
-          <Trash2 className="size-4 text-destructive" strokeWidth={2.2} />
+          <Trash2 className="size-5 text-danger" strokeWidth={1.75} />
         ) : (
-          <Minus className="size-4" strokeWidth={2.4} />
+          <Minus className="size-5" strokeWidth={1.75} />
         )}
       </button>
       <input
@@ -69,8 +72,8 @@ export function QuantityStepper({
           if (Number.isFinite(n)) onChange(Math.min(max, Math.max(min, Math.floor(n))));
         }}
         className={cn(
-          "[appearance:textfield] bg-transparent text-center text-[15px] font-extrabold tabular-nums outline-none focus-visible:text-primary [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
-          size === "md" ? "h-10 w-10" : "h-9 w-8 text-sm",
+          "[appearance:textfield] bg-transparent text-center text-body font-semibold tabular-nums outline-none focus-visible:text-primary [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none",
+          size === "md" ? "h-10 w-10" : "h-8 w-8",
         )}
       />
       <button
@@ -80,7 +83,7 @@ export function QuantityStepper({
         disabled={atMax}
         onClick={() => onChange(Math.min(max, value + 1))}
       >
-        <Plus className="size-4" strokeWidth={2.4} />
+        <Plus className="size-5" strokeWidth={1.75} />
       </button>
     </div>
   );

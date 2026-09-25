@@ -20,7 +20,7 @@ export default async function SellerPage({ params }: PageProps) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
   return (
-    <StoreShell>
+    <StoreShell showBack>
       <SellerView slug={slug} />
     </StoreShell>
   );

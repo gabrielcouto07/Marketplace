@@ -21,14 +21,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return { title, alternates: { canonical: `/categoria/${slug}` } };
 }
 
-/** A SearchView desenha o topo (nome da categoria + contagem + busca); por isso sem `title`/`showBack`. */
+/** Header padrão (voltar + pill de busca); o nome da categoria vira o h1 dentro da SearchView. */
 export default async function CategoryPage({ params }: PageProps) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
   return (
-    <StoreShell>
+    <StoreShell showBack>
       <Suspense fallback={null}>
-        <SearchView fixed={{ categorySlug: slug }} hideHeading />
+        <SearchView fixed={{ categorySlug: slug }} />
       </Suspense>
     </StoreShell>
   );

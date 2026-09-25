@@ -1,5 +1,6 @@
 "use client";
 
+import { AlertCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
@@ -30,7 +31,10 @@ interface FormFieldProps {
   children: ReactNode;
 }
 
-/** Label + controle + mensagem de erro/dica, com aria-describedby e aria-invalid. */
+/**
+ * Label acima do campo, helper text abaixo; erro sempre com ícone + texto (DESIGN.md › Formulários).
+ * Ligue o controle com `aria-describedby={`${id}-error` | `${id}-hint`}` e `aria-invalid`.
+ */
 export function FormField({
   id,
   label,
@@ -45,19 +49,24 @@ export function FormField({
   const errorText = message(error);
   return (
     <div className={cn("flex flex-col gap-2", className)}>
-      <Label htmlFor={id} className="text-[13px]">
+      <Label htmlFor={id}>
         {label}
         {optional ? (
-          <span className="text-xs font-medium text-placeholder">({t("optional")})</span>
+          <span className="text-caption font-normal text-foreground-muted">({t("optional")})</span>
         ) : null}
       </Label>
       {children}
       {errorText ? (
-        <p id={`${id}-error`} role="alert" className="text-xs font-bold text-destructive">
+        <p
+          id={`${id}-error`}
+          role="alert"
+          className="flex items-start gap-1.5 text-caption font-medium text-danger"
+        >
+          <AlertCircle className="mt-px size-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
           {errorText}
         </p>
       ) : hint ? (
-        <p id={`${id}-hint`} className="text-xs text-muted-foreground">
+        <p id={`${id}-hint`} className="text-caption text-foreground-secondary">
           {hint}
         </p>
       ) : null}

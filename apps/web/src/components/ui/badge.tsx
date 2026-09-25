@@ -4,32 +4,35 @@ import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
 
-/** Pílulas de 22 px com texto 11 px em negrito. `cta` = oferta, `soft` = informativo, `ink` = contador. */
+/**
+ * Badges: 24 px, texto caption (12/500), raio 8. Tons suaves por padrão — cor chapada só em
+ * `cta` (oferta) e `primary` (estado ativo). `danger` sempre com ícone + texto.
+ */
 const badgeVariants = cva(
-  "group/badge inline-flex h-[22px] w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-full border border-transparent px-2 text-[11px] font-extrabold whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:ring-ring/40 [&>svg]:pointer-events-none [&>svg]:size-3!",
+  "group/badge inline-flex h-6 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-sm border border-transparent px-2 text-caption whitespace-nowrap transition-colors focus-ring [&>svg]:pointer-events-none [&>svg]:size-3.5",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground",
+        primary: "bg-primary text-primary-foreground",
         cta: "bg-cta text-cta-foreground",
-        soft: "bg-accent text-accent-foreground",
+        soft: "bg-primary-soft text-primary",
         success: "bg-success-soft text-success",
         warning: "bg-warning-soft text-warning",
-        danger: "bg-destructive-soft text-destructive",
-        ink: "bg-ink text-ink-foreground",
-        secondary: "bg-secondary text-secondary-foreground",
-        outline: "border-input text-foreground",
+        danger: "bg-danger-soft text-danger",
+        neutral: "bg-surface-muted text-foreground-secondary",
+        outline: "border-border text-foreground-secondary",
+        inverse: "bg-foreground text-background",
       },
     },
     defaultVariants: {
-      variant: "default",
+      variant: "neutral",
     },
   },
 );
 
 function Badge({
   className,
-  variant = "default",
+  variant = "neutral",
   render,
   ...props
 }: useRender.ComponentProps<"span"> & VariantProps<typeof badgeVariants>) {

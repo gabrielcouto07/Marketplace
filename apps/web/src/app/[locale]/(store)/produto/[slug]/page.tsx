@@ -36,7 +36,7 @@ export default async function ProductPage({ params }: PageProps) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
   return (
-    <StoreShell>
+    <StoreShell showBack>
       <ProductView slug={slug} />
     </StoreShell>
   );

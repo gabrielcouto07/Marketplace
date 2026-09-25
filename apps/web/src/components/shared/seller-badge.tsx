@@ -1,20 +1,26 @@
-import type { SellerSummaryDto } from "@marketplace/contracts";
-import { BadgeCheck } from "lucide-react";
+import type { SellerMetricsDto, SellerSummaryDto } from "@marketplace/contracts";
+import { BadgeCheck, Clock } from "lucide-react";
+import Image from "next/image";
 import { useTranslations } from "next-intl";
 
 import { Link } from "@/i18n/navigation";
-import { initials, sellerColor } from "@/lib/palette";
+import { initials } from "@/lib/palette";
 import { cn } from "@/lib/utils";
 
-const LEVEL_COLORS: Record<SellerSummaryDto["reputationLevel"], string> = {
-  1: "bg-cta",
-  2: "bg-orange-500",
-  3: "bg-amber-400",
-  4: "bg-lime-500",
-  5: "bg-success",
-};
+/** Tom semântico do nível (1–2 atenção, 3 aviso, 4–5 ok). */
+function levelTone(level: SellerSummaryDto["reputationLevel"]): "danger" | "warning" | "success" {
+  if (level <= 2) return "danger";
+  if (level === 3) return "warning";
+  return "success";
+}
 
-/** Termômetro de reputação (1–5): cinco segmentos, preenchidos até o nível na cor do nível. */
+const TONE_BAR = {
+  danger: "bg-danger",
+  warning: "bg-warning",
+  success: "bg-success",
+} as const;
+
+/** Reputação em barra: cinco segmentos preenchidos até o nível, na cor semântica do nível. */
 export function ReputationMeter({
   level,
   className,
@@ -23,6 +29,7 @@ export function ReputationMeter({
   className?: string;
 }) {
   const t = useTranslations("seller");
+  const tone = levelTone(level);
   return (
     <span
       className={cn("flex items-center gap-1", className)}
@@ -34,7 +41,7 @@ export function ReputationMeter({
           key={i}
           className={cn(
             "h-1.5 flex-1 rounded-full",
-            i <= level ? LEVEL_COLORS[level] : "bg-surface-strong",
+            i <= level ? TONE_BAR[tone] : "bg-border-strong",
           )}
         />
       ))}
@@ -43,43 +50,47 @@ export function ReputationMeter({
 }
 
 const AVATAR_SIZES = {
-  sm: "size-[34px] rounded-[11px] text-xs",
-  md: "size-[46px] rounded-[15px] text-[15px]",
-  lg: "size-[50px] rounded-2xl text-base",
-  xl: "size-[76px] rounded-3xl text-2xl ring-[5px] ring-card",
+  sm: "size-8 text-caption",
+  md: "size-10 text-body-sm",
+  lg: "size-12 text-body",
+  xl: "size-16 text-title-2 ring-4 ring-surface",
 } as const;
 
-/** Avatar da loja: iniciais em branco sobre a cor de marca da loja (determinística pelo slug). */
+/** Avatar da loja: logo quando existe; senão iniciais em primary sobre primary-soft. */
 export function SellerAvatar({
   seller,
   size = "md",
   className,
 }: {
-  seller: Pick<SellerSummaryDto, "name" | "slug">;
+  seller: Pick<SellerSummaryDto, "name" | "slug" | "logoUrl">;
   size?: keyof typeof AVATAR_SIZES;
   className?: string;
 }) {
   return (
     <span
       aria-hidden
-      style={{ backgroundColor: sellerColor(seller.slug) }}
       className={cn(
-        "flex shrink-0 items-center justify-center font-extrabold text-white",
+        "relative flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary-soft font-semibold text-primary",
         AVATAR_SIZES[size],
         className,
       )}
     >
-      {initials(seller.name)}
+      {seller.logoUrl ? (
+        <Image src={seller.logoUrl} alt="" fill sizes="64px" className="object-cover" />
+      ) : (
+        initials(seller.name)
+      )}
     </span>
   );
 }
 
-/** Selo de loja verificada (ícone azul). */
+/** Selo de loja oficial (ícone azul). */
 export function OfficialBadge({ className }: { className?: string }) {
   const t = useTranslations("seller");
   return (
     <BadgeCheck
-      className={cn("size-4 shrink-0 fill-primary text-card", className)}
+      className={cn("size-4 shrink-0 fill-primary text-surface", className)}
+      strokeWidth={1.75}
       aria-label={t("officialStore")}
     />
   );
@@ -87,14 +98,20 @@ export function OfficialBadge({ className }: { className?: string }) {
 
 interface SellerBadgeProps {
   seller: SellerSummaryDto;
-  /** `inline`: texto discreto · `pill`: pílula azul-suave com selo · `card`: card de loja em destaque. */
+  /** `inline`: texto discreto · `pill`: chip azul-suave com selo · `card`: card de confiança da loja. */
   variant?: "inline" | "pill" | "card";
+  /** Indicadores da loja (envios no prazo, resposta) — só no `card`. */
+  metrics?: Pick<SellerMetricsDto, "onTimeShippingPercent" | "avgResponseTimeHours"> | null;
   className?: string;
 }
 
-/** Nome da loja + selo oficial (+ reputação/cidade no card). Sempre linka para /loja/[slug]. */
-export function SellerBadge({ seller, variant = "inline", className }: SellerBadgeProps) {
+/**
+ * Identidade da loja (DESIGN.md › Confiança): nome + selo oficial; no `card`, avatar, cidade,
+ * reputação em barra com rótulo e tempo de envio. Sempre linka para /loja/[slug].
+ */
+export function SellerBadge({ seller, variant = "inline", metrics, className }: SellerBadgeProps) {
   const t = useTranslations("seller");
+  const tt = useTranslations("trust");
   const href = `/loja/${seller.slug}`;
 
   if (variant === "inline") {
@@ -102,7 +119,7 @@ export function SellerBadge({ seller, variant = "inline", className }: SellerBad
       <Link
         href={href}
         className={cn(
-          "inline-flex min-w-0 items-center gap-1 text-xs text-muted-foreground hover:text-primary",
+          "inline-flex min-w-0 items-center gap-1 rounded-sm text-caption text-foreground-muted focus-ring transition-colors hover:text-primary",
           className,
         )}
       >
@@ -117,14 +134,14 @@ export function SellerBadge({ seller, variant = "inline", className }: SellerBad
       <Link
         href={href}
         className={cn(
-          "inline-flex max-w-full pressable items-center gap-1.5 rounded-full bg-accent py-1.5 pr-3 pl-2 text-[12.5px] font-bold text-accent-foreground hover:bg-brand-blue-100",
+          "inline-flex h-8 max-w-full pressable items-center gap-1.5 rounded-full bg-primary-soft px-3 text-caption font-medium text-primary focus-ring transition-colors hover:bg-primary/15",
           className,
         )}
       >
         {seller.isOfficialStore ? (
           <BadgeCheck
             className="size-4 shrink-0"
-            strokeWidth={2.2}
+            strokeWidth={1.75}
             aria-label={t("officialStore")}
           />
         ) : null}
@@ -137,24 +154,43 @@ export function SellerBadge({ seller, variant = "inline", className }: SellerBad
     <Link
       href={href}
       className={cn(
-        "flex pressable flex-col gap-3 rounded-2xl bg-card p-3.5 shadow-card transition-shadow hover:shadow-float",
+        "flex pressable flex-col gap-3 rounded-lg border border-border bg-surface p-4 shadow-xs focus-ring transition-shadow hover:shadow-sm",
         className,
       )}
     >
-      <span className="flex items-center gap-2.5">
+      <span className="flex items-center gap-3">
         <SellerAvatar seller={seller} />
-        <span className="flex min-w-0 flex-col gap-0.5">
+        <span className="flex min-w-0 flex-col">
           <span className="flex items-center gap-1.5">
-            <span className="truncate text-sm font-bold">{seller.name}</span>
+            <span className="truncate text-body-sm font-semibold text-foreground">
+              {seller.name}
+            </span>
             {seller.isOfficialStore ? <OfficialBadge /> : null}
           </span>
-          <span className="text-xs text-muted-foreground">{seller.city}</span>
+          <span className="text-caption text-foreground-muted">
+            {t("location", { city: seller.city })}
+          </span>
         </span>
       </span>
-      <ReputationMeter level={seller.reputationLevel} />
-      <span className="flex items-center justify-between text-xs text-muted-foreground">
-        <span>{t(`reputationLabels.${seller.reputationLevel}`)}</span>
-        <span className="font-bold text-primary">{t("viewStore")}</span>
+      <span className="flex flex-col gap-1.5">
+        <span className="flex items-center justify-between text-caption">
+          <span className="text-foreground-secondary">{tt("reputationLabel")}</span>
+          <span className="font-medium text-foreground">
+            {t(`reputationLabels.${seller.reputationLevel}`)}
+          </span>
+        </span>
+        <ReputationMeter level={seller.reputationLevel} />
+      </span>
+      <span className="flex items-center justify-between gap-2 text-caption text-foreground-secondary">
+        {metrics ? (
+          <span className="inline-flex items-center gap-1">
+            <Clock className="size-3.5 text-foreground-muted" strokeWidth={1.75} aria-hidden />
+            {tt("onTimeShort", { percent: metrics.onTimeShippingPercent })}
+          </span>
+        ) : (
+          <span />
+        )}
+        <span className="font-medium text-primary">{t("viewStore")}</span>
       </span>
     </Link>
   );

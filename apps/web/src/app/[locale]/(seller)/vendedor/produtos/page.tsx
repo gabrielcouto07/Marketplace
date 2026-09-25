@@ -1,5 +1,5 @@
-import { SellerPlaceholder } from "@/features/seller-panel/components/seller-panel";
+import { SellerProducts } from "@/features/seller-panel/components/seller-panel";
 
 export default function Page() {
-  return <SellerPlaceholder titleKey="products" />;
+  return <SellerProducts />;
 }

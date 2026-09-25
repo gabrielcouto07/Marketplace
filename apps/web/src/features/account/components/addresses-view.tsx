@@ -1,7 +1,7 @@
 "use client";
 
 import type { AddressDto, AddressInput } from "@marketplace/contracts";
-import { MapPin, Pencil, Plus, Trash2 } from "lucide-react";
+import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -9,6 +9,13 @@ import { toast } from "sonner";
 import { PageContainer } from "@/components/layout/store-shell";
 import { EmptyState, ErrorState } from "@/components/shared/states";
 import { Badge } from "@/components/ui/badge";
+import {
+  BottomSheet,
+  BottomSheetBody,
+  BottomSheetContent,
+  BottomSheetHeader,
+  BottomSheetTitle,
+} from "@/components/ui/bottom-sheet";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -18,7 +25,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   useAddresses,
@@ -28,7 +34,6 @@ import {
 } from "@/features/account/api";
 import { useAuthStore, useCurrentUser } from "@/features/auth/store";
 import { isApiError } from "@/lib/api/errors";
-import { cn } from "@/lib/utils";
 import { formatCep } from "@/lib/validation/documents";
 
 import { AddressForm } from "./address-form";
@@ -89,73 +94,66 @@ export function AddressesView() {
   };
 
   return (
-    <PageContainer className="flex flex-col gap-3 py-4">
+    <PageContainer className="flex flex-col gap-4 py-4">
       {addresses.isPending ? (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-4">
           {Array.from({ length: 2 }).map((_, i) => (
-            <Skeleton key={i} className="h-36 rounded-3xl" />
+            <div
+              key={i}
+              className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 shadow-xs"
+            >
+              <Skeleton className="h-5 w-32" />
+              <Skeleton className="h-4 w-48" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-3/4" />
+            </div>
           ))}
         </div>
       ) : addresses.isError ? (
         <ErrorState error={addresses.error} onRetry={() => addresses.refetch()} />
       ) : addresses.data.length === 0 ? (
         <EmptyState
-          icon={MapPin}
+          illustration="box"
           title={t("noAddresses")}
           description={t("noAddressesHint")}
           action={
-            <Button variant="cta" onClick={openNew}>
-              <Plus data-icon="inline-start" /> {t("addAddress")}
+            <Button variant="primary" onClick={openNew}>
+              <Plus data-icon="inline-start" strokeWidth={1.75} /> {t("addAddress")}
             </Button>
           }
         />
       ) : (
-        <ul className="flex flex-col gap-3 md:grid md:grid-cols-2">
-          {addresses.data.map((a, i) => (
+        <ul className="flex flex-col gap-4 md:grid md:grid-cols-2">
+          {addresses.data.map((a) => (
             <li
               key={a.id}
-              className={cn(
-                "flex animate-rise flex-col gap-3 rounded-3xl border-2 bg-card p-4 shadow-card",
-                a.isDefault ? "border-primary bg-selected" : "border-transparent",
-              )}
-              style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}
+              className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 shadow-xs"
             >
-              <div className="flex items-start gap-3">
-                <span
-                  className={cn(
-                    "flex size-[38px] shrink-0 items-center justify-center rounded-md",
-                    a.isDefault
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-accent text-accent-foreground",
-                  )}
-                >
-                  <MapPin className="size-[18px]" aria-hidden />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <p className="flex flex-wrap items-center gap-2 text-[15px] font-extrabold">
-                    {a.label}
-                    {a.isDefault ? <Badge variant="soft">{t("default")}</Badge> : null}
-                  </p>
-                  <p className="text-[13px] text-muted-foreground">{a.recipientName}</p>
-                  <p className="mt-1 text-[13.5px] leading-relaxed text-body">
-                    {a.street}, {a.number}
-                    {a.complement ? ` – ${a.complement}` : ""}
-                    <br />
-                    {a.neighborhood} · {a.city}/{a.state} · CEP {formatCep(a.postalCode)}
-                  </p>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex min-w-0 flex-col">
+                  <p className="truncate text-title-3 text-foreground">{a.label}</p>
+                  <p className="text-body-sm text-foreground-secondary">{a.recipientName}</p>
                 </div>
+                {a.isDefault ? <Badge variant="soft">{t("default")}</Badge> : null}
               </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" className="flex-1" onClick={() => openEdit(a)}>
-                  <Pencil data-icon="inline-start" /> {tc("edit")}
+              <p className="text-body-sm text-foreground-secondary">
+                {a.street}, {a.number}
+                {a.complement ? ` – ${a.complement}` : ""}
+                <br />
+                {a.neighborhood} · {a.city}/{a.state} ·{" "}
+                <span className="tabular-nums">CEP {formatCep(a.postalCode)}</span>
+              </p>
+              <div className="-mb-2 flex justify-end gap-2">
+                <Button variant="ghost" size="sm" onClick={() => openEdit(a)}>
+                  <Pencil data-icon="inline-start" strokeWidth={1.75} /> {tc("edit")}
                 </Button>
                 <Button
-                  variant="destructive"
+                  variant="ghost"
                   size="sm"
-                  className="flex-1"
+                  className="text-danger hover:bg-danger-soft"
                   onClick={() => setDeleting(a)}
                 >
-                  <Trash2 data-icon="inline-start" /> {tc("delete")}
+                  <Trash2 data-icon="inline-start" strokeWidth={1.75} /> {tc("delete")}
                 </Button>
               </div>
             </li>
@@ -164,20 +162,17 @@ export function AddressesView() {
       )}
 
       {addresses.data && addresses.data.length > 0 ? (
-        <Button variant="cta" size="lg" onClick={openNew}>
-          <Plus data-icon="inline-start" /> {t("addAddress")}
+        <Button variant="primary" fullWidth onClick={openNew}>
+          <Plus data-icon="inline-start" strokeWidth={1.75} /> {t("addAddress")}
         </Button>
       ) : null}
 
-      <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent
-          side="bottom"
-          className="max-h-[92dvh] overflow-y-auto sm:mx-auto sm:max-w-lg"
-        >
-          <SheetHeader>
-            <SheetTitle>{editing ? t("editAddress") : t("addAddress")}</SheetTitle>
-          </SheetHeader>
-          <div className="px-4 pb-4">
+      <BottomSheet open={sheetOpen} onOpenChange={setSheetOpen}>
+        <BottomSheetContent className="sm:mx-auto sm:max-w-lg">
+          <BottomSheetHeader>
+            <BottomSheetTitle>{editing ? t("editAddress") : t("addAddress")}</BottomSheetTitle>
+          </BottomSheetHeader>
+          <BottomSheetBody className="py-4">
             <AddressForm
               key={editing?.id ?? "new"}
               defaultValues={
@@ -201,9 +196,9 @@ export function AddressesView() {
               submitting={create.isPending || update.isPending}
               serverErrors={serverErrors}
             />
-          </div>
-        </SheetContent>
-      </Sheet>
+          </BottomSheetBody>
+        </BottomSheetContent>
+      </BottomSheet>
 
       <Dialog open={deleting !== null} onOpenChange={(open) => !open && setDeleting(null)}>
         <DialogContent>
@@ -214,11 +209,11 @@ export function AddressesView() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleting(null)}>
+            <Button variant="ghost" onClick={() => setDeleting(null)}>
               {tc("cancel")}
             </Button>
-            <Button variant="destructive" onClick={confirmDelete} disabled={remove.isPending}>
-              {tc("delete")}
+            <Button variant="destructive" onClick={confirmDelete} loading={remove.isPending}>
+              <Trash2 data-icon="inline-start" strokeWidth={1.75} /> {tc("delete")}
             </Button>
           </DialogFooter>
         </DialogContent>

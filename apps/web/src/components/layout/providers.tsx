@@ -14,17 +14,12 @@ import { MockProvider } from "@/mocks/mock-provider";
  */
 export function Providers({ children }: { children: ReactNode }) {
   return (
-    <ThemeProvider
-      attribute="class"
-      defaultTheme="light"
-      enableSystem={false}
-      disableTransitionOnChange
-    >
+    <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
       <PwaProvider>
         <MockProvider>
           <QueryProvider>
             <TooltipProvider>{children}</TooltipProvider>
-            <Toaster position="top-center" richColors closeButton />
+            <Toaster closeButton />
           </QueryProvider>
         </MockProvider>
       </PwaProvider>

@@ -1,7 +1,6 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Save } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect } from "react";
 import { Controller, useForm } from "react-hook-form";
@@ -31,6 +30,7 @@ export function ProfileView() {
     useForm<ProfileFormValues>({
       resolver: zodResolver(profileSchema),
       defaultValues: { fullName: "", phone: "", cpf: "" },
+      mode: "onBlur",
     });
 
   useEffect(() => {
@@ -38,7 +38,7 @@ export function ProfileView() {
   }, [user, reset]);
 
   if (!hydrated) return null;
-  if (!user) return <LoginRequired />;
+  if (!user) return <LoginRequired next="/conta/perfil" />;
 
   const onSubmit = handleSubmit((values) =>
     update.mutate(
@@ -53,25 +53,24 @@ export function ProfileView() {
   );
 
   return (
-    <PageContainer className="flex flex-col gap-3 py-4">
-      <div className="mx-auto flex w-full max-w-md animate-rise items-center gap-3.5 rounded-3xl bg-card p-4 shadow-card">
+    <PageContainer className="flex flex-col gap-4 py-4">
+      <section className="mx-auto flex w-full max-w-md items-center gap-4 rounded-lg border border-border bg-surface p-4 shadow-xs">
         <span
           aria-hidden
-          className="flex size-[52px] shrink-0 items-center justify-center rounded-2xl bg-accent text-lg font-extrabold text-primary"
+          className="flex size-14 shrink-0 items-center justify-center rounded-full bg-primary-soft text-title-3 text-primary"
         >
           {initials(user.fullName)}
         </span>
-        <div className="min-w-0">
-          <p className="truncate text-[15px] font-extrabold">{user.fullName}</p>
-          <p className="truncate text-[13px] text-muted-foreground">{user.email}</p>
+        <div className="flex min-w-0 flex-col">
+          <p className="truncate text-title-3 text-foreground">{user.fullName}</p>
+          <p className="truncate text-caption text-foreground-muted">{user.email}</p>
         </div>
-      </div>
+      </section>
 
       <form
         onSubmit={onSubmit}
         noValidate
-        className="mx-auto flex w-full max-w-md animate-rise flex-col gap-4 rounded-3xl bg-card p-4 shadow-card sm:p-6"
-        style={{ animationDelay: "40ms" }}
+        className="mx-auto flex w-full max-w-md flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-xs"
       >
         <FormField label={t("email")}>
           {(a11y) => <Input {...a11y} type="email" value={user.email} readOnly disabled />}
@@ -90,6 +89,7 @@ export function ProfileView() {
                   type="tel"
                   inputMode="tel"
                   autoComplete="tel-national"
+                  placeholder="(11) 99999-9999"
                   value={formatPhoneBr(field.value ?? "")}
                   onChange={(e) => field.onChange(e.target.value.replace(/\D/g, "").slice(0, 11))}
                   onBlur={field.onBlur}
@@ -110,6 +110,7 @@ export function ProfileView() {
                   {...a11y}
                   inputMode="numeric"
                   placeholder="000.000.000-00"
+                  className="tabular-nums"
                   value={formatCpf(field.value ?? "")}
                   onChange={(e) => field.onChange(e.target.value.replace(/\D/g, "").slice(0, 11))}
                   onBlur={field.onBlur}
@@ -122,12 +123,11 @@ export function ProfileView() {
         </FormField>
         <Button
           type="submit"
-          variant="cta"
-          size="lg"
-          className="mt-1"
-          disabled={update.isPending || !formState.isDirty}
+          variant="primary"
+          fullWidth
+          loading={update.isPending}
+          disabled={!formState.isDirty}
         >
-          <Save data-icon="inline-start" />
           {tCommon("save")}
         </Button>
       </form>
@@ -135,18 +135,20 @@ export function ProfileView() {
   );
 }
 
+/** Estado "faça login" para páginas da conta abertas sem sessão. */
 export function LoginRequired({ next }: { next?: string }) {
   const t = useTranslations("account");
   const tErrors = useTranslations("errors");
   return (
     <PageContainer className="py-4">
       <EmptyState
+        illustration="bag"
         title={t("guestTitle")}
         description={tErrors("unauthorized")}
         className="min-h-[50vh]"
         action={
           <Button
-            variant="cta"
+            variant="primary"
             render={<Link href={next ? `/entrar?next=${encodeURIComponent(next)}` : "/entrar"} />}
           >
             {t("signIn")}

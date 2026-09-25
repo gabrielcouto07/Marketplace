@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeft, type LucideIcon } from "lucide-react";
+import { AlertTriangle, ArrowLeft, type LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
@@ -24,8 +24,8 @@ interface PanelShellProps {
 }
 
 /**
- * Casca dos painéis (vendedor/admin): barra branca com a marca, sidebar em desktop e
- * pílulas horizontais roláveis no mobile. Sem bottom nav da loja.
+ * Casca dos painéis (vendedor/admin): header em brand-deep com a assinatura tricolor,
+ * sidebar em desktop e pílulas horizontais roláveis no mobile. Sem bottom nav da loja.
  */
 export function PanelShell({ title, subtitle, items, children }: PanelShellProps) {
   const t = useTranslations("sellerPanel");
@@ -35,19 +35,20 @@ export function PanelShell({ title, subtitle, items, children }: PanelShellProps
 
   return (
     <div className="flex min-h-dvh flex-col bg-background">
-      <header className="sticky top-0 z-40 bg-card pt-safe shadow-card">
+      <header className="sticky top-0 z-40 bg-brand-deep pt-safe text-white">
         <TricolorStripe />
-        <div className="mx-auto flex h-header w-full max-w-7xl items-center gap-3 px-4">
-          <BrandMark tone="light" compact />
+        <div className="mx-auto flex h-16 w-full max-w-7xl items-center gap-4 px-4">
+          <BrandMark tone="dark" compact />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[15px] leading-tight font-extrabold tracking-tight">
-              {title}
-            </p>
-            {subtitle ? (
-              <p className="truncate text-[11px] text-muted-foreground">{subtitle}</p>
-            ) : null}
+            <p className="truncate text-body-sm font-semibold">{title}</p>
+            {subtitle ? <p className="truncate text-caption text-white/70">{subtitle}</p> : null}
           </div>
-          <Button variant="soft" size="sm" render={<Link href="/" />}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-white hover:bg-white/10"
+            render={<Link href="/" />}
+          >
             <ArrowLeft data-icon="inline-start" /> {t("backToStore")}
           </Button>
         </div>
@@ -56,9 +57,9 @@ export function PanelShell({ title, subtitle, items, children }: PanelShellProps
       <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col md:flex-row">
         <nav
           aria-label={title}
-          className="border-b border-border bg-card md:w-60 md:shrink-0 md:border-r md:border-b-0"
+          className="border-b border-border bg-surface md:w-60 md:shrink-0 md:border-r md:border-b-0"
         >
-          <ul className="scrollbar-none flex gap-1.5 overflow-x-auto px-4 py-2.5 md:flex-col md:gap-1 md:p-3">
+          <ul className="scrollbar-none flex gap-2 overflow-x-auto px-4 py-2 md:flex-col md:gap-1 md:p-4">
             {items.map(({ href, label, icon: Icon }) => {
               const active = isActive(href);
               return (
@@ -67,13 +68,13 @@ export function PanelShell({ title, subtitle, items, children }: PanelShellProps
                     href={href}
                     aria-current={active ? "page" : undefined}
                     className={cn(
-                      "flex h-10 pressable items-center gap-2 rounded-full px-3.5 text-[13px] font-bold whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none md:h-11 md:rounded-xl md:px-3 md:text-sm",
+                      "flex h-10 pressable items-center gap-2 rounded-full px-4 text-body-sm font-medium whitespace-nowrap focus-ring transition-colors md:h-11 md:rounded-md md:px-3",
                       active
-                        ? "bg-primary text-primary-foreground md:bg-accent md:text-primary"
-                        : "bg-surface text-muted-foreground hover:bg-surface-strong hover:text-foreground md:bg-transparent md:hover:bg-surface",
+                        ? "bg-primary-soft text-primary"
+                        : "text-foreground-secondary hover:bg-surface-muted hover:text-foreground",
                     )}
                   >
-                    <Icon className="size-4.5" aria-hidden />
+                    <Icon className="size-5" strokeWidth={1.75} aria-hidden />
                     {label}
                   </Link>
                 </li>
@@ -81,7 +82,7 @@ export function PanelShell({ title, subtitle, items, children }: PanelShellProps
             })}
           </ul>
         </nav>
-        <main id="main" className="flex-1 px-4 py-5 pb-[calc(var(--safe-bottom)+1.5rem)] md:px-8">
+        <main id="main" className="flex-1 px-4 py-6 pb-[calc(var(--safe-bottom)+2rem)] md:px-8">
           {children}
         </main>
       </div>
@@ -89,21 +90,20 @@ export function PanelShell({ title, subtitle, items, children }: PanelShellProps
   );
 }
 
-/** Aviso "esqueleto" exibido no topo das páginas dos painéis. */
+/** Aviso "esqueleto" exibido no topo das páginas dos painéis (ícone + texto). */
 export function SkeletonNotice({ text }: { text: string }) {
   return (
     <p
       role="note"
-      className="mb-4 rounded-xl bg-warning-soft px-3.5 py-2.5 text-xs font-semibold text-warning"
+      className="mb-6 flex items-start gap-2 rounded-md bg-warning-soft px-4 py-3 text-caption font-medium text-warning"
     >
+      <AlertTriangle className="mt-px size-4 shrink-0" strokeWidth={1.75} aria-hidden />
       {text}
     </p>
   );
 }
 
-/** Título de página dos painéis (22 px / 800). */
+/** Título de página dos painéis. */
 export function PanelTitle({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <h1 className={cn("mb-4 text-[22px] font-extrabold tracking-tight", className)}>{children}</h1>
-  );
+  return <h1 className={cn("mb-6 text-title-1 text-foreground", className)}>{children}</h1>;
 }

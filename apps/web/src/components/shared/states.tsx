@@ -1,66 +1,41 @@
 "use client";
 
-import {
-  AlertTriangle,
-  PackageOpen,
-  RefreshCw,
-  SearchX,
-  WifiOff,
-  type LucideIcon,
-} from "lucide-react";
+import { AlertCircle, RefreshCw, type LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
+import { Illustration, type IllustrationName } from "@/components/shared/illustrations";
 import { Button } from "@/components/ui/button";
 import { isNetworkError, isNotFoundError } from "@/lib/api/errors";
 import { cn } from "@/lib/utils";
 
-const ICON_TONES = {
-  blue: "bg-accent text-primary",
-  red: "bg-destructive-soft text-cta",
-  green: "bg-success-soft text-success",
-} as const;
-
 interface EmptyStateProps {
-  icon?: LucideIcon;
+  /** Ilustração linear (DESIGN.md › Iconografia). Padrão: "box". */
+  illustration?: IllustrationName;
   title: string;
   description?: string;
   action?: ReactNode;
-  tone?: keyof typeof ICON_TONES;
   className?: string;
 }
 
-/** Estado vazio: card branco com ícone em quadrado arredondado colorido, título, texto e ação. */
+/** Estado vazio: ilustração + frase curta + uma ação. Sem card dentro de card: fica direto na página. */
 export function EmptyState({
-  icon: Icon = PackageOpen,
+  illustration = "box",
   title,
   description,
   action,
-  tone = "blue",
   className,
 }: EmptyStateProps) {
   return (
     <div
-      className={cn(
-        "flex flex-col items-center justify-center rounded-3xl bg-card px-6 py-10 text-center shadow-card",
-        className,
-      )}
+      className={cn("flex flex-col items-center justify-center px-6 py-12 text-center", className)}
     >
-      <span
-        className={cn(
-          "mb-3 flex size-[72px] items-center justify-center rounded-3xl",
-          ICON_TONES[tone],
-        )}
-      >
-        <Icon className="size-8" strokeWidth={1.8} aria-hidden />
-      </span>
-      <h2 className="text-lg font-extrabold tracking-tight">{title}</h2>
+      <Illustration name={illustration} className="mb-4" />
+      <h2 className="text-title-3 text-foreground">{title}</h2>
       {description ? (
-        <p className="mt-1.5 max-w-[260px] text-[13.5px] leading-relaxed text-muted-foreground">
-          {description}
-        </p>
+        <p className="mt-1 max-w-[280px] text-body-sm text-foreground-secondary">{description}</p>
       ) : null}
-      {action ? <div className="mt-5">{action}</div> : null}
+      {action ? <div className="mt-6">{action}</div> : null}
     </div>
   );
 }
@@ -74,7 +49,7 @@ interface ErrorStateProps {
   compact?: boolean;
 }
 
-/** Estado de erro que diferencia offline / não encontrado / erro genérico. */
+/** Estado de erro que diferencia offline / não encontrado / erro genérico. Sempre ícone + texto. */
 export function ErrorState({
   error,
   title,
@@ -86,7 +61,7 @@ export function ErrorState({
   const t = useTranslations("errors");
   const offline = isNetworkError(error) || (typeof navigator !== "undefined" && !navigator.onLine);
   const notFound = isNotFoundError(error);
-  const Icon = offline ? WifiOff : notFound ? SearchX : AlertTriangle;
+  const illustration: IllustrationName = offline ? "wifi" : notFound ? "search" : "alert";
   const heading =
     title ?? (offline ? t("offlineTitle") : notFound ? t("notFoundTitle") : t("genericTitle"));
   const text =
@@ -102,14 +77,14 @@ export function ErrorState({
       <div
         role="alert"
         className={cn(
-          "flex items-center gap-3 rounded-xl bg-destructive-soft p-3 text-sm font-medium text-destructive",
+          "flex items-center gap-3 rounded-md bg-danger-soft p-3 text-body-sm text-danger",
           className,
         )}
       >
-        <Icon className="size-5 shrink-0" aria-hidden />
-        <span className="flex-1">{heading}</span>
+        <AlertCircle className="size-5 shrink-0" strokeWidth={1.75} aria-hidden />
+        <span className="flex-1 font-medium">{heading}</span>
         {onRetry ? (
-          <Button size="sm" variant="white" onClick={onRetry}>
+          <Button size="sm" variant="secondary" onClick={onRetry}>
             <RefreshCw data-icon="inline-start" /> {t("retry")}
           </Button>
         ) : null}
@@ -120,25 +95,13 @@ export function ErrorState({
   return (
     <div
       role="alert"
-      className={cn(
-        "flex flex-col items-center justify-center rounded-3xl bg-card px-6 py-10 text-center shadow-card",
-        className,
-      )}
+      className={cn("flex flex-col items-center justify-center px-6 py-12 text-center", className)}
     >
-      <span
-        className={cn(
-          "mb-3 flex size-[72px] items-center justify-center rounded-3xl",
-          offline ? ICON_TONES.blue : ICON_TONES.red,
-        )}
-      >
-        <Icon className="size-8" strokeWidth={1.8} aria-hidden />
-      </span>
-      <h2 className="text-lg font-extrabold tracking-tight">{heading}</h2>
-      <p className="mt-1.5 max-w-[260px] text-[13.5px] leading-relaxed text-muted-foreground">
-        {text}
-      </p>
+      <Illustration name={illustration} className="mb-4" />
+      <h2 className="text-title-3 text-foreground">{heading}</h2>
+      <p className="mt-1 max-w-[280px] text-body-sm text-foreground-secondary">{text}</p>
       {onRetry ? (
-        <Button className="mt-5" onClick={onRetry}>
+        <Button className="mt-6" variant="secondary" onClick={onRetry}>
           <RefreshCw data-icon="inline-start" /> {t("retry")}
         </Button>
       ) : null}
@@ -150,41 +113,30 @@ interface SectionHeaderProps {
   title: string;
   /** Link "Ver tudo" ou outra ação à direita. */
   action?: ReactNode;
-  /** Ícone em quadrado colorido antes do título (ex.: raio das ofertas). */
+  /** Ícone discreto antes do título (ex.: raio das ofertas), em primary. */
   icon?: LucideIcon;
-  iconTone?: "red" | "blue";
   /** Chip logo após o título (ex.: contagem regressiva). */
   meta?: ReactNode;
   as?: "h1" | "h2";
   className?: string;
 }
 
-/** Título de seção em 18 px / 800 com ícone e chip opcionais. */
+/** Título de seção em title-2 com ícone e chip opcionais; ação à direita. */
 export function SectionHeader({
   title,
   action,
   icon: Icon,
-  iconTone = "red",
   meta,
   as: Tag = "h2",
   className,
 }: SectionHeaderProps) {
   return (
-    <div className={cn("mb-3.5 flex items-center justify-between gap-3", className)}>
+    <div className={cn("mb-4 flex items-center justify-between gap-3", className)}>
       <div className="flex min-w-0 items-center gap-2">
         {Icon ? (
-          <span
-            className={cn(
-              "flex size-7 shrink-0 items-center justify-center rounded-[9px]",
-              iconTone === "red"
-                ? "bg-cta text-cta-foreground"
-                : "bg-primary text-primary-foreground",
-            )}
-          >
-            <Icon className="size-4 fill-current" aria-hidden />
-          </span>
+          <Icon className="size-5 shrink-0 text-primary" strokeWidth={1.75} aria-hidden />
         ) : null}
-        <Tag className="truncate text-lg font-extrabold tracking-tight">{title}</Tag>
+        <Tag className="truncate text-title-2 text-foreground">{title}</Tag>
         {meta}
       </div>
       {action}
@@ -203,7 +155,7 @@ export function HorizontalScroller({
   return (
     <div
       className={cn(
-        "-mx-4 scrollbar-none flex snap-x snap-mandatory scroll-px-4 gap-2.5 overflow-x-auto px-4 pt-1 pb-2 [&>*]:snap-start",
+        "-mx-4 scrollbar-none flex snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 pt-1 pb-2 [&>*]:snap-start",
         className,
       )}
     >

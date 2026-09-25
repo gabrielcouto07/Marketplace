@@ -1,146 +1,124 @@
 "use client";
 
-import {
-  CheckCircle2,
-  Download,
-  Monitor,
-  MoreVertical,
-  PlusSquare,
-  Share,
-  type LucideIcon,
-} from "lucide-react";
-import Image from "next/image";
+import { CheckCircle2, Download, Smartphone, WifiOff, Zap } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
-import { PageContainer } from "@/components/layout/store-shell";
+import { BrandLogo } from "@/components/layout/brand-logo";
 import { usePwa } from "@/components/layout/pwa-provider";
+import { PageContainer } from "@/components/layout/store-shell";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-function Steps({
-  title,
-  icon: Icon,
-  steps,
-  highlight,
-  delay = 0,
-}: {
-  title: string;
-  icon: LucideIcon;
-  steps: string[];
-  highlight?: boolean;
-  delay?: number;
-}) {
+type Platform = "android" | "ios" | "desktop";
+
+function StepList({ steps }: { steps: string[] }) {
   return (
-    <section
-      className={cn(
-        "flex animate-rise flex-col gap-3 rounded-3xl bg-card p-4 shadow-card",
-        highlight && "ring-2 ring-primary",
-      )}
-      style={{ animationDelay: `${delay}ms` }}
-    >
-      <h2 className="flex items-center gap-2.5 text-[15px] font-extrabold">
-        <span
-          className={cn(
-            "flex size-[38px] shrink-0 items-center justify-center rounded-md",
-            highlight ? "bg-primary text-primary-foreground" : "bg-accent text-accent-foreground",
-          )}
-        >
-          <Icon className="size-[18px]" aria-hidden />
-        </span>
-        {title}
-      </h2>
-      <ol className="flex flex-col gap-2.5">
-        {steps.map((step, i) => (
-          <li key={i} className="flex gap-3 text-[13.5px] leading-relaxed text-body">
-            <span
-              className="flex size-6 shrink-0 items-center justify-center rounded-[8px] bg-surface-strong text-xs font-extrabold text-foreground tabular-nums"
-              aria-hidden
-            >
-              {i + 1}
-            </span>
-            <span>{step}</span>
-          </li>
-        ))}
-      </ol>
-    </section>
+    <ol className="flex flex-col gap-3">
+      {steps.map((step, i) => (
+        <li key={i} className="flex items-start gap-3 text-body-sm text-foreground-secondary">
+          <span
+            className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary-soft text-caption text-primary tabular-nums"
+            aria-hidden
+          >
+            {i + 1}
+          </span>
+          <span className="pt-0.5">{step}</span>
+        </li>
+      ))}
+    </ol>
   );
 }
 
 export function InstallView() {
   const t = useTranslations("pwa.installPage");
+  const tAccount = useTranslations("account");
   const tPwa = useTranslations("pwa");
   const { canPrompt, isIos, isStandalone, promptInstall } = usePwa();
 
   const androidSteps = t.raw("androidSteps") as string[];
   const iosSteps = t.raw("iosSteps") as string[];
   const desktopSteps = t.raw("desktopSteps") as string[];
+  const defaultPlatform: Platform = isIos ? "ios" : "android";
+
+  const benefits = [
+    { icon: Zap, label: tAccount("installBenefitSpeed") },
+    { icon: WifiOff, label: tAccount("installBenefitOffline") },
+    { icon: Smartphone, label: tAccount("installBenefitHome") },
+  ];
 
   return (
-    <PageContainer className="flex flex-col gap-3 py-4">
-      <section className="relative flex animate-rise flex-col items-center gap-3 overflow-hidden rounded-3xl bg-header p-6 text-center text-header-foreground shadow-card">
-        <span
-          aria-hidden
-          className="absolute -top-[70px] -right-[60px] size-[200px] rounded-full bg-white/[0.08]"
-        />
-        <span
-          aria-hidden
-          className="absolute -bottom-[80px] -left-[40px] size-[160px] rounded-full bg-white/[0.06]"
-        />
-        <Image
-          src="/icons/icon-192.png"
-          alt=""
-          width={72}
-          height={72}
-          className="relative size-[72px] rounded-2xl shadow-float"
-        />
-        <h1 className="relative text-[22px] font-extrabold tracking-[-0.02em]">{t("title")}</h1>
-        <p className="relative max-w-md text-[13.5px] leading-relaxed text-brand-blue-200">
-          {t("intro")}
-        </p>
+    <PageContainer className="flex flex-col gap-8 py-8">
+      <section className="mx-auto flex w-full max-w-md flex-col items-center gap-6 text-center">
+        <BrandLogo tile size={72} />
+        <p className="text-body text-foreground-secondary">{tPwa("androidHint")}</p>
+        <ul className="flex w-full flex-col gap-3 text-left">
+          {benefits.map(({ icon: Icon, label }) => (
+            <li key={label} className="flex items-center gap-3 text-body text-foreground">
+              <Icon className="size-5 shrink-0 text-primary" strokeWidth={1.75} aria-hidden />
+              {label}
+            </li>
+          ))}
+        </ul>
         {isStandalone ? (
           <p
             role="status"
-            className="relative flex items-center gap-2 rounded-full bg-white/15 px-4 py-2 text-sm font-bold"
+            className="flex w-full items-center justify-center gap-2 rounded-md bg-success-soft p-3 text-body-sm font-medium text-success"
           >
-            <CheckCircle2 className="size-4" aria-hidden /> {t("alreadyInstalled")}
+            <CheckCircle2 className="size-5 shrink-0" strokeWidth={1.75} aria-hidden />
+            {t("alreadyInstalled")}
           </p>
-        ) : canPrompt ? (
+        ) : (
           <Button
-            variant="cta"
-            size="lg"
-            className="relative"
+            variant="primary"
+            fullWidth
             onClick={async () => {
+              if (!canPrompt) {
+                // Sem prompt nativo (iOS, desktop sem suporte): leva às instruções da plataforma.
+                document.getElementById("install-steps")?.scrollIntoView({ behavior: "smooth" });
+                return;
+              }
               const result = await promptInstall();
               if (result === "accepted") toast.success(t("alreadyInstalled"));
             }}
           >
-            <Download data-icon="inline-start" /> {t("installNow")}
+            <Download data-icon="inline-start" strokeWidth={1.75} /> {t("installNow")}
           </Button>
-        ) : null}
+        )}
       </section>
 
-      <div className="flex flex-col gap-3 md:grid md:grid-cols-3 md:items-start">
-        <Steps
-          title={t("androidTitle")}
-          icon={MoreVertical}
-          steps={androidSteps}
-          highlight={!isIos && !isStandalone && canPrompt}
-          delay={40}
-        />
-        <Steps
-          title={t("iosTitle")}
-          icon={Share}
-          steps={iosSteps}
-          highlight={isIos && !isStandalone}
-          delay={80}
-        />
-        <Steps title={t("desktopTitle")} icon={Monitor} steps={desktopSteps} delay={120} />
-      </div>
-
-      <p className="flex items-center justify-center gap-2 text-center text-xs text-muted-foreground">
-        <PlusSquare className="size-4" aria-hidden /> {tPwa("androidHint")}
-      </p>
+      <Tabs
+        id="install-steps"
+        defaultValue={defaultPlatform}
+        className="mx-auto w-full max-w-md scroll-mt-20"
+      >
+        <TabsList aria-label={t("title")}>
+          <TabsTrigger value="android">{tAccount("installTabAndroid")}</TabsTrigger>
+          <TabsTrigger value="ios">{tAccount("installTabIos")}</TabsTrigger>
+          <TabsTrigger value="desktop">{tAccount("installTabDesktop")}</TabsTrigger>
+        </TabsList>
+        <TabsContent
+          value="android"
+          className="rounded-lg border border-border bg-surface p-4 shadow-xs"
+        >
+          <h2 className="mb-4 text-title-3 text-foreground">{t("androidTitle")}</h2>
+          <StepList steps={androidSteps} />
+        </TabsContent>
+        <TabsContent
+          value="ios"
+          className="rounded-lg border border-border bg-surface p-4 shadow-xs"
+        >
+          <h2 className="mb-4 text-title-3 text-foreground">{t("iosTitle")}</h2>
+          <StepList steps={iosSteps} />
+        </TabsContent>
+        <TabsContent
+          value="desktop"
+          className="rounded-lg border border-border bg-surface p-4 shadow-xs"
+        >
+          <h2 className="mb-4 text-title-3 text-foreground">{t("desktopTitle")}</h2>
+          <StepList steps={desktopSteps} />
+        </TabsContent>
+      </Tabs>
     </PageContainer>
   );
 }

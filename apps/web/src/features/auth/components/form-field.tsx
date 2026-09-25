@@ -5,22 +5,13 @@ import { useTranslations } from "next-intl";
 import { useId, useState, type ComponentProps, type ReactNode } from "react";
 import type { FieldErrors, FieldValues, Path, UseFormSetError } from "react-hook-form";
 
+import { FormField as SharedFormField, useValidationMessage } from "@/components/shared/form-field";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { isApiError } from "@/lib/api/errors";
 import { cn } from "@/lib/utils";
 
-/**
- * Traduz mensagens de erro de formulário: chaves do namespace "validation"
- * (ex.: "invalidCpf") viram texto; mensagens já legíveis (vindas da API) passam direto.
- */
-export function useValidationMessage() {
-  const t = useTranslations("validation");
-  return (message: string | undefined): string | undefined => {
-    if (!message) return undefined;
-    return t.has(message as never) ? t(message as never) : message;
-  };
-}
+export { useValidationMessage };
 
 /** Aplica erros 422 da API (ApiError.errors) nos campos do react-hook-form. */
 export function applyApiErrors<T extends FieldValues>(
@@ -42,7 +33,6 @@ interface FormFieldProps {
   label: string;
   error?: string;
   hint?: string;
-  required?: boolean;
   optional?: boolean;
   className?: string;
   children: (props: {
@@ -52,36 +42,31 @@ interface FormFieldProps {
   }) => ReactNode;
 }
 
-/** Label + controle + erro/dica, acessível (aria-invalid / aria-describedby). */
+/**
+ * Variante com render-prop do `FormField` compartilhado: gera o `id` e entrega os atributos
+ * de acessibilidade (`aria-invalid`, `aria-describedby`) ao controle. O visual é o do
+ * componente compartilhado (label acima, erro com ícone, dica abaixo).
+ */
 export function FormField({ label, error, hint, optional, className, children }: FormFieldProps) {
   const id = useId();
-  const tCommon = useTranslations("common");
   const translate = useValidationMessage();
   const message = translate(error);
   const describedBy = message ? `${id}-error` : hint ? `${id}-hint` : undefined;
   return (
-    <div className={cn("flex flex-col gap-2", className)}>
-      <Label htmlFor={id} className="text-[13px]">
-        {label}
-        {optional ? (
-          <span className="text-xs font-medium text-placeholder">({tCommon("optional")})</span>
-        ) : null}
-      </Label>
+    <SharedFormField
+      id={id}
+      label={label}
+      error={error}
+      hint={hint}
+      optional={optional}
+      className={className}
+    >
       {children({ id, "aria-invalid": Boolean(message), "aria-describedby": describedBy })}
-      {message ? (
-        <p id={`${id}-error`} role="alert" className="text-xs font-bold text-destructive">
-          {message}
-        </p>
-      ) : hint ? (
-        <p id={`${id}-hint`} className="text-xs text-muted-foreground">
-          {hint}
-        </p>
-      ) : null}
-    </div>
+    </SharedFormField>
   );
 }
 
-/** Input de senha com botão mostrar/ocultar (área de toque 44px). */
+/** Input de senha com botão mostrar/ocultar (ghost, 40 px) dentro do campo. */
 export function PasswordInput({ className, ...props }: ComponentProps<typeof Input>) {
   const t = useTranslations("auth");
   const [visible, setVisible] = useState(false);
@@ -93,15 +78,17 @@ export function PasswordInput({ className, ...props }: ComponentProps<typeof Inp
         className={cn("pr-12", className)}
         {...props}
       />
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="icon-sm"
         onClick={() => setVisible((v) => !v)}
         aria-label={visible ? t("hidePassword") : t("showPassword")}
         aria-pressed={visible}
-        className="absolute top-1/2 right-1 flex size-10 -translate-y-1/2 pressable items-center justify-center rounded-md text-chevron transition-colors hover:bg-surface hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none"
+        className="absolute top-1/2 right-1 -translate-y-1/2 text-foreground-secondary"
       >
-        {visible ? <EyeOff className="size-4.5" /> : <Eye className="size-4.5" />}
-      </button>
+        {visible ? <EyeOff strokeWidth={1.75} /> : <Eye strokeWidth={1.75} />}
+      </Button>
     </div>
   );
 }

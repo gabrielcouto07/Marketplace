@@ -18,8 +18,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function CategoriesPage({ params }: PageProps) {
   const { locale } = await params;
   setRequestLocale(locale);
+  const t = await getTranslations({ locale, namespace: "catalog" });
   return (
-    <StoreShell>
+    <StoreShell title={t("categoriesTitle")}>
       <CategoriesView />
     </StoreShell>
   );

@@ -1,10 +1,10 @@
 "use client";
 
-import { Download, Share, X } from "lucide-react";
-import Image from "next/image";
+import { X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 
+import { BrandLogo } from "@/components/layout/brand-logo";
 import { usePwa } from "@/components/layout/pwa-provider";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
@@ -13,9 +13,9 @@ const DISMISS_KEY = "mktpy.install.dismissedAt";
 const DISMISS_DAYS = 7;
 
 /**
- * Banner de instalação customizado.
+ * Barra discreta de instalação, acima da bottom nav.
  * - Android/Chrome: usa o evento beforeinstallprompt capturado no PwaProvider.
- * - iOS: mostra instruções (Compartilhar → Adicionar à Tela de Início).
+ * - iOS: leva à página /instalar com as instruções.
  * Aparece após 8 s e respeita "dispensar por 7 dias".
  */
 export function InstallPrompt() {
@@ -51,62 +51,41 @@ export function InstallPrompt() {
     <div
       role="dialog"
       aria-labelledby="install-title"
-      className="fixed inset-x-3 bottom-[calc(var(--bottom-nav-height)+var(--safe-bottom)+0.75rem)] z-50 mx-auto max-w-md animate-rise rounded-3xl bg-card p-4 shadow-ink md:bottom-6"
+      className="fixed inset-x-0 bottom-[calc(var(--bottom-nav-height)+var(--safe-bottom))] z-40 border-t border-border bg-surface shadow-md md:bottom-0"
     >
-      <div className="flex items-start gap-3">
-        <Image
-          src="/icons/icon-192.png"
-          alt=""
-          width={48}
-          height={48}
-          className="size-12 rounded-2xl"
-        />
+      <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3">
+        <BrandLogo tile size={40} />
         <div className="min-w-0 flex-1">
-          <p id="install-title" className="text-[15px] font-extrabold">
+          <p id="install-title" className="truncate text-body-sm font-medium text-foreground">
             {t("installTitle")}
           </p>
-          <p className="mt-0.5 text-[13px] leading-relaxed text-muted-foreground">
-            {isIos
-              ? t.rich("iosHint", {
-                  share: () => (
-                    <Share
-                      aria-label={t("shareIcon")}
-                      className="inline size-4 align-text-bottom"
-                    />
-                  ),
-                })
-              : t("androidHint")}
-          </p>
-          <div className="mt-3 flex gap-2">
-            {canPrompt ? (
-              <Button
-                size="sm"
-                onClick={async () => {
-                  const result = await promptInstall();
-                  if (result !== "dismissed") setVisible(false);
-                }}
-              >
-                <Download data-icon="inline-start" />
-                {t("installButton")}
-              </Button>
-            ) : (
-              <Button size="sm" variant="soft" render={<Link href="/instalar" />}>
-                {t("howToInstall")}
-              </Button>
-            )}
-            <Button size="sm" variant="ghost" onClick={dismiss}>
-              {t("notNow")}
-            </Button>
-          </div>
+          <p className="truncate text-caption text-foreground-secondary">{t("androidHint")}</p>
         </div>
-        <button
-          type="button"
+        {canPrompt ? (
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={async () => {
+              const result = await promptInstall();
+              if (result !== "dismissed") setVisible(false);
+            }}
+          >
+            {t("installButton")}
+          </Button>
+        ) : (
+          <Button variant="primary" size="sm" render={<Link href="/instalar" onClick={dismiss} />}>
+            {t("howToInstall")}
+          </Button>
+        )}
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="-mr-2 text-foreground-secondary"
           onClick={dismiss}
           aria-label={t("close")}
-          className="-mt-1 -mr-1 flex size-9 shrink-0 items-center justify-center rounded-full bg-surface text-foreground hover:bg-surface-strong"
         >
-          <X className="size-4" strokeWidth={2.4} />
-        </button>
+          <X strokeWidth={1.75} />
+        </Button>
       </div>
     </div>
   );

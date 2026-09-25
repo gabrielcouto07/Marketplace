@@ -21,7 +21,7 @@ export default async function SearchPage({ params }: PageProps) {
   const { locale } = await params;
   setRequestLocale(locale);
   return (
-    <StoreShell>
+    <StoreShell hideMobileBar>
       <Suspense fallback={null}>
         <SearchView />
       </Suspense>

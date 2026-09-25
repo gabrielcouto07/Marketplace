@@ -1,20 +1,20 @@
 "use client";
 
-import type { OrderDto } from "@marketplace/contracts";
-import { Check, Clock, LogIn, PackageSearch } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
+import type { ReactNode } from "react";
 
 import { PageContainer } from "@/components/layout/store-shell";
-import { SellerAvatar } from "@/components/shared/seller-badge";
+import { Illustration, type IllustrationName } from "@/components/shared/illustrations";
 import { EmptyState, ErrorState } from "@/components/shared/states";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useCurrentUser, useIsAuthenticated } from "@/features/auth/store";
 import { usePurchaseOrders } from "@/features/orders/api";
+import {
+  PurchaseOrderCard,
+  PurchaseSkeleton,
+} from "@/features/orders/components/purchase-order-card";
 import { Link } from "@/i18n/navigation";
-import { formatMoney, sum } from "@/lib/money";
-import { cn } from "@/lib/utils";
 
 export function ConfirmationView() {
   const t = useTranslations("orders");
@@ -34,15 +34,14 @@ export function ConfirmationView() {
 
   if (!isAuthenticated) {
     return (
-      <PageContainer className="pt-6">
+      <PageContainer className="pt-4">
         <EmptyState
-          icon={LogIn}
+          illustration="bag"
           title={tAccount("guestTitle")}
           description={tAccount("guestDescription")}
           action={
             <Button
-              variant="cta"
-              size="lg"
+              variant="primary"
               render={<Link href={`/entrar?next=/pedido/confirmado?purchase=${purchaseId}`} />}
             >
               {tAccount("signIn")}
@@ -55,13 +54,13 @@ export function ConfirmationView() {
 
   if (!purchaseId) {
     return (
-      <PageContainer className="pt-6">
+      <PageContainer className="pt-4">
         <EmptyState
-          icon={PackageSearch}
+          illustration="box"
           title={t("emptyTitle")}
           description={t("emptyDescription")}
           action={
-            <Button variant="outline" render={<Link href="/conta/pedidos" />}>
+            <Button variant="secondary" render={<Link href="/conta/pedidos" />}>
               {t("title")}
             </Button>
           }
@@ -70,23 +69,24 @@ export function ConfirmationView() {
     );
   }
 
-  if (isPending) return <DoneSkeleton />;
+  if (isPending) return <PurchaseSkeleton />;
 
   if (isError) {
     return (
-      <PageContainer className="pt-6">
+      <PageContainer className="pt-4">
         <ErrorState error={error} onRetry={() => refetch()} />
       </PageContainer>
     );
   }
 
-  const pending = orders.some((o) => o.status === "AguardandoPagamento");
-  const pendingPaymentId = orders.find((o) => o.status === "AguardandoPagamento")?.payment.id;
+  const pendingOrder = orders.find((o) => o.status === "AguardandoPagamento");
+  const pending = Boolean(pendingOrder);
+  const trackHref = orders.length === 1 ? `/conta/pedidos/${orders[0].id}` : "/conta/pedidos";
 
   return (
-    <PageContainer className="flex flex-col gap-3 pt-7 pb-6 sm:max-w-lg">
-      <DoneHeader
-        tone={pending ? "pending" : "approved"}
+    <PageContainer className="flex flex-col gap-6 pt-6 pb-6 sm:max-w-lg">
+      <ResultHeader
+        illustration={pending ? "box" : "check"}
         title={pending ? t("confirmationPendingTitle") : t("confirmationTitle")}
         subtitle={
           pending
@@ -96,29 +96,27 @@ export function ConfirmationView() {
         note={orders.length > 1 ? t("multipleOrdersNote", { count: orders.length }) : undefined}
       />
 
-      {pending && pendingPaymentId ? (
+      {pending && pendingOrder ? (
         <Button
           variant="cta"
-          size="lg"
-          className="w-full animate-rise"
-          render={<Link href={`/pagamento/${pendingPaymentId}`} />}
+          fullWidth
+          render={<Link href={`/pagamento/${pendingOrder.payment.id}`} />}
         >
           {t("payNow")}
         </Button>
       ) : null}
 
-      <OrdersListCard orders={orders} pending={pending} />
+      <div className="flex flex-col gap-4">
+        {orders.map((order) => (
+          <PurchaseOrderCard key={order.id} order={order} />
+        ))}
+      </div>
 
-      <div className="grid grid-cols-2 gap-2.5">
-        <Button
-          variant="outline"
-          size="lg"
-          className="font-extrabold"
-          render={<Link href="/conta/pedidos" />}
-        >
-          {t("title")}
+      <div className="grid gap-2 sm:grid-cols-2">
+        <Button variant="primary" fullWidth render={<Link href={trackHref} />}>
+          {t("trackOrder")}
         </Button>
-        <Button size="lg" className="font-extrabold" render={<Link href="/" />}>
+        <Button variant="secondary" fullWidth render={<Link href="/" />}>
           {tCart("continueShopping")}
         </Button>
       </div>
@@ -126,113 +124,29 @@ export function ConfirmationView() {
   );
 }
 
-// ---------------------------------------------------------------------------
-
-/** Cabeçalho "done": quadrado 76 px (azul + relógio pendente · verde + check aprovado), título 26 px e subtítulo. */
-export function DoneHeader({
-  tone,
+/** Topo de resultado: ilustração linear, título em title-1 e subtítulo curto. */
+export function ResultHeader({
+  illustration,
   title,
   subtitle,
   note,
+  children,
 }: {
-  tone: "pending" | "approved" | "error";
+  illustration: IllustrationName;
   title: string;
   subtitle?: string;
   note?: string;
+  children?: ReactNode;
 }) {
   return (
-    <header className="flex animate-rise flex-col items-center gap-2.5 px-2 pt-2 pb-1.5 text-center">
-      <span
-        className={cn(
-          "flex size-[76px] animate-pop items-center justify-center rounded-3xl text-white",
-          tone === "approved"
-            ? "bg-success"
-            : tone === "pending"
-              ? "bg-primary shadow-primary"
-              : "bg-cta shadow-cta",
-        )}
-        aria-hidden
-      >
-        {tone === "approved" ? (
-          <Check className="size-9" strokeWidth={2.6} />
-        ) : (
-          <Clock className="size-9" strokeWidth={2.6} />
-        )}
-      </span>
-      <h1 className="text-[26px] leading-tight font-extrabold tracking-[-0.03em]">{title}</h1>
+    <header className="flex flex-col items-center gap-2 text-center">
+      <Illustration name={illustration} className="mb-2" />
+      {children}
+      <h1 className="text-title-1 text-foreground">{title}</h1>
       {subtitle ? (
-        <p className="max-w-[300px] text-sm leading-relaxed text-muted-foreground">{subtitle}</p>
+        <p className="max-w-[320px] text-body text-foreground-secondary">{subtitle}</p>
       ) : null}
-      {note ? <p className="text-xs font-semibold text-muted-foreground">{note}</p> : null}
+      {note ? <p className="text-caption text-foreground-muted">{note}</p> : null}
     </header>
-  );
-}
-
-/** Lista de pedidos da compra (um por loja) com o total no rodapé. */
-export function OrdersListCard({
-  orders,
-  pending,
-  index = 1,
-}: {
-  orders: OrderDto[];
-  pending: boolean;
-  index?: number;
-}) {
-  const t = useTranslations("orders");
-  const total = sum(
-    orders.map((o) => o.totals.total),
-    orders[0]?.totals.total.currency ?? "BRL",
-  );
-  return (
-    <section
-      aria-label={t("title")}
-      className="flex animate-rise flex-col gap-2.5 rounded-3xl bg-card p-4 text-[13.5px] shadow-card"
-      style={{ animationDelay: `${index * 40}ms` }}
-    >
-      <ul className="flex flex-col gap-2.5">
-        {orders.map((order) => (
-          <li key={order.id}>
-            <Link
-              href={`/conta/pedidos/${order.id}`}
-              className="flex pressable items-center gap-2.5 py-1"
-            >
-              <SellerAvatar seller={order.seller} size="sm" />
-              <span className="flex min-w-0 flex-1 flex-col leading-snug">
-                <span className="truncate font-bold">
-                  {t("orderNumber", { number: order.number })}
-                </span>
-                <span className="truncate text-[12.5px] text-muted-foreground">
-                  {order.seller.name}
-                </span>
-              </span>
-              <span className="shrink-0 font-extrabold tabular-nums">
-                {formatMoney(order.totals.total)}
-              </span>
-            </Link>
-          </li>
-        ))}
-      </ul>
-      <div className="flex justify-between border-t border-border pt-2.5">
-        <span className="font-extrabold">{pending ? t("totalDue") : t("totalPaid")}</span>
-        <span className="font-extrabold tabular-nums">{formatMoney(total)}</span>
-      </div>
-    </section>
-  );
-}
-
-export function DoneSkeleton() {
-  return (
-    <PageContainer className="flex flex-col gap-3 pt-7 sm:max-w-lg">
-      <div className="flex flex-col items-center gap-2.5 pt-2 pb-1.5">
-        <Skeleton className="size-[76px] rounded-3xl" />
-        <Skeleton className="h-7 w-2/3" />
-        <Skeleton className="h-4 w-1/2" />
-      </div>
-      <Skeleton className="h-40 w-full rounded-3xl" />
-      <div className="grid grid-cols-2 gap-2.5">
-        <Skeleton className="h-13 w-full" />
-        <Skeleton className="h-13 w-full" />
-      </div>
-    </PageContainer>
   );
 }

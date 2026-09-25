@@ -1,19 +1,25 @@
 "use client";
 
 import type { ProductSearchFacetsDto } from "@marketplace/contracts";
+import { cva, type VariantProps } from "class-variance-authority";
+import { Star } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
-import { useState, type ReactNode } from "react";
+import { useId, useState, type ComponentProps, type ReactNode } from "react";
 
-import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 
 import type { RemovableFilterKey, SearchFilters } from "./search-filters";
 
-/** Nota mínima do atalho "bem avaliados" (a URL guarda inteiros). */
+/** Nota mínima do atalho "bem avaliados" (a URL guarda uma casa decimal). */
 export const TOP_RATING = 4.5;
 
-/** Faixas de preço em centavos (BRL) — espelham os chips do protótipo. */
+/** Notas mínimas oferecidas como chips na seção "Avaliação". */
+const RATING_OPTIONS = [3, 4, TOP_RATING] as const;
+
+/** Faixas de preço em centavos (BRL). */
 const PRICE_RANGES: Array<{ key: string; min?: number; max?: number }> = [
   { key: "a", max: 30_000 },
   { key: "b", min: 30_000, max: 100_000 },
@@ -21,17 +27,55 @@ const PRICE_RANGES: Array<{ key: string; min?: number; max?: number }> = [
   { key: "d", min: 200_000 },
 ];
 
+/* ---------------------------------- Chip ---------------------------------- */
+
+const filterChipVariants = cva(
+  "inline-flex shrink-0 pressable items-center gap-1.5 rounded-full border whitespace-nowrap transition-colors select-none focus-ring disabled:pointer-events-none disabled:opacity-50 [&_svg]:shrink-0",
+  {
+    variants: {
+      size: {
+        sm: "h-8 px-3 text-caption [&_svg:not([class*='size-'])]:size-3.5",
+        md: "h-10 px-4 text-body-sm font-medium [&_svg:not([class*='size-'])]:size-4",
+      },
+      active: {
+        true: "border-primary bg-primary-soft text-primary",
+        false: "border-border-strong bg-surface text-foreground hover:bg-surface-muted",
+      },
+    },
+    defaultVariants: { size: "md", active: false },
+  },
+);
+
+interface FilterChipProps
+  extends
+    Omit<ComponentProps<"button">, "type">,
+    Omit<VariantProps<typeof filterChipVariants>, "active"> {
+  /** Estado de seleção (`aria-pressed`). Omitido em chips que só navegam (sugestões). */
+  active?: boolean;
+}
+
+/** Chip pill: borda forte em repouso, azul suave quando ativo. Usado em filtros rápidos, facetas e sugestões. */
+export function FilterChip({ active, size, className, children, ...props }: FilterChipProps) {
+  return (
+    <button
+      type="button"
+      aria-pressed={active === undefined ? undefined : active}
+      className={cn(filterChipVariants({ size, active: Boolean(active) }), className)}
+      {...props}
+    >
+      {children}
+    </button>
+  );
+}
+
+/* --------------------------------- Painel --------------------------------- */
+
 interface FiltersPanelProps {
   value: SearchFilters;
   facets?: ProductSearchFacetsDto;
   /** Filtros fixados pelo contexto (ex.: categoria na página de categoria) — não exibidos. */
   locked?: RemovableFilterKey[];
   onChange: (next: SearchFilters) => void;
-  onClear: () => void;
-  /** Modo "rascunho": alterações só aplicam no botão (bottom sheet). */
-  draft?: boolean;
-  resultCount?: number;
-  onApply?: () => void;
   className?: string;
 }
 
@@ -45,50 +89,21 @@ function reaisToCents(value: string): number | undefined {
   return Math.round(n * 100);
 }
 
-/** Chip de seleção (preço, categoria, loja): branco com borda, azul quando ativo. */
-export function FilterChip({
-  active,
-  onClick,
-  children,
-  className,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      onClick={onClick}
-      className={cn(
-        "flex h-10 shrink-0 pressable items-center gap-1.5 rounded-md border-[1.5px] px-3.5 text-[13.5px] font-bold whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-        active
-          ? "border-primary bg-primary text-primary-foreground"
-          : "border-line-200 bg-card text-foreground hover:border-primary/40",
-        className,
-      )}
-    >
-      {children}
-    </button>
-  );
-}
-
-/** Painel de filtros reutilizado no bottom sheet (mobile, `draft`) e na sidebar (desktop). */
+/**
+ * Seções de filtro (preço, frete/ofertas, avaliação, categoria, loja). Sem rodapé: quem compõe
+ * decide as ações — bottom sheet no mobile (rascunho + "Ver N produtos") ou card na sidebar.
+ */
 export function FiltersPanel({
   value,
   facets,
   locked = [],
   onChange,
-  onClear,
-  draft,
-  resultCount,
-  onApply,
   className,
 }: FiltersPanelProps) {
   const t = useTranslations("catalog");
   const format = useFormatter();
+  const ids = useId();
+
   // Texto dos inputs de preço: reseta quando o filtro aplicado muda (estado derivado, sem effect).
   const [priceText, setPriceText] = useState({
     min: value.minPrice,
@@ -118,8 +133,6 @@ export function FiltersPanel({
         ? t("priceUpTo", { max: money(r.max) })
         : t("priceAbove", { min: money(r.min ?? 0) });
 
-  const topRated = value.minRating !== undefined && value.minRating >= TOP_RATING;
-
   const toggles: Array<{
     key: RemovableFilterKey;
     label: string;
@@ -141,26 +154,20 @@ export function FiltersPanel({
       checked: Boolean(value.onlyOffers),
       onChange: (c) => set({ onlyOffers: c || undefined }),
     },
-    {
-      key: "minRating",
-      label: t("filterRatingTop"),
-      hint: t("filterRatingTopHint"),
-      checked: topRated,
-      onChange: (c) => set({ minRating: c ? TOP_RATING : undefined }),
-    },
   ];
+  const visibleToggles = toggles.filter((tg) => show(tg.key));
 
   return (
-    <div className={cn("flex flex-col gap-[18px]", className)}>
+    <div className={cn("flex flex-col gap-6", className)}>
       {/* Preço */}
-      <fieldset className="flex flex-col gap-2.5">
-        <legend className="mb-2.5 text-sm font-extrabold">{t("filterPrice")}</legend>
+      <FilterSection title={t("filterPrice")}>
         <div className="flex flex-wrap gap-2">
           {PRICE_RANGES.map((r) => {
             const active = value.minPrice === r.min && value.maxPrice === r.max;
             return (
               <FilterChip
                 key={r.key}
+                size="sm"
                 active={active}
                 onClick={() =>
                   set(
@@ -175,48 +182,77 @@ export function FiltersPanel({
             );
           })}
         </div>
-        {!draft ? (
-          <div className="flex items-center gap-2">
-            <PriceInput
-              label={t("filterMinPrice")}
-              value={minText}
-              onChange={setMinText}
-              onCommit={commitPrice}
-            />
-            <span aria-hidden className="text-muted-foreground">
-              –
-            </span>
-            <PriceInput
-              label={t("filterMaxPrice")}
-              value={maxText}
-              onChange={setMaxText}
-              onCommit={commitPrice}
-            />
-          </div>
-        ) : null}
-      </fieldset>
+        <div className="grid grid-cols-2 gap-3">
+          <PriceInput
+            id={`${ids}-min`}
+            label={t("filterMinPrice")}
+            placeholder={money(0)}
+            value={minText}
+            onChange={setMinText}
+            onCommit={commitPrice}
+          />
+          <PriceInput
+            id={`${ids}-max`}
+            label={t("filterMaxPrice")}
+            placeholder={money(0)}
+            value={maxText}
+            onChange={setMaxText}
+            onCommit={commitPrice}
+          />
+        </div>
+      </FilterSection>
 
-      {/* Interruptores: frete grátis / só ofertas / bem avaliados */}
-      <div className="flex flex-col">
-        {toggles
-          .filter((tg) => show(tg.key))
-          .map((tg) => (
-            <label
-              key={tg.key}
-              className="flex cursor-pointer items-center gap-3 border-t border-border py-3.5 select-none"
-            >
-              <span className="flex min-w-0 flex-1 flex-col">
-                <span className="text-sm font-bold">{tg.label}</span>
-                <span className="text-[12.5px] text-muted-foreground">{tg.hint}</span>
-              </span>
-              <Switch checked={tg.checked} onCheckedChange={(checked) => tg.onChange(checked)} />
-            </label>
-          ))}
-      </div>
+      {/* Frete grátis / só ofertas */}
+      {visibleToggles.length > 0 ? (
+        <FilterSection title={t("filterShipping")}>
+          <ul className="flex flex-col divide-y divide-border">
+            {visibleToggles.map((tg) => (
+              <li key={tg.key}>
+                <label className="flex cursor-pointer items-center gap-3 py-3 select-none">
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="text-body-sm font-medium text-foreground">{tg.label}</span>
+                    <span className="text-caption font-normal text-foreground-secondary">
+                      {tg.hint}
+                    </span>
+                  </span>
+                  <Switch
+                    checked={tg.checked}
+                    onCheckedChange={(checked) => tg.onChange(checked)}
+                  />
+                </label>
+              </li>
+            ))}
+          </ul>
+        </FilterSection>
+      ) : null}
+
+      {/* Avaliação */}
+      {show("minRating") ? (
+        <FilterSection title={t("filterRating")}>
+          <div className="flex flex-wrap gap-2">
+            {RATING_OPTIONS.map((stars) => {
+              const active = value.minRating === stars;
+              const label = format.number(stars, { maximumFractionDigits: 1 });
+              return (
+                <FilterChip
+                  key={stars}
+                  size="sm"
+                  active={active}
+                  aria-label={t("filterRatingMin", { stars: label })}
+                  onClick={() => set({ minRating: active ? undefined : stars })}
+                >
+                  <Star className="fill-gold text-gold" strokeWidth={1.75} aria-hidden />
+                  <span className="tabular-nums">{label}+</span>
+                </FilterChip>
+              );
+            })}
+          </div>
+        </FilterSection>
+      ) : null}
 
       {/* Categoria */}
       {show("categorySlug") && facets?.categories.length ? (
-        <FacetList
+        <FacetChips
           title={t("filterCategory")}
           items={facets.categories.map((c) => ({
             key: c.slug,
@@ -230,7 +266,7 @@ export function FiltersPanel({
 
       {/* Loja */}
       {show("sellerSlug") && facets?.sellers.length ? (
-        <FacetList
+        <FacetChips
           title={t("filterSeller")}
           items={facets.sellers.map((s) => ({
             key: s.slug,
@@ -241,62 +277,63 @@ export function FiltersPanel({
           onToggle={(slug, active) => set({ sellerSlug: active ? undefined : slug })}
         />
       ) : null}
-
-      {/* Rodapé */}
-      <div
-        className={cn(
-          "grid gap-2.5",
-          draft
-            ? "sticky bottom-0 -mx-4 grid-cols-[1fr_2fr] border-t border-border bg-popover px-4 py-3"
-            : "grid-cols-1",
-        )}
-      >
-        <Button variant="secondary" size="lg" className="font-extrabold" onClick={onClear}>
-          {draft ? t("clear") : t("clearFilters")}
-        </Button>
-        {draft ? (
-          <Button size="lg" className="font-extrabold" onClick={onApply}>
-            {t("applyFilters", { count: resultCount ?? 0 })}
-          </Button>
-        ) : null}
-      </div>
     </div>
   );
 }
 
+/** Seção com título em body-sm semibold; `role="group"` no lugar de fieldset para não brigar com o flex. */
+function FilterSection({ title, children }: { title: string; children: ReactNode }) {
+  const id = useId();
+  return (
+    <section role="group" aria-labelledby={id} className="flex flex-col gap-3">
+      <h3 id={id} className="text-body-sm font-semibold text-foreground">
+        {title}
+      </h3>
+      {children}
+    </section>
+  );
+}
+
 function PriceInput({
+  id,
   label,
+  placeholder,
   value,
   onChange,
   onCommit,
 }: {
+  id: string;
   label: string;
+  placeholder: string;
   value: string;
   onChange: (v: string) => void;
   onCommit: () => void;
 }) {
   return (
-    <label className="flex-1">
-      <span className="sr-only">{label}</span>
-      <span className="flex h-11 items-center rounded-lg border-[1.5px] border-input bg-card px-3 text-sm focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20">
-        <span className="mr-1 text-muted-foreground">R$</span>
-        <input
-          type="number"
-          inputMode="numeric"
-          min={0}
-          placeholder={label}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onBlur={onCommit}
-          onKeyDown={(e) => e.key === "Enter" && onCommit()}
-          className="w-full min-w-0 [appearance:textfield] bg-transparent outline-none [&::-webkit-inner-spin-button]:appearance-none"
-        />
-      </span>
-    </label>
+    <div className="flex flex-col gap-2">
+      <Label htmlFor={id}>{label}</Label>
+      <Input
+        id={id}
+        type="text"
+        inputMode="decimal"
+        autoComplete="off"
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={onCommit}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            e.preventDefault();
+            onCommit();
+          }
+        }}
+        className="tabular-nums"
+      />
+    </div>
   );
 }
 
-function FacetList({
+function FacetChips({
   title,
   items,
   onToggle,
@@ -306,26 +343,21 @@ function FacetList({
   onToggle: (key: string, active: boolean) => void;
 }) {
   return (
-    <fieldset>
-      <legend className="mb-2 text-sm font-extrabold">{title}</legend>
-      <ul className="flex flex-col">
+    <FilterSection title={title}>
+      <ul className="flex flex-wrap gap-2">
         {items.map((item) => (
           <li key={item.key}>
-            <button
-              type="button"
-              aria-pressed={item.active}
+            <FilterChip
+              size="sm"
+              active={item.active}
               onClick={() => onToggle(item.key, item.active)}
-              className={cn(
-                "flex min-h-11 w-full items-center justify-between gap-3 rounded-lg px-2 text-left text-sm transition-colors hover:bg-surface focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-                item.active && "bg-selected font-bold text-primary",
-              )}
             >
-              <span className="truncate">{item.name}</span>
-              <span className="text-xs text-muted-foreground tabular-nums">{item.count}</span>
-            </button>
+              <span className="max-w-40 truncate">{item.name}</span>
+              <span className="tabular-nums opacity-70">{item.count}</span>
+            </FilterChip>
           </li>
         ))}
       </ul>
-    </fieldset>
+    </FilterSection>
   );
 }

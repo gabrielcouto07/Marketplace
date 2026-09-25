@@ -1,12 +1,13 @@
 "use client";
 
 import type { ShippingQuoteDto, ShippingQuoteItem } from "@marketplace/contracts";
-import { Loader2, MapPin } from "lucide-react";
+import { AlertCircle, MapPin } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useState, useSyncExternalStore, type FormEvent } from "react";
 
 import { ErrorState } from "@/components/shared/states";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { useShippingQuoteMutation } from "@/features/shipping/api";
 import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
@@ -38,8 +39,9 @@ interface CepShippingCalculatorProps {
 }
 
 /**
- * Cálculo de frete por CEP (mock), pensado para viver dentro de um card: input branco com
- * borda 1,5 px + botão azul-suave, opções com preço e faixa de dias úteis. Persiste o último CEP.
+ * Cálculo de frete por CEP (DESIGN.md › Formulários): input com máscara + botão primary
+ * "Calcular"; validação no envio; opções em lista `divide-y` com transportadora, prazo em dias
+ * úteis e preço em tabular-nums. Persiste o último CEP para reaproveitar na home e no checkout.
  */
 export function CepShippingCalculator({
   sellerId,
@@ -57,11 +59,11 @@ export function CepShippingCalculator({
   );
   const [typedCep, setTypedCep] = useState<string | null>(null);
   const cep = typedCep ?? formatCep(storedCep);
-  const setCep = (value: string) => setTypedCep(value);
   const [touched, setTouched] = useState(false);
   const quote = useShippingQuoteMutation();
 
   const valid = isValidCep(cep);
+  const invalid = touched && !valid;
   const itemsKey = items.map((i) => `${i.productId}:${i.variantId ?? "-"}:${i.quantity}`).join("|");
 
   // Re-cota automaticamente quando a variação/quantidade muda e já havia cotação.
@@ -90,27 +92,27 @@ export function CepShippingCalculator({
       <form onSubmit={submit} className="flex gap-2" noValidate>
         <label className="min-w-0 flex-1">
           <span className="sr-only">{t("cepLabel")}</span>
-          <input
+          <Input
             type="text"
             inputMode="numeric"
             autoComplete="postal-code"
             placeholder={t("cepPlaceholder")}
             value={cep}
             maxLength={9}
-            aria-invalid={touched && !valid ? true : undefined}
-            aria-describedby={touched && !valid ? "cep-error" : undefined}
-            onChange={(e) => setCep(formatCep(e.target.value))}
-            className="h-12 w-full rounded-lg border-[1.5px] border-input bg-card px-3.5 text-[15px] font-semibold tabular-nums transition-colors outline-none placeholder:font-medium placeholder:text-placeholder focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/20 aria-invalid:border-destructive aria-invalid:ring-2 aria-invalid:ring-destructive/15"
+            aria-invalid={invalid ? true : undefined}
+            aria-describedby={invalid ? "cep-error" : undefined}
+            onChange={(e) => setTypedCep(formatCep(e.target.value))}
+            className="tabular-nums"
           />
         </label>
-        <Button type="submit" variant="soft" disabled={quote.isPending}>
-          {quote.isPending ? <Loader2 className="animate-spin" data-icon="inline-start" /> : null}
+        <Button type="submit" variant="primary" loading={quote.isPending}>
           {t("calculate")}
         </Button>
       </form>
-      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
-        {touched && !valid ? (
-          <p id="cep-error" className="text-xs font-medium text-destructive">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        {invalid ? (
+          <p id="cep-error" className="flex items-center gap-1 text-caption text-danger">
+            <AlertCircle className="size-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
             {t("invalidCep")}
           </p>
         ) : (
@@ -120,7 +122,7 @@ export function CepShippingCalculator({
           href="https://buscacepinter.correios.com.br/app/endereco/index.php"
           target="_blank"
           rel="noreferrer noopener"
-          className="text-xs font-bold text-primary hover:underline"
+          className="rounded-sm text-caption text-primary underline-offset-4 focus-ring hover:underline"
         >
           {t("dontKnowCep")}
         </a>
@@ -130,40 +132,43 @@ export function CepShippingCalculator({
         <ErrorState
           error={quote.error}
           compact
-          className="mt-1"
           onRetry={() => quote.mutate({ postalCode: onlyDigits(cep), sellerId, items })}
         />
       ) : null}
 
       {quote.data ? (
-        <div className="mt-1 flex animate-rise flex-col gap-2">
-          <p className="flex items-center gap-1 text-xs text-muted-foreground">
-            <MapPin className="size-3.5" aria-hidden /> {quote.data.destination.city},{" "}
-            {quote.data.destination.state} · CEP {formatCep(quote.data.postalCode)}
+        <div className="flex flex-col gap-2 pt-2">
+          <p className="flex items-center gap-1 text-caption text-foreground-secondary">
+            <MapPin className="size-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
+            {quote.data.destination.city}, {quote.data.destination.state} · CEP{" "}
+            <span className="tabular-nums">{formatCep(quote.data.postalCode)}</span>
           </p>
-          <ul className="flex flex-col divide-y divide-card overflow-hidden rounded-lg bg-surface">
-            {quote.data.options.map((o) => (
-              <li key={o.id} className="flex items-center justify-between gap-3 px-3 py-2.5">
-                <div className="min-w-0">
-                  <p className="text-[13.5px] font-bold">{o.service}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {o.carrier} ·{" "}
-                    {tc("businessDays", { min: o.estimatedDays.min, max: o.estimatedDays.max })}
+          <ul className="flex flex-col divide-y divide-border">
+            {quote.data.options.map((o) => {
+              const free = o.price.amount === 0;
+              return (
+                <li key={o.id} className="flex items-center justify-between gap-4 py-3 last:pb-0">
+                  <div className="flex min-w-0 flex-col">
+                    <p className="text-body-sm font-medium text-foreground">{o.service}</p>
+                    <p className="text-caption text-foreground-secondary">
+                      {o.carrier} ·{" "}
+                      {tc("businessDays", { min: o.estimatedDays.min, max: o.estimatedDays.max })}
+                    </p>
+                    {o.description ? (
+                      <p className="text-caption text-foreground-muted">{o.description}</p>
+                    ) : null}
+                  </div>
+                  <p
+                    className={cn(
+                      "shrink-0 text-body-sm font-medium tabular-nums",
+                      free ? "text-success" : "text-foreground",
+                    )}
+                  >
+                    {free ? t("freeShippingLabel") : formatMoney(o.price)}
                   </p>
-                  {o.description ? (
-                    <p className="text-[11.5px] text-muted-foreground">{o.description}</p>
-                  ) : null}
-                </div>
-                <p
-                  className={cn(
-                    "shrink-0 text-sm font-extrabold tabular-nums",
-                    o.price.amount === 0 && "text-success",
-                  )}
-                >
-                  {o.price.amount === 0 ? t("freeShippingLabel") : formatMoney(o.price)}
-                </p>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ul>
         </div>
       ) : null}

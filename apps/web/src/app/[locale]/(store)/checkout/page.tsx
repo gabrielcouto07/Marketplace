@@ -18,9 +18,9 @@ export async function generateMetadata({
 export default async function CheckoutPage({ params }: { params: Promise<{ locale: AppLocale }> }) {
   const { locale } = await params;
   setRequestLocale(locale);
-  // A view desenha o topo fixo (voltar + título + etapas) — sem título no shell.
+  const t = await getTranslations({ locale, namespace: "checkout" });
   return (
-    <StoreShell hideSearch hideBottomNav>
+    <StoreShell title={t("heading")} showBack hideSearch hideBottomNav>
       <CheckoutView />
     </StoreShell>
   );

@@ -1,16 +1,10 @@
 "use client";
 
-import {
-  CircleCheckIcon,
-  InfoIcon,
-  Loader2Icon,
-  OctagonXIcon,
-  TriangleAlertIcon,
-} from "lucide-react";
+import { CircleCheck, Info, Loader2, OctagonX, TriangleAlert } from "lucide-react";
 import { useTheme } from "next-themes";
 import { Toaster as Sonner, type ToasterProps } from "sonner";
 
-/** Toasts no estilo "ink": pílula escura, texto branco em negrito, ícone colorido. */
+/** Toasts discretos no topo: surface com borda fina e sombra md, ícone semântico, texto body-sm. */
 const Toaster = ({ ...props }: ToasterProps) => {
   const { theme = "system" } = useTheme();
 
@@ -18,39 +12,41 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <Sonner
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
+      position="top-center"
+      offset={{ top: "calc(var(--safe-top) + 12px)" }}
       icons={{
-        success: <CircleCheckIcon className="size-4 text-success" />,
-        info: <InfoIcon className="size-4 text-brand-blue-300" />,
-        warning: <TriangleAlertIcon className="size-4 text-warning" />,
-        error: <OctagonXIcon className="size-4 text-brand-red-400" />,
-        loading: <Loader2Icon className="size-4 animate-spin" />,
+        success: <CircleCheck className="size-5 text-success" strokeWidth={1.75} />,
+        info: <Info className="size-5 text-primary" strokeWidth={1.75} />,
+        warning: <TriangleAlert className="size-5 text-warning" strokeWidth={1.75} />,
+        error: <OctagonX className="size-5 text-danger" strokeWidth={1.75} />,
+        loading: <Loader2 className="size-5 animate-spin text-foreground-secondary" />,
       }}
       style={
         {
-          "--normal-bg": "var(--ink)",
-          "--normal-text": "var(--ink-foreground)",
-          "--normal-border": "transparent",
-          "--success-bg": "var(--ink)",
-          "--success-text": "var(--ink-foreground)",
-          "--success-border": "transparent",
-          "--error-bg": "var(--ink)",
-          "--error-text": "var(--ink-foreground)",
-          "--error-border": "transparent",
-          "--info-bg": "var(--ink)",
-          "--info-text": "var(--ink-foreground)",
-          "--info-border": "transparent",
-          "--warning-bg": "var(--ink)",
-          "--warning-text": "var(--ink-foreground)",
-          "--warning-border": "transparent",
-          "--border-radius": "14px",
+          "--normal-bg": "var(--surface)",
+          "--normal-text": "var(--text)",
+          "--normal-border": "var(--border)",
+          "--success-bg": "var(--surface)",
+          "--success-text": "var(--text)",
+          "--success-border": "var(--border)",
+          "--error-bg": "var(--surface)",
+          "--error-text": "var(--text)",
+          "--error-border": "var(--border)",
+          "--info-bg": "var(--surface)",
+          "--info-text": "var(--text)",
+          "--info-border": "var(--border)",
+          "--warning-bg": "var(--surface)",
+          "--warning-text": "var(--text)",
+          "--warning-border": "var(--border)",
+          "--border-radius": "12px",
         } as React.CSSProperties
       }
       toastOptions={{
         classNames: {
-          toast: "cn-toast font-sans !font-bold !shadow-ink",
-          description: "!text-ink-muted !font-medium",
-          actionButton: "!bg-card !text-foreground !font-bold !rounded-md",
-          cancelButton: "!bg-ink-muted/30 !text-ink-foreground !rounded-md",
+          toast: "font-sans !text-body-sm !font-medium !shadow-md",
+          description: "!text-foreground-secondary !font-normal",
+          actionButton: "!bg-primary !text-primary-foreground !font-semibold !rounded-sm",
+          cancelButton: "!bg-surface-muted !text-foreground !rounded-sm",
         },
       }}
       {...props}

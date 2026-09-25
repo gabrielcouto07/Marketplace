@@ -13,7 +13,7 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
   const { id } = await params;
   const t = await getTranslations("orders");
   return (
-    <StoreShell title={t("title")} showBack hideSearch>
+    <StoreShell title={t("detailTitle")} showBack hideSearch>
       <OrderDetailView orderId={id} />
     </StoreShell>
   );

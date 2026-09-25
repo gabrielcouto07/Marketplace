@@ -1,6 +1,6 @@
 "use client";
 
-import { Home, LayoutGrid, Search, ShoppingBag, User, type LucideIcon } from "lucide-react";
+import { Heart, Home, LayoutGrid, ShoppingBag, User, type LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { CartBadge } from "@/components/layout/header";
@@ -9,13 +9,13 @@ import { Link, usePathname } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
 
 interface NavItem {
-  key: "home" | "categories" | "cart" | "account";
+  key: "home" | "categories" | "favorites" | "cart" | "account";
   href: string;
   icon: LucideIcon;
   match: (pathname: string) => boolean;
 }
 
-const LEFT: NavItem[] = [
+const ITEMS: NavItem[] = [
   { key: "home", href: "/", icon: Home, match: (p) => p === "/" },
   {
     key: "categories",
@@ -23,8 +23,7 @@ const LEFT: NavItem[] = [
     icon: LayoutGrid,
     match: (p) => p.startsWith("/categoria"),
   },
-];
-const RIGHT: NavItem[] = [
+  { key: "favorites", href: "/favoritos", icon: Heart, match: (p) => p.startsWith("/favoritos") },
   {
     key: "cart",
     href: "/carrinho",
@@ -39,62 +38,66 @@ const RIGHT: NavItem[] = [
   },
 ];
 
+interface BottomNavProps {
+  /** Renderiza em fluxo (não fixo) — usado pelo styleguide. */
+  embedded?: boolean;
+  /** Força um item ativo (styleguide). */
+  activeKey?: NavItem["key"];
+  className?: string;
+}
+
 /**
- * Navegação inferior (mobile): Início · Categorias · [Buscar flutuante] · Carrinho · Conta.
- * A busca ganha o botão azul elevado no centro — o gesto mais frequente do app.
+ * Bottom nav (DESIGN.md › Navegação): 64 px + safe-area, surface translúcida com borda superior.
+ * Ícone ativo em --primary com pill atrás; badge do carrinho em --cta. A busca vive no header.
  */
-export function BottomNav() {
+export function BottomNav({ embedded, activeKey, className }: BottomNavProps) {
   const t = useTranslations("nav");
   const pathname = usePathname();
   const hydrated = useCartHydrated();
   const count = useCartStore((s) => selectItemCount(s.lines));
-  const searchActive = pathname.startsWith("/busca");
-
-  const renderItem = ({ key, href, icon: Icon, match }: NavItem) => {
-    const active = match(pathname);
-    return (
-      <li key={key} className="flex">
-        <Link
-          href={href}
-          aria-current={active ? "page" : undefined}
-          className={cn(
-            "flex h-14 flex-1 pressable flex-col items-center justify-center gap-[3px] rounded-xl text-[11px] font-bold transition-colors focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none",
-            active ? "text-primary" : "text-ink-400 hover:text-foreground",
-          )}
-        >
-          <span className="relative">
-            <Icon className="size-[23px]" strokeWidth={active ? 2.3 : 2} />
-            {key === "cart" && hydrated ? (
-              <CartBadge count={count} className="-top-1.5 -right-2.5" />
-            ) : null}
-          </span>
-          <span>{t(key)}</span>
-        </Link>
-      </li>
-    );
-  };
 
   return (
     <nav
       aria-label={t("mainNavigation")}
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-line-200 bg-card/95 pb-safe backdrop-blur-md supports-backdrop-filter:bg-card/90 md:hidden"
+      className={cn(
+        "z-40 border-t border-border bg-surface/85 backdrop-blur-md supports-backdrop-filter:bg-surface/80",
+        embedded ? "relative" : "fixed inset-x-0 bottom-0 pb-safe md:hidden",
+        className,
+      )}
     >
-      <ul className="mx-auto grid h-bottom-nav max-w-lg grid-cols-5 items-center px-1.5 pb-3">
-        {LEFT.map(renderItem)}
-        <li className="flex justify-center">
-          <Link
-            href="/busca"
-            aria-label={t("search")}
-            aria-current={searchActive ? "page" : undefined}
-            className={cn(
-              "-mt-[30px] flex size-[60px] pressable items-center justify-center rounded-[21px] text-primary-foreground shadow-primary ring-[6px] ring-background transition-colors focus-visible:ring-primary/40 focus-visible:outline-none",
-              searchActive ? "bg-primary-hover" : "bg-primary hover:bg-primary-hover",
-            )}
-          >
-            <Search className="size-[26px]" strokeWidth={2.4} />
-          </Link>
-        </li>
-        {RIGHT.map(renderItem)}
+      <ul className="mx-auto grid h-16 max-w-lg grid-cols-5 items-stretch">
+        {ITEMS.map(({ key, href, icon: Icon, match }) => {
+          const active = activeKey ? activeKey === key : match(pathname);
+          return (
+            <li key={key} className="flex">
+              <Link
+                href={href}
+                aria-current={active ? "page" : undefined}
+                className={cn(
+                  "flex min-w-0 flex-1 pressable flex-col items-center justify-center gap-1 px-1 text-caption focus-ring transition-colors",
+                  active ? "text-primary" : "text-foreground-secondary hover:text-foreground",
+                )}
+              >
+                <span className="relative flex h-8 w-14 items-center justify-center">
+                  <span
+                    aria-hidden
+                    className={cn(
+                      "absolute inset-0 rounded-full bg-primary-soft transition-opacity duration-200",
+                      active ? "opacity-100" : "opacity-0",
+                    )}
+                  />
+                  <Icon className="relative size-6" strokeWidth={active ? 2 : 1.75} aria-hidden />
+                  {key === "cart" && hydrated ? (
+                    <CartBadge count={count} className="-top-1 right-1" />
+                  ) : null}
+                </span>
+                <span className={cn("max-w-full truncate", active && "font-semibold")}>
+                  {t(key)}
+                </span>
+              </Link>
+            </li>
+          );
+        })}
       </ul>
     </nav>
   );

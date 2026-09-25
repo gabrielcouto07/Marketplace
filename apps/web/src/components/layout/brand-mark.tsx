@@ -1,59 +1,42 @@
-import { ShoppingBag } from "lucide-react";
 import { useTranslations } from "next-intl";
 
+import { BrandLogo } from "@/components/layout/brand-logo";
 import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
 
 interface BrandMarkProps {
-  /** `dark`: sobre o azul do hero (caixa branca); `light`: sobre fundo claro (caixa azul). */
-  tone?: "dark" | "light";
-  /** Esconde o texto e deixa só o símbolo. */
+  /** `light`: sobre superfície clara (ícone com tile navy) · `dark`: sobre brand-deep (só a sacola, texto branco). */
+  tone?: "light" | "dark";
+  /** Esconde o wordmark e deixa só o símbolo. */
   compact?: boolean;
   className?: string;
 }
 
 /**
- * Símbolo da marca: sacola dentro de um quadrado arredondado com a faixa tricolor no pé,
- * seguida do wordmark em duas linhas ("MARKETPLACE" / "Paraguai"). Sempre linka para a home.
+ * Símbolo da marca + wordmark em duas linhas ("MARKETPLACE" / "Paraguai"). Sempre linka para a home.
+ * Em superfícies claras o ícone aparece com o tile; sobre brand-deep, só a sacola (DESIGN.md › Apêndice A).
  */
-export function BrandMark({ tone = "dark", compact, className }: BrandMarkProps) {
+export function BrandMark({ tone = "light", compact, className }: BrandMarkProps) {
   const t = useTranslations("common");
   const onDark = tone === "dark";
   return (
     <Link
       href="/"
       aria-label={t("siteName")}
-      className={cn(
-        "flex shrink-0 items-center gap-2.5 rounded-lg focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:outline-none",
-        className,
-      )}
+      className={cn("flex shrink-0 items-center gap-2 rounded-sm focus-ring", className)}
     >
-      <span
-        aria-hidden
-        className={cn(
-          "relative flex size-10 items-center justify-center overflow-hidden rounded-[13px]",
-          onDark ? "bg-card text-primary" : "bg-primary text-primary-foreground",
-        )}
-      >
-        <ShoppingBag className="size-[21px]" strokeWidth={2.2} />
-        <span className="absolute inset-x-0 bottom-0 tricolor-stripe" />
-      </span>
+      <BrandLogo tile={!onDark} size={onDark ? 32 : 36} />
       {compact ? null : (
-        <span
-          className={cn(
-            "flex flex-col leading-[1.1]",
-            onDark ? "text-header-foreground" : "text-foreground",
-          )}
-        >
+        <span className={cn("flex flex-col", onDark ? "text-white" : "text-foreground")}>
           <span
             className={cn(
-              "text-[10.5px] font-bold tracking-[0.1em] uppercase",
-              onDark ? "opacity-80" : "text-muted-foreground",
+              "text-caption leading-none font-medium tracking-[0.08em] uppercase",
+              onDark ? "text-white/70" : "text-foreground-muted",
             )}
           >
             {t("brandLine1")}
           </span>
-          <span className="text-[19px] font-extrabold tracking-tight">{t("brandLine2")}</span>
+          <span className="text-title-3 leading-tight">{t("brandLine2")}</span>
         </span>
       )}
     </Link>

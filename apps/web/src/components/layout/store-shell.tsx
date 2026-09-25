@@ -4,7 +4,6 @@ import { BottomNav } from "@/components/layout/bottom-nav";
 import { Header, type HeaderProps } from "@/components/layout/header";
 import { InstallPrompt } from "@/components/layout/install-prompt";
 import { OfflineBanner } from "@/components/layout/offline-banner";
-import { TricolorStripe } from "@/components/layout/tricolor-stripe";
 import { cn } from "@/lib/utils";
 
 interface StoreShellProps extends HeaderProps {
@@ -14,15 +13,13 @@ interface StoreShellProps extends HeaderProps {
 }
 
 /**
- * Casca padrão da vitrine: faixa tricolor no topo, header (barra mobile só em páginas
- * internas; barra desktop sempre), conteúdo e bottom nav com botão de busca flutuante.
+ * Casca padrão da vitrine: header sticky com a busca, conteúdo e bottom nav.
  * O padding inferior reserva espaço para a bottom nav + safe-area no mobile.
  */
 export function StoreShell({ children, hideBottomNav, ...header }: StoreShellProps) {
   return (
     <>
-      <TricolorStripe className="relative z-50" />
-      <Suspense fallback={<div className="hidden h-16 bg-card md:block" />}>
+      <Suspense fallback={<div className="h-16 border-b border-border bg-surface" />}>
         <Header {...header} />
       </Suspense>
       <OfflineBanner />
@@ -31,8 +28,8 @@ export function StoreShell({ children, hideBottomNav, ...header }: StoreShellPro
         className={cn(
           "flex-1",
           hideBottomNav
-            ? "pb-[calc(var(--safe-bottom)+1.5rem)]"
-            : "pb-[calc(var(--bottom-nav-height)+var(--safe-bottom)+1.5rem)] md:pb-10",
+            ? "pb-[calc(var(--safe-bottom)+2rem)]"
+            : "pb-[calc(var(--bottom-nav-height)+var(--safe-bottom)+2rem)] md:pb-12",
         )}
       >
         {children}
@@ -43,7 +40,7 @@ export function StoreShell({ children, hideBottomNav, ...header }: StoreShellPro
   );
 }
 
-/** Container centralizado com gutters de 16px (mobile) e largura máxima em desktop. */
+/** Container centralizado com gutters de 16 px (mobile) e largura máxima em desktop. */
 export function PageContainer({
   children,
   className,
@@ -55,25 +52,32 @@ export function PageContainer({
 }
 
 /**
- * Barra fixa no rodapé da tela (acima da bottom nav quando ela existe): CTA de compra,
- * total do checkout, resumo do carrinho. Branca com borda ou "ink" flutuante.
+ * Barra fixa no rodapé (acima da bottom nav quando ela existe): CTA de compra, total do checkout,
+ * resumo do carrinho. `light`: surface translúcida com borda · `dark`: brand-deep flutuante.
  */
 export function StickyBar({
   children,
   tone = "light",
+  aboveBottomNav,
   className,
 }: {
   children: ReactNode;
-  tone?: "light" | "ink";
+  tone?: "light" | "dark";
+  /** Em páginas com bottom nav, encosta a barra logo acima dela (ex.: página de produto). */
+  aboveBottomNav?: boolean;
   className?: string;
 }) {
+  const dark = tone !== "light";
   return (
     <div
       className={cn(
-        "fixed inset-x-0 bottom-0 z-30 md:sticky md:bottom-4 md:mx-auto md:max-w-6xl md:rounded-2xl",
-        tone === "light"
-          ? "border-t border-line-200 bg-card px-4 pt-3 pb-[calc(var(--safe-bottom)+1.25rem)] md:border md:px-5 md:pb-3 md:shadow-float"
-          : "mx-2.5 mb-[calc(var(--bottom-nav-height)+var(--safe-bottom)+0.5rem)] rounded-2xl bg-ink px-4 py-2.5 pl-4 text-ink-foreground shadow-ink md:mb-0",
+        "fixed inset-x-0 z-30 md:sticky md:bottom-4 md:mx-auto md:max-w-6xl md:rounded-lg",
+        aboveBottomNav
+          ? "bottom-[calc(var(--bottom-nav-height)+var(--safe-bottom))] max-md:pb-3"
+          : "bottom-0",
+        dark
+          ? "mx-4 mb-[calc(var(--bottom-nav-height)+var(--safe-bottom)+0.5rem)] rounded-lg bg-brand-deep px-4 py-3 text-white shadow-lg md:mb-0"
+          : "border-t border-border bg-surface/95 px-4 pt-3 pb-[calc(var(--safe-bottom)+0.75rem)] backdrop-blur-md md:border md:px-4 md:pb-3 md:shadow-md",
         className,
       )}
     >

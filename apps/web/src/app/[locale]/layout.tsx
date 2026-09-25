@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Plus_Jakarta_Sans } from "next/font/google";
+import { GeistSans } from "geist/font/sans";
 import { notFound } from "next/navigation";
 import { hasLocale, NextIntlClientProvider } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
@@ -11,13 +11,6 @@ import { Providers } from "@/components/layout/providers";
 import { routing } from "@/i18n/routing";
 import { env } from "@/lib/env";
 import { site } from "@/lib/site";
-
-const jakarta = Plus_Jakarta_Sans({
-  subsets: ["latin", "latin-ext"],
-  variable: "--font-jakarta",
-  weight: ["400", "500", "600", "700", "800"],
-  display: "swap",
-});
 
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
@@ -61,7 +54,7 @@ export async function generateMetadata({
 export const viewport: Viewport = {
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: site.themeColor },
-    { media: "(prefers-color-scheme: dark)", color: "#002E8A" },
+    { media: "(prefers-color-scheme: dark)", color: site.themeColorDark },
   ],
   width: "device-width",
   initialScale: 1,
@@ -80,7 +73,7 @@ export default async function LocaleLayout({
   setRequestLocale(locale);
 
   return (
-    <html lang={locale} className={`${jakarta.variable} h-full`} suppressHydrationWarning>
+    <html lang={locale} className={`${GeistSans.variable} h-full`} suppressHydrationWarning>
       <body className="flex min-h-full flex-col bg-background text-foreground">
         <NextIntlClientProvider>
           <Providers>{children}</Providers>

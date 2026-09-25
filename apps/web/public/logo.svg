@@ -1,24 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-labelledby="t">
-  <title id="t">Marketplace Paraguai — sacola sobre azul com faixa tricolor</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" role="img" aria-labelledby="t">
+  <title id="t">Marketplace Paraguai — sacola tricolor com estrela</title>
   <defs>
-    <clipPath id="tile">
-      <rect width="512" height="512" rx="166"/>
+    <clipPath id="bag">
+      <path d="M295 400H729Q761 400 764 432L797 788Q801 820 769 820H255Q223 820 226 788L260 432Q263 400 295 400Z"/>
     </clipPath>
   </defs>
-  <g clip-path="url(#tile)">
-    <!-- quadrado azul da marca -->
-    <rect width="512" height="512" fill="#0038A8"/>
-    <!-- círculo decorativo, como no hero do app -->
-    <circle cx="420" cy="80" r="160" fill="#FFFFFF" opacity="0.08"/>
-    <!-- sacola (traço branco) -->
-    <g transform="translate(96 82) scale(13.333)" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-      <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/>
-      <path d="M3 6h18"/>
-      <path d="M16 10a4 4 0 0 1-8 0"/>
-    </g>
-    <!-- faixa tricolor no pé -->
-    <rect x="0" y="460" width="170.67" height="52" fill="#D52B1E"/>
-    <rect x="170.67" y="460" width="170.67" height="52" fill="#FFFFFF"/>
-    <rect x="341.33" y="460" width="170.67" height="52" fill="#4E7BD9"/>
+  <rect width="1024" height="1024" rx="228" fill="#0E1B3D"/>
+  <path d="M404 404V344A108 108 0 0 1 620 344V404" fill="none" stroke="#FFFFFF" stroke-width="52"/>
+  <g clip-path="url(#bag)">
+    <rect x="200" y="400" width="624" height="140" fill="#E4312B"/>
+    <rect x="200" y="540" width="624" height="140" fill="#FFFFFF"/>
+    <rect x="200" y="680" width="624" height="140" fill="#2F6BFF"/>
   </g>
+  <path d="M512 566.5L524.4 592.6 553 596.3 532 616.1 537.4 644.5 512 630.6 486.6 644.5 492 616.1 471 596.3 499.6 592.6Z" fill="#FFC629" stroke="#FFC629" stroke-width="14" stroke-linejoin="round"/>
+  <path d="M699 298L742 250M706 326L783 316" fill="none" stroke="#FFC629" stroke-width="22" stroke-linecap="round"/>
 </svg>

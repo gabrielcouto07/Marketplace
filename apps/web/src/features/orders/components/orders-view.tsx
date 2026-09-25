@@ -1,10 +1,9 @@
 "use client";
 
 import type { OrderDto, OrderStatus } from "@marketplace/contracts";
-import { Package } from "lucide-react";
 import Image from "next/image";
 import { useFormatter, useTranslations } from "next-intl";
-import { useState, type CSSProperties } from "react";
+import { useState } from "react";
 
 import { PageContainer } from "@/components/layout/store-shell";
 import { OrderStatusBadge } from "@/components/shared/order-status";
@@ -23,23 +22,24 @@ export type OrderFilter = "all" | "active" | "done";
 
 const DONE: OrderStatus[] = ["Concluido", "Cancelado", "Devolvido", "Reembolsado"];
 
+export function isOrderDone(status: OrderStatus): boolean {
+  return DONE.includes(status);
+}
+
 export function matchesOrderFilter(order: OrderDto, filter: OrderFilter): boolean {
   if (filter === "all") return true;
-  const done = DONE.includes(order.status);
+  const done = isOrderDone(order.status);
   return filter === "done" ? done : !done;
 }
 
-/** Controle segmentado Todos / Em andamento / Concluídos (usado na lista e no resumo da conta). */
+/** Controle segmentado Todos / Em andamento / Concluídos. */
 export function OrderFilterTabs({
   value,
   onChange,
-  compact,
   className,
 }: {
   value: OrderFilter;
   onChange: (value: OrderFilter) => void;
-  /** Versão menor (trilho claro, 36 px) para dentro de cards. */
-  compact?: boolean;
   className?: string;
 }) {
   const t = useTranslations("orders");
@@ -50,13 +50,9 @@ export function OrderFilterTabs({
   ];
   return (
     <Tabs value={value} onValueChange={(v) => onChange(v as OrderFilter)} className={className}>
-      <TabsList aria-label={t("title")} className={cn(compact && "rounded-[13px] bg-surface")}>
+      <TabsList aria-label={t("title")}>
         {filters.map((f) => (
-          <TabsTrigger
-            key={f.key}
-            value={f.key}
-            className={cn(compact ? "h-9 rounded-sm text-xs" : "h-[38px] rounded-[11px]")}
-          >
+          <TabsTrigger key={f.key} value={f.key}>
             {f.label}
           </TabsTrigger>
         ))}
@@ -65,48 +61,29 @@ export function OrderFilterTabs({
   );
 }
 
-/**
- * Linha de pedido: número + loja/data, status, miniaturas, observação (ETA / itens) e total.
- * O número é um link "esticado" sobre a linha toda; "Pagar agora" fica acima dele (z-10).
- */
-export function OrderRow({
-  order,
-  className,
-  style,
-}: {
-  order: OrderDto;
-  className?: string;
-  style?: CSSProperties;
-}) {
+/** Card de pedido: número + data, status, miniaturas dos itens, total e link para o detalhe. */
+export function OrderCard({ order, className }: { order: OrderDto; className?: string }) {
   const t = useTranslations("orders");
   const format = useFormatter();
-  const done = DONE.includes(order.status);
-  const awaiting = order.status === "AguardandoPagamento";
-  const note = awaiting
-    ? t("awaitingPaymentNote")
-    : done
-      ? `${t("items", { count: order.items.length })} · ${order.items[0]?.name ?? ""}`
-      : t("etaShort", {
-          min: format.dateTime(new Date(order.estimatedDelivery.min), "short"),
-          max: format.dateTime(new Date(order.estimatedDelivery.max), "short"),
-        });
-  const thumbs = order.items.slice(0, 2);
+  const thumbs = order.items.slice(0, 3);
   const extra = order.items.length - thumbs.length;
 
   return (
-    <article className={cn("relative flex flex-col gap-2.5", className)} style={style}>
-      <div className="flex items-center justify-between gap-2">
-        <span className="flex min-w-0 flex-1 flex-col">
-          <Link
-            href={`/conta/pedidos/${order.id}`}
-            className="text-sm font-extrabold after:absolute after:inset-0 after:rounded-2xl focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring/40"
-          >
+    <article
+      className={cn(
+        "flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 shadow-xs",
+        className,
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-col">
+          <p className="text-body-sm font-semibold text-foreground tabular-nums">
             {t("orderNumber", { number: order.number })}
-          </Link>
-          <span className="truncate text-xs text-muted-foreground">
-            {order.seller.name} · {format.dateTime(new Date(order.createdAt), "short")}
-          </span>
-        </span>
+          </p>
+          <p className="truncate text-caption text-foreground-muted">
+            {format.dateTime(new Date(order.createdAt), "short")} · {order.seller.name}
+          </p>
+        </div>
         <OrderStatusBadge status={order.status} />
       </div>
 
@@ -118,32 +95,50 @@ export function OrderRow({
             alt=""
             width={48}
             height={48}
-            className="size-12 shrink-0 rounded-lg bg-surface object-cover"
+            className="size-12 shrink-0 rounded-md bg-surface-muted object-contain"
           />
         ))}
         {extra > 0 ? (
-          <span className="flex size-12 shrink-0 items-center justify-center rounded-lg bg-surface text-xs font-extrabold text-muted-foreground">
+          <span className="flex size-12 shrink-0 items-center justify-center rounded-md bg-surface-muted text-caption text-foreground-secondary tabular-nums">
             {t("moreItems", { count: extra })}
           </span>
         ) : null}
-        <span className="min-w-0 flex-1 text-[12.5px] leading-snug text-muted-foreground">
-          {note}
-        </span>
-        <span className="shrink-0 text-sm font-extrabold tabular-nums">
-          {formatMoney(order.totals.total)}
+        <span className="min-w-0 flex-1 truncate text-caption text-foreground-secondary">
+          {t("items", { count: order.items.length })}
         </span>
       </div>
 
-      {awaiting ? (
-        <Button
-          variant="cta"
-          className="relative z-10 h-[42px] w-full rounded-[13px] text-[13.5px] font-extrabold"
-          render={<Link href={`/pagamento/${order.payment.id}`} />}
-        >
-          {t("payNow")}
+      <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
+        <span className="text-body-sm font-semibold text-foreground tabular-nums">
+          {formatMoney(order.totals.total)}
+        </span>
+        <Button variant="link" render={<Link href={`/conta/pedidos/${order.id}`} />}>
+          {t("viewDetails")}
         </Button>
-      ) : null}
+      </div>
     </article>
+  );
+}
+
+function OrderCardSkeleton() {
+  return (
+    <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 shadow-xs">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-2">
+          <Skeleton className="h-5 w-40" />
+          <Skeleton className="h-4 w-32" />
+        </div>
+        <Skeleton className="h-6 w-24 rounded-sm" />
+      </div>
+      <div className="flex gap-2">
+        <Skeleton className="size-12" />
+        <Skeleton className="size-12" />
+      </div>
+      <div className="flex items-center justify-between border-t border-border pt-3">
+        <Skeleton className="h-5 w-24" />
+        <Skeleton className="h-5 w-20" />
+      </div>
+    </div>
   );
 }
 
@@ -162,40 +157,33 @@ export function OrdersView() {
   const visible = all.filter((o) => matchesOrderFilter(o, filter));
 
   return (
-    <PageContainer className="flex flex-col gap-3 py-4">
+    <PageContainer className="flex flex-col gap-4 py-4">
       <OrderFilterTabs value={filter} onChange={setFilter} />
 
       {orders.isPending ? (
-        <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-4">
           {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-[132px] rounded-3xl" />
+            <OrderCardSkeleton key={i} />
           ))}
         </div>
       ) : orders.isError ? (
         <ErrorState error={orders.error} onRetry={() => orders.refetch()} />
       ) : visible.length === 0 ? (
         <EmptyState
-          icon={Package}
+          illustration="box"
           title={t("emptyTitle")}
           description={t("emptyDescription")}
           action={
-            <Button variant="cta" render={<Link href="/" />}>
+            <Button variant="primary" render={<Link href="/" />}>
               {tc("seeAll")}
             </Button>
           }
         />
       ) : (
-        <ul className="flex flex-col gap-3 md:grid md:grid-cols-2">
-          {visible.map((order, i) => (
-            <li
-              key={order.id}
-              className="animate-rise"
-              style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}
-            >
-              <OrderRow
-                order={order}
-                className="pressable rounded-3xl bg-card p-4 shadow-card transition-shadow hover:shadow-float"
-              />
+        <ul className="flex flex-col gap-4 md:grid md:grid-cols-2">
+          {visible.map((order) => (
+            <li key={order.id}>
+              <OrderCard order={order} />
             </li>
           ))}
         </ul>
@@ -203,12 +191,12 @@ export function OrdersView() {
 
       {orders.hasNextPage ? (
         <Button
-          variant="outline"
+          variant="secondary"
           className="self-center"
           onClick={() => orders.fetchNextPage()}
-          disabled={orders.isFetchingNextPage}
+          loading={orders.isFetchingNextPage}
         >
-          {orders.isFetchingNextPage ? tc("loading") : tc("loadMore")}
+          {tc("loadMore")}
         </Button>
       ) : null}
     </PageContainer>

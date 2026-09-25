@@ -1,21 +1,24 @@
 "use client";
 
-import type { PaymentDto } from "@marketplace/contracts";
-import { CheckCircle2, Copy, CreditCard, Download, Loader2 } from "lucide-react";
+import type { PaymentDto, PaymentStatus } from "@marketplace/contracts";
+import { AlertCircle, Clock, Copy, CreditCard, Download, PlayCircle } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 
 import { PageContainer } from "@/components/layout/store-shell";
+import type { IllustrationName } from "@/components/shared/illustrations";
 import { ErrorState } from "@/components/shared/states";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { usePayment, usePurchaseOrders, useSimulatePaymentApproval } from "@/features/orders/api";
+import { ResultHeader } from "@/features/orders/components/confirmation-view";
 import {
-  DoneHeader,
-  DoneSkeleton,
-  OrdersListCard,
-} from "@/features/orders/components/confirmation-view";
+  PurchaseSkeleton,
+  PurchaseTotalsCard,
+} from "@/features/orders/components/purchase-order-card";
 import { formatCountdown, useCountdown } from "@/hooks/use-countdown";
 import { Link, useRouter } from "@/i18n/navigation";
 import { formatMoney } from "@/lib/money";
@@ -52,11 +55,11 @@ export function PaymentView({ paymentId }: { paymentId: string }) {
   const expires = payment?.pix?.expiresAt ?? null;
   const remaining = useCountdown(payment?.status === "Pendente" ? expires : null);
 
-  if (isPending) return <DoneSkeleton />;
+  if (isPending) return <PurchaseSkeleton />;
 
   if (isError) {
     return (
-      <PageContainer className="pt-6">
+      <PageContainer className="pt-4">
         <ErrorState error={error} onRetry={() => refetch()} />
       </PageContainer>
     );
@@ -67,11 +70,11 @@ export function PaymentView({ paymentId }: { paymentId: string }) {
   const approved = payment.status === "Aprovado";
   const pendingActive = payment.status === "Pendente" && !pixExpired;
 
-  const heading = pixExpired
-    ? { tone: "error" as const, title: t("expired"), subtitle: undefined }
+  const heading: { illustration: IllustrationName; title: string; subtitle?: string } = pixExpired
+    ? { illustration: "alert", title: t("expired"), subtitle: t("pixExpiredHint") }
     : approved
       ? {
-          tone: "approved" as const,
+          illustration: "check",
           title: t("approved"),
           subtitle:
             payment.method === "Cartao" && payment.card
@@ -80,7 +83,7 @@ export function PaymentView({ paymentId }: { paymentId: string }) {
         }
       : pendingActive
         ? {
-            tone: "pending" as const,
+            illustration: "box",
             title: t("pendingTitle"),
             subtitle:
               payment.method === "Pix"
@@ -90,20 +93,26 @@ export function PaymentView({ paymentId }: { paymentId: string }) {
                   : t("waiting"),
           }
         : {
-            tone: "error" as const,
+            illustration: "alert",
             title:
               payment.status === "Estornado"
                 ? t("refunded")
                 : payment.status === "Expirado"
                   ? t("expired")
                   : t("declined"),
-            subtitle: undefined,
+            subtitle: payment.status === "Recusado" ? t("cardDeclinedHint") : undefined,
           };
 
   return (
-    <PageContainer className="flex flex-col gap-3 pt-7 pb-6 sm:max-w-lg">
+    <PageContainer className="flex flex-col gap-6 pt-6 pb-6 sm:max-w-lg">
       <div role="status" aria-live="polite">
-        <DoneHeader tone={heading.tone} title={heading.title} subtitle={heading.subtitle} />
+        <ResultHeader
+          illustration={heading.illustration}
+          title={heading.title}
+          subtitle={heading.subtitle}
+        >
+          <PaymentStatusBadge status={pixExpired ? "Expirado" : payment.status} />
+        </ResultHeader>
         <span className="sr-only">{t("status")}</span>
       </div>
 
@@ -114,75 +123,61 @@ export function PaymentView({ paymentId }: { paymentId: string }) {
         <BoletoCard payment={payment} />
       ) : null}
       {payment.method === "Cartao" && payment.card ? (
-        <section
-          className="flex animate-rise items-center gap-3 rounded-3xl bg-card p-4 shadow-card"
-          style={{ animationDelay: "40ms" }}
-        >
-          <span className="flex size-11 shrink-0 items-center justify-center rounded-lg bg-accent text-primary">
-            <CreditCard className="size-5" aria-hidden />
+        <section className="flex items-center gap-3 rounded-lg border border-border bg-surface p-4 shadow-xs">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary">
+            <CreditCard className="size-5" strokeWidth={1.75} aria-hidden />
           </span>
-          <div className="min-w-0 text-[13.5px]">
-            <p className="font-bold">{t("cardTitle")}</p>
-            <p className="text-muted-foreground">
+          <div className="flex min-w-0 flex-1 flex-col">
+            <p className="text-body-sm font-medium text-foreground">{t("cardTitle")}</p>
+            <p className="text-caption text-foreground-secondary tabular-nums">
               {payment.card.brand} · {payment.card.installments}x{" "}
               {formatMoney(payment.card.installmentAmount)}
             </p>
           </div>
-          <span className="ml-auto shrink-0 font-extrabold tabular-nums">
+          <span className="shrink-0 text-body-sm font-medium text-foreground tabular-nums">
             {formatMoney(payment.amount)}
           </span>
         </section>
       ) : null}
 
       {orders.data && orders.data.length > 0 ? (
-        <OrdersListCard orders={orders.data} pending={!approved} index={2} />
+        <PurchaseTotalsCard orders={orders.data} pending={!approved} />
       ) : (
-        <section
-          className="flex animate-rise items-center justify-between rounded-3xl bg-card p-4 text-[13.5px] shadow-card"
-          style={{ animationDelay: "80ms" }}
-        >
-          <span className="font-extrabold">
+        <section className="flex items-baseline justify-between gap-3 rounded-lg border border-border bg-surface p-4 shadow-xs">
+          <span className="text-body-sm font-medium text-foreground">
             {approved ? tOrders("totalPaid") : tOrders("totalDue")}
           </span>
-          <span className="font-extrabold tabular-nums">{formatMoney(payment.amount)}</span>
+          <span className="text-title-3 text-foreground tabular-nums">
+            {formatMoney(payment.amount)}
+          </span>
         </section>
       )}
 
       {payment.status === "Pendente" ? (
-        <div className="flex flex-col gap-2 rounded-2xl border-[1.5px] border-dashed border-line-300 p-3 text-xs text-muted-foreground">
-          <p>{t("simulateHint")}</p>
+        <div className="flex flex-col items-start gap-2">
+          <p className="text-caption text-foreground-secondary">{t("simulateHint")}</p>
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
-            className="self-start"
-            disabled={simulate.isPending}
+            loading={simulate.isPending}
             onClick={() => simulate.mutate()}
           >
-            {simulate.isPending ? (
-              <Loader2 className="animate-spin" data-icon="inline-start" />
-            ) : (
-              <CheckCircle2 data-icon="inline-start" />
-            )}
+            <PlayCircle data-icon="inline-start" strokeWidth={1.75} />
             {t("simulateApproval")}
           </Button>
         </div>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-2.5">
-        <Button
-          variant="outline"
-          size="lg"
-          className="font-extrabold"
-          render={<Link href="/conta/pedidos" />}
-        >
+      <div className="grid gap-2 sm:grid-cols-2">
+        <Button variant="secondary" fullWidth render={<Link href="/conta/pedidos" />}>
           {tOrders("title")}
         </Button>
         {approved ? (
-          <Button size="lg" className="font-extrabold" render={<Link href={confirmationHref} />}>
+          <Button variant="primary" fullWidth render={<Link href={confirmationHref} />}>
             {t("goToConfirmation")}
           </Button>
         ) : (
-          <Button size="lg" className="font-extrabold" render={<Link href="/" />}>
+          <Button variant="primary" fullWidth render={<Link href="/" />}>
             {tCart("continueShopping")}
           </Button>
         )}
@@ -193,6 +188,25 @@ export function PaymentView({ paymentId }: { paymentId: string }) {
 }
 
 // ---------------------------------------------------------------------------
+
+const STATUS_BADGE: Record<PaymentStatus, "warning" | "success" | "danger" | "neutral"> = {
+  Pendente: "warning",
+  Aprovado: "success",
+  Recusado: "danger",
+  Expirado: "danger",
+  Estornado: "neutral",
+};
+
+function PaymentStatusBadge({ status }: { status: PaymentStatus }) {
+  const t = useTranslations("orders.paymentStatus");
+  const variant = STATUS_BADGE[status];
+  return (
+    <Badge variant={variant}>
+      {variant === "danger" ? <AlertCircle strokeWidth={1.75} aria-hidden /> : null}
+      {t(status)}
+    </Badge>
+  );
+}
 
 function useCopy() {
   const tc = useTranslations("common");
@@ -214,13 +228,12 @@ function PixCard({ payment, remaining }: { payment: PaymentDto; remaining: numbe
   return (
     <section
       aria-labelledby="pix-title"
-      className="flex animate-rise flex-col items-center gap-3.5 rounded-3xl bg-card p-[18px] shadow-card"
-      style={{ animationDelay: "40ms" }}
+      className="flex flex-col items-center gap-4 rounded-lg border border-border bg-surface p-4 shadow-xs"
     >
-      <h2 id="pix-title" className="sr-only">
+      <h2 id="pix-title" className="text-title-3 text-foreground">
         {t("pixTitle")}
       </h2>
-      <div className="flex size-[200px] items-center justify-center rounded-2xl bg-white p-3 ring-4 ring-surface">
+      <div className="rounded-md border border-border bg-surface p-3">
         <QRCodeSVG
           value={pix.qrCodePayload}
           size={176}
@@ -229,25 +242,25 @@ function PixCard({ payment, remaining }: { payment: PaymentDto; remaining: numbe
           aria-label={t("qrLabel")}
         />
       </div>
-      <p className="text-[13px] text-muted-foreground">
-        {t("expiresInLabel")}{" "}
-        <b className="font-bold text-foreground tabular-nums">{formatCountdown(remaining)}</b>
-      </p>
-      <div className="flex w-full items-center gap-2 rounded-lg bg-surface py-1.5 pr-1.5 pl-3">
-        <input
+      <span className="inline-flex h-8 items-center gap-1 rounded-sm bg-surface-muted px-2 text-caption text-foreground-secondary tabular-nums">
+        <Clock className="size-3.5" strokeWidth={1.75} aria-hidden />
+        {t("expiresChip", { time: formatCountdown(remaining) })}
+      </span>
+      <div className="flex w-full gap-2">
+        <Input
           readOnly
           aria-label={t("pixCopyPaste")}
           value={pix.qrCodePayload}
           onFocus={(e) => e.currentTarget.select()}
-          className="min-w-0 flex-1 truncate bg-transparent font-mono text-xs text-body outline-none"
+          className="min-w-0 flex-1 truncate font-mono"
         />
         <Button
-          size="sm"
-          className="shrink-0 rounded-[11px]"
+          variant="secondary"
+          className="shrink-0"
           onClick={() => copy(pix.qrCodePayload)}
           aria-label={t("copyCode")}
         >
-          <Copy data-icon="inline-start" /> {tc("copy")}
+          <Copy data-icon="inline-start" strokeWidth={1.75} /> {tc("copy")}
         </Button>
       </div>
     </section>
@@ -259,43 +272,38 @@ function BoletoCard({ payment }: { payment: PaymentDto }) {
   const format = useFormatter();
   const copy = useCopy();
   const boleto = payment.boleto!;
-  const bars = boleto.barcode.split("").map((c) => Number(c));
   return (
     <section
       aria-labelledby="boleto-title"
-      className="flex animate-rise flex-col gap-3 rounded-3xl bg-card p-[18px] shadow-card"
-      style={{ animationDelay: "40ms" }}
+      className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-xs"
     >
-      <h2 id="boleto-title" className="sr-only">
+      <h2 id="boleto-title" className="text-title-3 text-foreground">
         {t("boletoTitle")}
       </h2>
-      <div
-        className="flex h-16 items-stretch gap-px overflow-hidden rounded-sm bg-white px-2 py-1"
-        aria-hidden
-      >
-        {bars.map((n, i) => (
-          <span
-            key={i}
-            className={`bg-ink ${n % 2 === 0 ? "w-[2px]" : "w-1"} ${n > 6 ? "mx-px" : ""}`}
-          />
-        ))}
+      <div className="flex flex-col gap-1">
+        <span className="text-caption text-foreground-secondary">{t("digitableLine")}</span>
+        <p className="rounded-md bg-surface-muted p-3 font-mono text-body-sm break-all text-foreground tabular-nums">
+          {boleto.digitableLine}
+        </p>
       </div>
-      <p className="text-center font-mono text-[12.5px] text-body tabular-nums">
-        {boleto.digitableLine}
-      </p>
-      <Button className="w-full" onClick={() => copy(boleto.digitableLine)}>
-        <Copy data-icon="inline-start" /> {t("copyDigitableLine")}
-      </Button>
-      <div className="flex items-center justify-between text-[13px]">
-        <span className="text-muted-foreground">{t("dueDate")}</span>
-        <span className="font-bold">{format.dateTime(new Date(boleto.dueDate), "short")}</span>
+      <div className="flex items-center justify-between gap-3 text-body-sm">
+        <span className="text-foreground-secondary">{t("dueDate")}</span>
+        <span className="font-medium text-foreground tabular-nums">
+          {format.dateTime(new Date(boleto.dueDate), "short")}
+        </span>
       </div>
-      <Button
-        variant="soft"
-        onClick={() => toast(t("downloadBoleto"), { description: boleto.pdfUrl })}
-      >
-        <Download data-icon="inline-start" /> {t("downloadBoleto")}
-      </Button>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <Button variant="secondary" fullWidth onClick={() => copy(boleto.digitableLine)}>
+          <Copy data-icon="inline-start" strokeWidth={1.75} /> {t("copyLine")}
+        </Button>
+        <Button
+          variant="primary"
+          fullWidth
+          onClick={() => toast(t("downloadBoleto"), { description: boleto.pdfUrl })}
+        >
+          <Download data-icon="inline-start" strokeWidth={1.75} /> {t("downloadPdf")}
+        </Button>
+      </div>
     </section>
   );
 }

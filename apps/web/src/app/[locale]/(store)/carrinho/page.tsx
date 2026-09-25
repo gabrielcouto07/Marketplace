@@ -18,9 +18,9 @@ export async function generateMetadata({
 export default async function CartPage({ params }: { params: Promise<{ locale: AppLocale }> }) {
   const { locale } = await params;
   setRequestLocale(locale);
-  // A view desenha o próprio título (28 px) — sem barra mobile do shell.
+  const t = await getTranslations({ locale, namespace: "cart" });
   return (
-    <StoreShell>
+    <StoreShell title={t("title")} showBack>
       <CartView />
     </StoreShell>
   );

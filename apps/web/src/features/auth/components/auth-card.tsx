@@ -1,10 +1,11 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
-import { BrandMark } from "@/components/layout/brand-mark";
+import { BrandLogo } from "@/components/layout/brand-logo";
+import { ErrorState } from "@/components/shared/states";
 import { Button } from "@/components/ui/button";
 import { useGoogleLogin } from "@/features/auth/api";
 
@@ -17,42 +18,40 @@ interface AuthCardProps {
   footer?: ReactNode;
 }
 
-/** Casca das telas de autenticação: marca, título, card branco com o formulário e rodapé. */
+/**
+ * Página de autenticação: marca com tile, título e subtítulo no topo; o formulário vive
+ * num único card (surface, borda, sombra xs); o rodapé traz o link alternativo.
+ */
 export function AuthCard({ title, subtitle, children, footer }: AuthCardProps) {
   return (
-    <div className="mx-auto w-full max-w-md px-4 py-5 sm:py-10">
-      <div className="mb-5 flex animate-rise flex-col items-center gap-3 text-center">
-        <BrandMark tone="light" />
-        <div>
-          <h1 className="text-[24px] font-extrabold tracking-[-0.02em]">{title}</h1>
-          {subtitle ? <p className="mt-1 text-[13.5px] text-muted-foreground">{subtitle}</p> : null}
+    <div className="mx-auto flex w-full max-w-md flex-col gap-6 px-4 py-8">
+      <div className="flex flex-col items-center gap-4 text-center">
+        <BrandLogo tile size={48} />
+        <div className="flex flex-col gap-1">
+          <h1 className="text-title-1 text-foreground">{title}</h1>
+          {subtitle ? <p className="text-body text-foreground-secondary">{subtitle}</p> : null}
         </div>
       </div>
-      <div
-        className="animate-rise rounded-3xl bg-card p-4 shadow-card sm:p-6"
-        style={{ animationDelay: "40ms" }}
-      >
-        {children}
-      </div>
+      <div className="rounded-lg border border-border bg-surface p-4 shadow-xs">{children}</div>
       {footer ? (
-        <div
-          className="mt-5 animate-rise text-center text-sm text-muted-foreground"
-          style={{ animationDelay: "80ms" }}
-        >
+        <p className="flex flex-wrap items-center justify-center gap-1 text-center text-body-sm text-foreground-secondary">
           {footer}
-        </div>
+        </p>
       ) : null}
     </div>
   );
 }
 
+/** Erro de API que não pertence a um campo: sempre ícone + texto, em danger-soft. */
+export function ApiErrorNotice({ message }: { message: string | null }) {
+  if (!message) return null;
+  return <ErrorState compact title={message} />;
+}
+
 /** Caixa azul-suave com a dica de acesso à demo. */
 export function DemoHint({ children }: { children: ReactNode }) {
   return (
-    <p
-      role="note"
-      className="rounded-lg bg-accent px-3.5 py-2.5 text-center text-xs font-semibold text-accent-foreground"
-    >
+    <p role="note" className="rounded-md bg-primary-soft p-3 text-center text-caption text-primary">
       {children}
     </p>
   );
@@ -63,7 +62,7 @@ export function OrDivider() {
   const t = useTranslations("auth");
   return (
     <div
-      className="my-4 flex items-center gap-3 text-[11px] font-bold tracking-[0.08em] text-placeholder uppercase"
+      className="my-4 flex items-center gap-3 text-caption text-foreground-muted uppercase"
       role="separator"
     >
       <span className="h-px flex-1 bg-border" />
@@ -78,37 +77,42 @@ export function GoogleButton() {
   const t = useTranslations("auth");
   const login = useGoogleLogin();
   const redirect = useAuthRedirect();
+  const [error, setError] = useState<string | null>(null);
   return (
-    <Button
-      type="button"
-      variant="outline"
-      className="w-full"
-      disabled={login.isPending}
-      onClick={() =>
-        login.mutate(undefined, {
-          onSuccess: (session) => {
-            toast.success(t("welcome", { name: session.user.fullName.split(" ")[0] }));
-            redirect();
-          },
-          onError: () => toast.error(t("loginError")),
-        })
-      }
-    >
-      <svg aria-hidden viewBox="0 0 24 24" className="size-5" data-icon="inline-start">
-        <circle cx="12" cy="12" r="11" fill="none" stroke="currentColor" strokeWidth="1.5" />
-        <text
-          x="12"
-          y="16.5"
-          textAnchor="middle"
-          fontSize="13"
-          fontWeight="700"
-          fill="currentColor"
-          fontFamily="inherit"
-        >
-          G
-        </text>
-      </svg>
-      {t("continueWithGoogle")}
-    </Button>
+    <div className="flex flex-col gap-3">
+      <ApiErrorNotice message={error} />
+      <Button
+        type="button"
+        variant="secondary"
+        fullWidth
+        loading={login.isPending}
+        onClick={() => {
+          setError(null);
+          login.mutate(undefined, {
+            onSuccess: (session) => {
+              toast.success(t("welcome", { name: session.user.fullName.split(" ")[0] }));
+              redirect();
+            },
+            onError: () => setError(t("loginError")),
+          });
+        }}
+      >
+        <svg aria-hidden viewBox="0 0 24 24" className="size-5" data-icon="inline-start">
+          <circle cx="12" cy="12" r="11" fill="none" stroke="currentColor" strokeWidth="1.5" />
+          <text
+            x="12"
+            y="16.5"
+            textAnchor="middle"
+            fontSize="13"
+            fontWeight="600"
+            fill="currentColor"
+            fontFamily="inherit"
+          >
+            G
+          </text>
+        </svg>
+        {t("continueWithGoogle")}
+      </Button>
+    </div>
   );
 }

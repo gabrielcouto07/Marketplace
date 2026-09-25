@@ -42,7 +42,11 @@ function hasStockFor(
   );
 }
 
-/** Chips por opção (borda 2 px; selecionado = azul sobre fundo selecionado); combinações sem estoque ficam riscadas. */
+/**
+ * Chips por opção (raio 12, borda fina). Selecionado: borda e texto primary sobre primary-soft.
+ * Combinações sem estoque ficam riscadas e esmaecidas, mas continuam selecionáveis (o estoque
+ * da variante é mostrado no bloco de compra).
+ */
 export function VariantSelector({
   options,
   variants,
@@ -54,16 +58,15 @@ export function VariantSelector({
   if (options.length === 0) return null;
 
   return (
-    <div className={cn("flex flex-col gap-3.5", className)}>
+    <div className={cn("flex flex-col gap-4", className)}>
       {options.map((opt) => {
         const selected = selection[opt.name];
         return (
-          <fieldset key={opt.name} className="flex flex-col gap-2.5">
-            <legend className="mb-2.5 text-sm font-bold">
+          <fieldset key={opt.name} className="flex flex-col gap-2">
+            <legend className="mb-2 text-body-sm font-medium text-foreground">
               {selected ? (
                 <>
-                  {opt.name}:{" "}
-                  <span className="font-semibold text-muted-foreground">{selected}</span>
+                  {opt.name}: <span className="text-foreground-secondary">{selected}</span>
                 </>
               ) : (
                 t("selectVariant", { name: opt.name })
@@ -79,14 +82,13 @@ export function VariantSelector({
                     type="button"
                     role="radio"
                     aria-checked={active}
-                    aria-disabled={!available}
                     onClick={() => onChange({ ...selection, [opt.name]: value })}
                     className={cn(
-                      "flex h-10.5 min-w-14 pressable items-center justify-center rounded-md border-2 px-3.5 text-[13.5px] font-bold transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                      "flex h-10 min-w-14 pressable items-center justify-center rounded-md border px-4 text-body-sm font-medium focus-ring transition-colors",
                       active
-                        ? "border-primary bg-selected text-primary"
-                        : "border-line-200 bg-card text-foreground hover:border-line-300",
-                      !available && "border-dashed text-muted-foreground line-through opacity-60",
+                        ? "border-primary bg-primary-soft text-primary"
+                        : "border-border bg-surface text-foreground hover:border-border-strong",
+                      !available && "line-through opacity-50",
                     )}
                   >
                     {value}

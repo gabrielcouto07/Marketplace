@@ -1,8 +1,8 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { LogIn } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
@@ -12,7 +12,7 @@ import { useLogin } from "@/features/auth/api";
 import { Link } from "@/i18n/navigation";
 import { loginSchema, type LoginFormValues } from "@/lib/validation/schemas";
 
-import { AuthCard, DemoHint, GoogleButton, OrDivider } from "./auth-card";
+import { ApiErrorNotice, AuthCard, DemoHint, GoogleButton, OrDivider } from "./auth-card";
 import { FormField, PasswordInput, applyApiErrors, fieldError } from "./form-field";
 import { useAuthRedirect, useRedirectIfAuthenticated } from "./use-auth-redirect";
 
@@ -20,25 +20,28 @@ export function LoginView() {
   const t = useTranslations("auth");
   const login = useLogin();
   const redirect = useAuthRedirect();
+  const [apiError, setApiError] = useState<string | null>(null);
   useRedirectIfAuthenticated();
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: "", password: "" },
+    mode: "onBlur",
   });
   const { register, handleSubmit, setError, formState } = form;
 
-  const onSubmit = handleSubmit((values) =>
+  const onSubmit = handleSubmit((values) => {
+    setApiError(null);
     login.mutate(values, {
       onSuccess: (session) => {
         toast.success(t("welcome", { name: session.user.fullName.split(" ")[0] }));
         redirect();
       },
       onError: (error) => {
-        if (!applyApiErrors(error, setError)) toast.error(t("loginError"));
+        if (!applyApiErrors(error, setError)) setApiError(t("loginError"));
       },
-    }),
-  );
+    });
+  });
 
   return (
     <AuthCard
@@ -46,14 +49,15 @@ export function LoginView() {
       subtitle={t("loginSubtitle")}
       footer={
         <>
-          {t("noAccount")}{" "}
-          <Link href="/cadastrar" className="font-bold text-primary hover:underline">
+          {t("noAccount")}
+          <Button variant="link" render={<Link href="/cadastrar" />}>
             {t("signUp")}
-          </Link>
+          </Button>
         </>
       }
     >
       <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
+        <ApiErrorNotice message={apiError} />
         <FormField label={t("email")} error={fieldError(formState.errors, "email")}>
           {(a11y) => (
             <Input
@@ -71,16 +75,12 @@ export function LoginView() {
             <PasswordInput {...a11y} autoComplete="current-password" {...register("password")} />
           )}
         </FormField>
-        <div className="-mt-1.5 text-right">
-          <Link
-            href="/recuperar-senha"
-            className="inline-flex min-h-8 items-center text-[13px] font-bold text-primary hover:underline"
-          >
+        <div className="flex justify-end">
+          <Button variant="link" render={<Link href="/recuperar-senha" />}>
             {t("forgotPassword")}
-          </Link>
+          </Button>
         </div>
-        <Button type="submit" variant="cta" size="lg" className="w-full" disabled={login.isPending}>
-          <LogIn data-icon="inline-start" />
+        <Button type="submit" variant="primary" fullWidth loading={login.isPending}>
           {t("signIn")}
         </Button>
         <DemoHint>{t("demoHint")}</DemoHint>

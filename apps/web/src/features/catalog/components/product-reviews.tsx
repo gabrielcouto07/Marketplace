@@ -1,16 +1,20 @@
 "use client";
 
-import { BadgeCheck, Loader2, ThumbsUp } from "lucide-react";
+import { BadgeCheck, ThumbsUp } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 
 import { RatingStars } from "@/components/shared/rating-stars";
 import { ErrorState } from "@/components/shared/states";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useProductReviews, useReviewSummary } from "@/features/catalog/api";
 import { cn } from "@/lib/utils";
 
-/** Card de avaliações: média grande + distribuição por estrelas e lista paginada. */
+/**
+ * Avaliações do produto: média em display + distribuição por estrelas (barras com preenchimento
+ * dourado) e lista `divide-y` paginada, com "Compra verificada" em badge success.
+ */
 export function ProductReviews({
   productId,
   className,
@@ -28,15 +32,22 @@ export function ProductReviews({
   return (
     <section
       aria-labelledby="reviews-title"
-      className={cn("flex flex-col gap-4 rounded-3xl bg-card p-4.5 shadow-card", className)}
+      className={cn(
+        "flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-xs",
+        className,
+      )}
     >
-      <h2 id="reviews-title" className="text-base font-extrabold tracking-tight">
+      <h2 id="reviews-title" className="text-title-3 text-foreground">
         {t("reviewsTitle")}
       </h2>
 
       {summary.isPending ? (
-        <div className="flex items-center gap-4.5">
-          <Skeleton className="size-24 rounded-2xl" />
+        <div className="flex items-center gap-6">
+          <div className="flex flex-col items-center gap-2">
+            <Skeleton className="h-9 w-16" />
+            <Skeleton className="h-4 w-20" />
+            <Skeleton className="h-3 w-16" />
+          </div>
           <div className="flex flex-1 flex-col gap-2">
             {Array.from({ length: 5 }).map((_, i) => (
               <Skeleton key={i} className="h-1.5 rounded-full" />
@@ -46,21 +57,24 @@ export function ProductReviews({
       ) : summary.isError ? (
         <ErrorState error={summary.error} compact onRetry={() => summary.refetch()} />
       ) : (
-        <div className="flex items-center gap-4.5">
-          <div className="flex flex-col items-center gap-1">
-            <span className="text-[40px] leading-none font-extrabold tracking-[-0.03em] tabular-nums">
+        <div className="flex items-center gap-6">
+          <div className="flex shrink-0 flex-col items-center gap-1">
+            <span className="text-display text-foreground tabular-nums">
               {summary.data.average.toFixed(1).replace(".", ",")}
             </span>
             <RatingStars value={summary.data.average} showValue={false} size="sm" />
-            <span className="text-[11.5px] text-muted-foreground">
+            <span className="text-caption text-foreground-muted">
               {t("reviewsCount", { count: summary.data.total })}
             </span>
           </div>
-          <ul className="flex flex-1 flex-col-reverse gap-[5px]" aria-label={t("reviewsTitle")}>
+          <ul className="flex flex-1 flex-col-reverse gap-1" aria-label={t("reviewsTitle")}>
             {summary.data.distribution.map((count, i) => {
               const pct = summary.data.total ? Math.round((count / summary.data.total) * 100) : 0;
               return (
-                <li key={i} className="flex items-center gap-2 text-[11.5px] text-muted-foreground">
+                <li
+                  key={i}
+                  className="flex items-center gap-2 text-caption text-foreground-secondary"
+                >
                   <span className="w-2 text-right tabular-nums">{i + 1}</span>
                   <span
                     className="h-1.5 flex-1 overflow-hidden rounded-full bg-border"
@@ -71,7 +85,7 @@ export function ProductReviews({
                     aria-label={`${i + 1} ★`}
                   >
                     <span
-                      className="block h-full rounded-full bg-star transition-[width] duration-500"
+                      className="block h-full rounded-full bg-gold"
                       style={{ width: `${pct}%` }}
                     />
                   </span>
@@ -83,44 +97,47 @@ export function ProductReviews({
       )}
 
       {reviews.isPending ? (
-        <div className="flex flex-col gap-3.5">
+        <ul className="flex flex-col divide-y divide-border">
           {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="flex flex-col gap-2 border-t border-border pt-3.5">
-              <Skeleton className="h-3.5 w-1/2" />
-              <Skeleton className="h-3 w-24" />
+            <li key={i} className="flex flex-col gap-2 py-4 last:pb-0">
+              <Skeleton className="h-4 w-1/2" />
+              <Skeleton className="h-3.5 w-24" />
               <Skeleton className="h-10 w-full" />
-            </div>
+            </li>
           ))}
-        </div>
+        </ul>
       ) : reviews.isError ? (
         <ErrorState error={reviews.error} compact onRetry={() => reviews.refetch()} />
-      ) : (
-        <ul className="flex flex-col">
-          {items.map((r, i) => (
-            <li
-              key={r.id}
-              className="flex animate-rise flex-col gap-1.5 border-t border-border pt-3.5 pb-3.5 last:pb-0"
-              style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}
-            >
+      ) : items.length === 0 ? null : (
+        <ul className="flex flex-col divide-y divide-border">
+          {items.map((r) => (
+            <li key={r.id} className="flex flex-col gap-2 py-4 last:pb-0">
               <div className="flex items-center justify-between gap-2">
-                <span className="min-w-0 truncate text-[13.5px] font-bold">{r.authorName}</span>
-                <time dateTime={r.createdAt} className="shrink-0 text-xs text-muted-foreground">
+                <span className="min-w-0 truncate text-body-sm font-medium text-foreground">
+                  {r.authorName}
+                </span>
+                <time
+                  dateTime={r.createdAt}
+                  className="shrink-0 text-caption text-foreground-muted"
+                >
                   {format.dateTime(new Date(r.createdAt), "short")}
                 </time>
               </div>
-              <div className="flex flex-wrap items-center gap-1.5">
+              <div className="flex flex-wrap items-center gap-2">
                 <RatingStars value={r.rating} showValue={false} size="xs" />
                 {r.verifiedPurchase ? (
-                  <span className="inline-flex items-center gap-1 rounded-[5px] bg-success-soft px-1.5 py-0.5 text-[11px] font-bold text-success">
-                    <BadgeCheck className="size-3" aria-hidden /> {t("verifiedPurchase")}
-                  </span>
+                  <Badge variant="success">
+                    <BadgeCheck strokeWidth={1.75} aria-hidden /> {t("verifiedPurchase")}
+                  </Badge>
                 ) : null}
               </div>
-              {r.title ? <p className="text-[13.5px] font-bold">{r.title}</p> : null}
-              <p className="text-[13.5px] leading-relaxed text-body">{r.comment}</p>
+              {r.title ? (
+                <p className="text-body-sm font-medium text-foreground">{r.title}</p>
+              ) : null}
+              <p className="text-body-sm leading-relaxed text-foreground-secondary">{r.comment}</p>
               {r.helpfulCount > 0 ? (
-                <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <ThumbsUp className="size-3.5" aria-hidden />{" "}
+                <span className="flex items-center gap-1 text-caption text-foreground-muted">
+                  <ThumbsUp className="size-3.5" strokeWidth={1.75} aria-hidden />
                   {t("helpful", { count: r.helpfulCount })}
                 </span>
               ) : null}
@@ -131,15 +148,12 @@ export function ProductReviews({
 
       {reviews.hasNextPage ? (
         <Button
-          variant="soft"
+          variant="secondary"
           size="sm"
           onClick={() => reviews.fetchNextPage()}
-          disabled={reviews.isFetchingNextPage}
+          loading={reviews.isFetchingNextPage}
           className="self-center"
         >
-          {reviews.isFetchingNextPage ? (
-            <Loader2 className="animate-spin" data-icon="inline-start" />
-          ) : null}
           {tc("loadMore")}
         </Button>
       ) : null}

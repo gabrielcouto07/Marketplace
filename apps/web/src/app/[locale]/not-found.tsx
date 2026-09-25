@@ -1,6 +1,5 @@
 "use client";
 
-import { SearchX } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { PageContainer, StoreShell } from "@/components/layout/store-shell";
@@ -11,19 +10,18 @@ import { Link } from "@/i18n/navigation";
 export default function NotFound() {
   const t = useTranslations("errors");
   return (
-    <StoreShell>
-      <PageContainer className="py-6">
+    <StoreShell hideSearch>
+      <PageContainer className="py-8">
         <EmptyState
-          icon={SearchX}
-          tone="red"
+          illustration="search"
           title={t("page404Title")}
           description={t("page404Description")}
           action={
-            <Button variant="cta" render={<Link href="/" />}>
+            <Button variant="primary" render={<Link href="/" />}>
               {t("goHome")}
             </Button>
           }
-          className="min-h-[60vh] animate-rise"
+          className="min-h-[60vh]"
         />
       </PageContainer>
     </StoreShell>

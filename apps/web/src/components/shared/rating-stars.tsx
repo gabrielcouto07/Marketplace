@@ -13,9 +13,10 @@ interface RatingStarsProps {
   className?: string;
 }
 
-const SIZE = { xs: "size-3", sm: "size-3.5", md: "size-5" } as const;
-const TEXT = { xs: "text-[11.5px]", sm: "text-xs", md: "text-sm" } as const;
+const SIZE = { xs: "size-3.5", sm: "size-4", md: "size-5" } as const;
+const TEXT = { xs: "text-caption", sm: "text-caption", md: "text-body-sm" } as const;
 
+/** Estrelas no dourado do ícone (`gold`); vazias em border-strong. O valor numérico carrega o contraste. */
 export function RatingStars({
   value,
   count,
@@ -33,9 +34,9 @@ export function RatingStars({
         className={cn("inline-flex items-center gap-1", TEXT[size], className)}
         aria-label={label}
       >
-        <Star className={cn("fill-star text-star", SIZE[size])} aria-hidden />
-        <span className="font-bold text-foreground">{value.toFixed(1).replace(".", ",")}</span>
-        {count !== undefined ? <span className="text-muted-foreground">({count})</span> : null}
+        <Star className={cn("fill-gold text-gold", SIZE[size])} strokeWidth={1.75} aria-hidden />
+        <span className="font-medium text-foreground">{value.toFixed(1).replace(".", ",")}</span>
+        {count !== undefined ? <span className="text-foreground-muted">({count})</span> : null}
       </span>
     );
   }
@@ -48,23 +49,23 @@ export function RatingStars({
           return (
             <span key={i} className={cn("relative", SIZE[size])}>
               <Star
-                className={cn("absolute inset-0 text-line-300", SIZE[size])}
-                strokeWidth={1.5}
+                className={cn("absolute inset-0 text-border-strong", SIZE[size])}
+                strokeWidth={1.75}
               />
               <span className="absolute inset-0 overflow-hidden" style={{ width: `${fill}%` }}>
-                <Star className={cn("fill-star text-star", SIZE[size])} strokeWidth={1.5} />
+                <Star className={cn("fill-gold text-gold", SIZE[size])} strokeWidth={1.75} />
               </span>
             </span>
           );
         })}
       </span>
       {showValue ? (
-        <span className={cn("font-bold text-foreground", TEXT[size])}>
+        <span className={cn("font-medium text-foreground", TEXT[size])}>
           {value.toFixed(1).replace(".", ",")}
         </span>
       ) : null}
       {count !== undefined ? (
-        <span className={cn("text-muted-foreground", TEXT[size])}>({count})</span>
+        <span className={cn("text-foreground-muted", TEXT[size])}>({count})</span>
       ) : null}
     </div>
   );

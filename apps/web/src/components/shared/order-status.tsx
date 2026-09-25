@@ -6,9 +6,9 @@ import {
   Check,
   CircleDollarSign,
   Clock,
-  Globe2,
   PackageCheck,
   PackageOpen,
+  Plane,
   RotateCcw,
   Truck,
   Undo2,
@@ -16,17 +16,18 @@ import {
 } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-export const ORDER_STATUS_META: Record<
-  OrderStatus,
-  { icon: LucideIcon; tone: "neutral" | "info" | "success" | "warning" | "danger" }
-> = {
+type Tone = "neutral" | "info" | "success" | "warning" | "danger";
+
+export const ORDER_STATUS_META: Record<OrderStatus, { icon: LucideIcon; tone: Tone }> = {
   AguardandoPagamento: { icon: Clock, tone: "warning" },
   Pago: { icon: CircleDollarSign, tone: "info" },
   EmPreparacao: { icon: PackageOpen, tone: "info" },
   Enviado: { icon: Truck, tone: "info" },
-  EmTransitoInternacional: { icon: Globe2, tone: "info" },
+  /* Ícone próprio: o trecho Paraguai → Brasil. */
+  EmTransitoInternacional: { icon: Plane, tone: "info" },
   Entregue: { icon: PackageCheck, tone: "success" },
   Concluido: { icon: Check, tone: "success" },
   Cancelado: { icon: Ban, tone: "danger" },
@@ -35,15 +36,15 @@ export const ORDER_STATUS_META: Record<
   Reembolsado: { icon: RotateCcw, tone: "success" },
 };
 
-const TONE_CLASSES = {
-  neutral: "bg-surface text-muted-foreground",
-  info: "bg-accent text-accent-foreground",
-  success: "bg-success-soft text-success",
-  warning: "bg-warning-soft text-warning",
-  danger: "bg-destructive-soft text-destructive",
-} as const;
+const TONE_BADGE: Record<Tone, "neutral" | "soft" | "success" | "warning" | "danger"> = {
+  neutral: "neutral",
+  info: "soft",
+  success: "success",
+  warning: "warning",
+  danger: "danger",
+};
 
-/** Pílula de status (ícone + rótulo) com o tom do status. */
+/** Badge de status (ícone + rótulo) no tom do status. */
 export function OrderStatusBadge({
   status,
   className,
@@ -55,16 +56,10 @@ export function OrderStatusBadge({
   const meta = ORDER_STATUS_META[status];
   const Icon = meta.icon;
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11.5px] font-extrabold whitespace-nowrap",
-        TONE_CLASSES[meta.tone],
-        className,
-      )}
-    >
-      <Icon className="size-3.5" aria-hidden />
+    <Badge variant={TONE_BADGE[meta.tone]} className={className}>
+      <Icon strokeWidth={1.75} aria-hidden />
       {t(status)}
-    </span>
+    </Badge>
   );
 }
 
@@ -75,69 +70,93 @@ interface OrderTimelineProps {
 }
 
 /**
- * Timeline vertical: mostra o caminho feliz completo (com etapas futuras esmaecidas)
- * e insere as ramificações (Cancelado / EmDisputa → Devolvido / Reembolsado) quando ocorrem.
+ * Timeline vertical com pontos conectados (DESIGN.md › OrderTimeline): passado em --primary
+ * preenchido, atual com anel pulsando, futuro em neutral-300. Mostra o caminho feliz inteiro e
+ * insere as ramificações (Cancelado / EmDisputa → Devolvido / Reembolsado) quando ocorrem.
  */
 export function OrderTimeline({ status, events, className }: OrderTimelineProps) {
   const t = useTranslations("orders");
   const format = useFormatter();
   const byStatus = new Map(events.map((e) => [e.status, e]));
-  const happyIndex = ORDER_HAPPY_PATH.indexOf(status);
   const branch = events.filter((e) => !ORDER_HAPPY_PATH.includes(e.status)).map((e) => e.status);
-
-  // Etapas do caminho feliz até onde o pedido chegou; se houve ramificação, corta após o último passo feliz atingido.
   const lastHappyReached = Math.max(...events.map((e) => ORDER_HAPPY_PATH.indexOf(e.status)), 0);
   const steps: OrderStatus[] =
     branch.length > 0
       ? [...ORDER_HAPPY_PATH.slice(0, lastHappyReached + 1), ...branch]
       : [...ORDER_HAPPY_PATH];
+  const currentIndex = steps.indexOf(status);
 
   return (
-    <ol
-      className={cn("relative ml-3.5 border-l-2 border-line-200", className)}
-      aria-label={t("timelineLabel")}
-    >
+    <ol className={cn("flex flex-col", className)} aria-label={t("timelineLabel")}>
       {steps.map((step, i) => {
         const event = byStatus.get(step);
-        const done = Boolean(event);
         const current = step === status;
-        const isBranch = !ORDER_HAPPY_PATH.includes(step);
+        const past = Boolean(event) && !current && i < currentIndex;
+        const done = Boolean(event) && !current;
         const meta = ORDER_STATUS_META[step];
         const Icon = meta.icon;
-        const future = !done && happyIndex >= 0 && i > happyIndex;
+        const isLast = i === steps.length - 1;
+        const branchDanger = done && meta.tone === "danger";
         return (
-          <li key={step} className="relative pb-6 pl-6 last:pb-0">
+          <li key={step} className="relative grid grid-cols-[24px_1fr] gap-x-3">
+            {/* conector */}
+            {!isLast ? (
+              <span
+                aria-hidden
+                className={cn(
+                  "absolute top-6 bottom-0 left-[11px] w-0.5",
+                  past || done ? "bg-primary" : "bg-border-strong",
+                )}
+              />
+            ) : null}
+            {/* ponto */}
             <span
-              className={cn(
-                "absolute top-0 -left-[15px] flex size-7 items-center justify-center rounded-[9px] ring-4 ring-card",
-                done
-                  ? isBranch
-                    ? TONE_CLASSES[meta.tone]
-                    : "bg-primary text-primary-foreground"
-                  : "bg-surface-strong text-ink-400",
-                current && "shadow-[0_0_0_3px_var(--accent)]",
-              )}
               aria-hidden
+              className={cn(
+                "relative z-10 flex size-6 items-center justify-center rounded-full",
+                done && !branchDanger && "bg-primary text-primary-foreground",
+                branchDanger && "bg-danger text-white",
+                current &&
+                  "animate-ring-pulse border-2 border-primary bg-surface text-primary motion-reduce:animate-none",
+                !done && !current && "border-2 border-border-strong bg-surface",
+              )}
             >
-              <Icon className="size-3.5" strokeWidth={2.4} />
+              {done ? (
+                <Check className="size-3.5" strokeWidth={2.5} />
+              ) : current ? (
+                <Icon className="size-3.5" strokeWidth={2} />
+              ) : null}
             </span>
-            <div className={cn(future && "opacity-50")}>
-              <p className={cn("text-sm font-bold", current && "text-primary")}>
+            <div
+              className={cn(
+                "flex flex-col pb-6",
+                isLast && "pb-0",
+                !done && !current && "opacity-60",
+              )}
+            >
+              <p
+                className={cn(
+                  "text-body-sm leading-6",
+                  current ? "font-semibold text-primary" : "font-medium text-foreground",
+                )}
+              >
                 {t(`status.${step}`)}
                 {current ? <span className="sr-only"> ({t("currentStep")})</span> : null}
               </p>
               {event ? (
                 <>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-caption text-foreground-muted tabular-nums">
                     {format.dateTime(new Date(event.occurredAt), "dateTime")}
                     {event.location ? ` · ${event.location}` : ""}
                   </p>
                   {event.description ? (
-                    <p className="mt-0.5 text-xs text-muted-foreground">{event.description}</p>
+                    <p className="mt-0.5 text-caption text-foreground-secondary">
+                      {event.description}
+                    </p>
                   ) : null}
                 </>
               ) : (
-                <p className="text-xs text-muted-foreground">{t("pendingStep")}</p>
+                <p className="text-caption text-foreground-muted">{t("pendingStep")}</p>
               )}
             </div>
           </li>

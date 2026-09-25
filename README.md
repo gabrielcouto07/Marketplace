@@ -8,7 +8,9 @@ API ASP.NET Core sem alterar componentes.
 
 Next.js 16 (App Router, Turbopack) · React 19 · TypeScript strict · Tailwind CSS 4 · shadcn/ui (Base UI) ·
 TanStack Query 5 · Zustand 5 (persist) · MSW 2 · React Hook Form + Zod 4 · next-intl 4 (pt-BR / es-PY) ·
-Serwist 9 (PWA) · lucide-react · Plus Jakarta Sans · pnpm workspaces.
+Serwist 9 (PWA) · lucide-react · Geist Sans · motion · pnpm workspaces.
+
+Design: `DESIGN.md` (raiz) é a fonte de verdade visual; o styleguide vivo fica em `/design`.
 
 ## Como rodar
 

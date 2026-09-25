@@ -12,11 +12,11 @@ import { cn } from "@/lib/utils";
 interface FavoriteButtonProps {
   product: ProductSummaryDto;
   className?: string;
-  /** `sm`: círculo branco de 32 px em alvo de 40 px (cards) · `md`: quadrado branco de 44 px (galeria). */
+  /** `sm`: pill de 36 px (cards, alvo de toque estendido a 44) · `md`: pill de 44 px (galeria). */
   size?: "sm" | "md";
 }
 
-/** Coração persistido; "pula" ao ser marcado e avisa por toast. */
+/** Coração em pill translúcida com backdrop-blur; persistido, "pula" ao marcar e avisa por toast. */
 export function FavoriteButton({ product, className, size = "sm" }: FavoriteButtonProps) {
   const t = useTranslations("catalog");
   const isFavorite = useIsFavorite(product.id);
@@ -36,27 +36,21 @@ export function FavoriteButton({ product, className, size = "sm" }: FavoriteButt
         toast(added ? t("favoriteAdded") : t("favoriteRemoved"), { duration: 1500 });
       }}
       className={cn(
-        "flex pressable items-center justify-center focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
-        size === "sm" ? "size-10" : "size-11 rounded-lg bg-card shadow-float",
+        "relative flex pressable items-center justify-center rounded-full bg-surface/85 text-foreground shadow-xs focus-ring backdrop-blur-md transition-colors before:absolute before:-inset-1 hover:bg-surface",
+        size === "sm" ? "size-9" : "size-11",
         className,
       )}
     >
-      <span
+      <Heart
+        key={pops}
         className={cn(
-          "flex items-center justify-center",
-          size === "sm" && "size-8 rounded-full bg-card/92",
+          "size-5",
+          pops > 0 && "animate-pop",
+          isFavorite ? "fill-cta text-cta" : "text-foreground",
         )}
-      >
-        <Heart
-          key={pops}
-          className={cn(
-            size === "sm" ? "size-[17px]" : "size-5",
-            pops > 0 && "animate-pop",
-            isFavorite ? "fill-cta text-cta" : "text-foreground",
-          )}
-          strokeWidth={2}
-        />
-      </span>
+        strokeWidth={1.75}
+        aria-hidden
+      />
     </button>
   );
 }

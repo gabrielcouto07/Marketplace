@@ -1,13 +1,14 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, MessageCircleQuestion } from "lucide-react";
+import { AlertCircle, Clock, MessageCircleQuestion } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
 import { ErrorState } from "@/components/shared/states";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useAskQuestion, useProductQuestions } from "@/features/catalog/api";
@@ -17,7 +18,10 @@ import { isApiError } from "@/lib/api/errors";
 import { cn } from "@/lib/utils";
 import { questionSchema, type QuestionFormValues } from "@/lib/validation/schemas";
 
-/** Card de perguntas e respostas: textarea + botão azul-suave e lista de Q&A. */
+/**
+ * Perguntas e respostas: textarea + botão primary para quem está logado (ou aviso com botão
+ * secondary "Entre para perguntar") e lista `divide-y` de perguntas com a resposta da loja.
+ */
 export function ProductQuestions({
   productId,
   productSlug,
@@ -63,17 +67,18 @@ export function ProductQuestions({
   return (
     <section
       aria-labelledby="questions-title"
-      className={cn("flex flex-col gap-4 rounded-3xl bg-card p-4.5 shadow-card", className)}
+      className={cn(
+        "flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-xs",
+        className,
+      )}
     >
-      <h2 id="questions-title" className="text-base font-extrabold tracking-tight">
+      <h2 id="questions-title" className="text-title-3 text-foreground">
         {t("questionsTitle")}
       </h2>
 
       {isAuthenticated ? (
-        <form onSubmit={onSubmit} className="flex flex-col gap-2.5" noValidate>
-          <label htmlFor="question" className="text-sm font-bold">
-            {t("askQuestion")}
-          </label>
+        <form onSubmit={onSubmit} className="flex flex-col gap-2" noValidate>
+          <Label htmlFor="question">{t("askQuestion")}</Label>
           <Textarea
             id="question"
             rows={3}
@@ -84,20 +89,20 @@ export function ProductQuestions({
             {...form.register("question")}
           />
           {errorKey ? (
-            <p id="question-error" className="text-xs font-medium text-destructive">
+            <p id="question-error" className="flex items-center gap-1 text-caption text-danger">
+              <AlertCircle className="size-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
               {tv(errorKey as "questionMin" | "questionMax")}
             </p>
           ) : null}
-          <Button type="submit" variant="soft" className="self-end" disabled={ask.isPending}>
-            {ask.isPending ? <Loader2 className="animate-spin" data-icon="inline-start" /> : null}
+          <Button type="submit" variant="primary" className="self-end" loading={ask.isPending}>
             {t("sendQuestion")}
           </Button>
         </form>
       ) : (
-        <div className="flex flex-col items-start gap-3 rounded-2xl border border-dashed border-line-300 p-4">
-          <p className="text-sm text-muted-foreground">{t("askQuestion")}</p>
+        <div className="flex flex-col items-start gap-3 rounded-md bg-surface-muted p-4">
+          <p className="text-body-sm text-foreground-secondary">{t("askQuestion")}</p>
           <Button
-            variant="soft"
+            variant="secondary"
             size="sm"
             render={<Link href={`/entrar?next=/produto/${productSlug}`} />}
           >
@@ -107,43 +112,45 @@ export function ProductQuestions({
       )}
 
       {questions.isPending ? (
-        <div className="flex flex-col gap-3.5">
+        <ul className="flex flex-col divide-y divide-border">
           {Array.from({ length: 2 }).map((_, i) => (
-            <div key={i} className="flex flex-col gap-2 border-t border-border pt-3.5">
-              <Skeleton className="h-3.5 w-3/4" />
-              <Skeleton className="h-3 w-28" />
+            <li key={i} className="flex flex-col gap-2 py-4 last:pb-0">
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-3.5 w-28" />
               <Skeleton className="h-14 w-full" />
-            </div>
+            </li>
           ))}
-        </div>
+        </ul>
       ) : questions.isError ? (
         <ErrorState error={questions.error} compact onRetry={() => questions.refetch()} />
       ) : items.length === 0 ? (
-        <p className="flex items-center gap-2 border-t border-border pt-3.5 text-sm text-muted-foreground">
-          <MessageCircleQuestion className="size-4 shrink-0" aria-hidden /> {t("noQuestions")}
+        <p className="flex items-center gap-2 border-t border-border pt-4 text-body-sm text-foreground-secondary">
+          <MessageCircleQuestion className="size-5 shrink-0" strokeWidth={1.75} aria-hidden />
+          {t("noQuestions")}
         </p>
       ) : (
-        <ul className="flex flex-col">
-          {items.map((q, i) => (
-            <li
-              key={q.id}
-              className="flex animate-rise flex-col gap-1 border-t border-border pt-3.5 pb-3.5 last:pb-0"
-              style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}
-            >
-              <p className="text-[13.5px] font-bold">{q.question}</p>
-              <p className="text-xs text-muted-foreground">
+        <ul className="flex flex-col divide-y divide-border">
+          {items.map((q) => (
+            <li key={q.id} className="flex flex-col gap-1 py-4 last:pb-0">
+              <p className="text-body-sm font-medium text-foreground">{q.question}</p>
+              <p className="text-caption text-foreground-muted">
                 {q.askedBy} · {format.dateTime(new Date(q.askedAt), "short")}
               </p>
               {q.answer ? (
-                <div className="mt-1.5 rounded-lg bg-surface px-3 py-2.5">
-                  <p className="text-xs font-bold text-primary">{t("sellerAnswer")}</p>
-                  <p className="mt-0.5 text-[13.5px] leading-relaxed text-body">{q.answer.text}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
+                <div className="mt-2 flex flex-col gap-1 border-l-2 border-primary pl-3">
+                  <p className="text-caption text-primary">{t("sellerAnswer")}</p>
+                  <p className="text-body-sm leading-relaxed text-foreground-secondary">
+                    {q.answer.text}
+                  </p>
+                  <p className="text-caption text-foreground-muted">
                     {format.dateTime(new Date(q.answer.answeredAt), "short")}
                   </p>
                 </div>
               ) : (
-                <p className="mt-1 text-xs font-semibold text-warning">{t("awaitingAnswer")}</p>
+                <p className="mt-1 flex items-center gap-1 text-caption text-warning">
+                  <Clock className="size-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
+                  {t("awaitingAnswer")}
+                </p>
               )}
             </li>
           ))}
@@ -152,15 +159,12 @@ export function ProductQuestions({
 
       {questions.hasNextPage ? (
         <Button
-          variant="soft"
+          variant="secondary"
           size="sm"
           onClick={() => questions.fetchNextPage()}
-          disabled={questions.isFetchingNextPage}
+          loading={questions.isFetchingNextPage}
           className="self-center"
         >
-          {questions.isFetchingNextPage ? (
-            <Loader2 className="animate-spin" data-icon="inline-start" />
-          ) : null}
           {tc("loadMore")}
         </Button>
       ) : null}

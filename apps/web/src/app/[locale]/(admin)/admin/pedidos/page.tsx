@@ -1,5 +1,5 @@
-import { AdminPlaceholder } from "@/features/admin/components/admin-panel";
+import { AdminOrders } from "@/features/admin/components/admin-panel";
 
 export default function Page() {
-  return <AdminPlaceholder section="orders" />;
+  return <AdminOrders />;
 }

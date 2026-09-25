@@ -10,10 +10,9 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: t("loginTitle"), robots: { index: false } };
 }
 
-export default async function Page() {
-  const t = await getTranslations("auth");
+export default function Page() {
   return (
-    <StoreShell title={t("loginTitle")} showBack hideSearch>
+    <StoreShell showBack hideSearch hideBottomNav>
       <Suspense fallback={null}>
         <LoginView />
       </Suspense>

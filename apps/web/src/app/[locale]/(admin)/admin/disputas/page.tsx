@@ -1,5 +1,5 @@
-import { AdminPlaceholder } from "@/features/admin/components/admin-panel";
+import { AdminDisputes } from "@/features/admin/components/admin-panel";
 
 export default function Page() {
-  return <AdminPlaceholder section="disputes" />;
+  return <AdminDisputes />;
 }

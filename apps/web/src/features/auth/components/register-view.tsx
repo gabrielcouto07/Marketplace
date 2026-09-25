@@ -1,8 +1,9 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { UserPlus } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 
@@ -15,7 +16,7 @@ import { cn } from "@/lib/utils";
 import { formatPhoneBr } from "@/lib/validation/documents";
 import { registerSchema, type RegisterFormValues } from "@/lib/validation/schemas";
 
-import { AuthCard, GoogleButton, OrDivider } from "./auth-card";
+import { ApiErrorNotice, AuthCard, GoogleButton, OrDivider } from "./auth-card";
 import {
   FormField,
   PasswordInput,
@@ -30,6 +31,7 @@ export function RegisterView() {
   const translate = useValidationMessage();
   const registerMutation = useRegister();
   const redirect = useAuthRedirect();
+  const [apiError, setApiError] = useState<string | null>(null);
   useRedirectIfAuthenticated();
 
   const form = useForm<RegisterFormValues>({
@@ -42,10 +44,12 @@ export function RegisterView() {
       confirmPassword: "",
       acceptTerms: false,
     },
+    mode: "onBlur",
   });
   const { register, handleSubmit, setError, control, formState } = form;
 
-  const onSubmit = handleSubmit((values) =>
+  const onSubmit = handleSubmit((values) => {
+    setApiError(null);
     registerMutation.mutate(
       {
         fullName: values.fullName,
@@ -59,11 +63,11 @@ export function RegisterView() {
           redirect();
         },
         onError: (error) => {
-          if (!applyApiErrors(error, setError)) toast.error(t("loginError"));
+          if (!applyApiErrors(error, setError)) setApiError(t("loginError"));
         },
       },
-    ),
-  );
+    );
+  });
 
   const termsError = translate(fieldError(formState.errors, "acceptTerms"));
 
@@ -73,14 +77,15 @@ export function RegisterView() {
       subtitle={t("registerSubtitle")}
       footer={
         <>
-          {t("hasAccount")}{" "}
-          <Link href="/entrar" className="font-bold text-primary hover:underline">
+          {t("hasAccount")}
+          <Button variant="link" render={<Link href="/entrar" />}>
             {t("signIn")}
-          </Link>
+          </Button>
         </>
       }
     >
       <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
+        <ApiErrorNotice message={apiError} />
         <FormField label={t("fullName")} error={fieldError(formState.errors, "fullName")}>
           {(a11y) => <Input {...a11y} autoComplete="name" {...register("fullName")} />}
         </FormField>
@@ -91,6 +96,7 @@ export function RegisterView() {
               type="email"
               inputMode="email"
               autoComplete="email"
+              placeholder="voce@exemplo.com"
               {...register("email")}
             />
           )}
@@ -135,13 +141,13 @@ export function RegisterView() {
           control={control}
           name="acceptTerms"
           render={({ field }) => (
-            <div className="flex flex-col gap-1">
+            <div className="flex flex-col gap-2">
               <label
                 className={cn(
-                  "flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border-[1.5px] bg-surface p-3 text-[13.5px] leading-snug text-body transition-colors",
+                  "flex min-h-11 cursor-pointer items-start gap-3 rounded-md border p-3 text-body-sm text-foreground-secondary transition-colors",
                   termsError
-                    ? "border-destructive"
-                    : "border-transparent has-checked:border-primary has-checked:bg-selected",
+                    ? "border-danger"
+                    : "border-border has-data-checked:border-primary has-data-checked:bg-primary-soft/50",
                 )}
               >
                 <Checkbox
@@ -153,12 +159,12 @@ export function RegisterView() {
                 <span>
                   {t.rich("acceptTerms", {
                     terms: (chunks) => (
-                      <a href="#" className="font-bold text-primary underline">
+                      <a href="#" className="font-medium text-primary underline underline-offset-4">
                         {chunks}
                       </a>
                     ),
                     privacy: (chunks) => (
-                      <a href="#" className="font-bold text-primary underline">
+                      <a href="#" className="font-medium text-primary underline underline-offset-4">
                         {chunks}
                       </a>
                     ),
@@ -166,7 +172,11 @@ export function RegisterView() {
                 </span>
               </label>
               {termsError ? (
-                <p role="alert" className="text-xs font-medium text-destructive">
+                <p
+                  role="alert"
+                  className="flex items-start gap-1.5 text-caption font-medium text-danger"
+                >
+                  <AlertCircle className="mt-px size-3.5 shrink-0" strokeWidth={1.75} aria-hidden />
                   {termsError}
                 </p>
               ) : null}
@@ -174,14 +184,7 @@ export function RegisterView() {
           )}
         />
 
-        <Button
-          type="submit"
-          variant="cta"
-          size="lg"
-          className="w-full"
-          disabled={registerMutation.isPending}
-        >
-          <UserPlus data-icon="inline-start" />
+        <Button type="submit" variant="primary" fullWidth loading={registerMutation.isPending}>
           {t("signUp")}
         </Button>
       </form>
