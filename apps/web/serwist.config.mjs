@@ -11,9 +11,9 @@ export default serwist.withNextConfig(() => ({
   swSrc: "src/sw.ts",
   swDest: "public/sw.js",
   globDirectory: ".",
+  // Só a rota /offline entra aqui: arquivos de public/ já são incluídos pelo glob (com hash) e
+  // repeti-los sem revision faz o Serwist lançar "conflicting entries" e o SW falha ao registrar.
   additionalPrecacheEntries: [
     { url: "/offline", revision: process.env.SW_REVISION ?? String(Date.now()) },
-    { url: "/logo.svg", revision: null },
-    { url: "/icons/icon-192.png", revision: null },
   ],
 }));

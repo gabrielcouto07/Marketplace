@@ -41,6 +41,20 @@ Outros comandos (raiz ou `apps/web`):
 Cupom `PARAGUAI10`. Cartão com final `0000` é recusado. Pix/boleto são aprovados após ~20 s ou pelo botão
 "Simular pagamento".
 
+## Deploy na Vercel (teste em celular)
+
+O app sobe na Vercel sem backend: o build de produção usa o mock (MSW) por padrão (`apps/web/.env.production`).
+
+1. Faça push do repositório para o GitHub (`gabrielcouto07/Marketplace`).
+2. Na Vercel, **Add New → Project**, importe o repositório e defina **Root Directory = `apps/web`**
+   (mantenha "Include source files outside of the Root Directory" ligado — é um monorepo pnpm).
+   Framework, install (`pnpm install --frozen-lockfile`) e build (`pnpm run build`) já vêm de `apps/web/vercel.json`.
+3. Deploy. A URL pública (`https://<projeto>.vercel.app`) já serve como `NEXT_PUBLIC_SITE_URL`; abra no celular e,
+   se quiser, instale como app (Chrome: ⋮ → Instalar app · Safari: Compartilhar → Adicionar à Tela de Início).
+
+Variáveis opcionais no painel da Vercel: `NEXT_PUBLIC_SITE_URL` (domínio próprio), `NEXT_PUBLIC_API_MOCKING=false`
+e `NEXT_PUBLIC_API_URL` quando a API .NET existir. Usuário demo: `demo@mktpy.com` / `123456`.
+
 ## Variáveis de ambiente (`apps/web/.env.local`)
 
 | Variável                      | Padrão                  | Descrição                                                      |
