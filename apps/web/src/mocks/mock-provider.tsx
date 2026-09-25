@@ -9,13 +9,15 @@ let startPromise: Promise<void> | null = null;
 /** Inicia o MSW no navegador exatamente uma vez (sobrevive a HMR). */
 function startWorker(): Promise<void> {
   if (!startPromise) {
-    startPromise = import("./browser").then(({ worker }) =>
-      worker.start({
-        onUnhandledRequest: "bypass",
-        quiet: !env.isDev,
-        serviceWorker: { url: "/mockServiceWorker.js" },
-      }),
-    ).then(() => undefined);
+    startPromise = import("./browser")
+      .then(({ worker }) =>
+        worker.start({
+          onUnhandledRequest: "bypass",
+          quiet: !env.isDev,
+          serviceWorker: { url: "/mockServiceWorker.js" },
+        }),
+      )
+      .then(() => undefined);
   }
   return startPromise;
 }

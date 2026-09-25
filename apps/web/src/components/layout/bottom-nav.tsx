@@ -1,59 +1,100 @@
 "use client";
 
-import { Heart, Home, LayoutGrid, ShoppingCart, User } from "lucide-react";
+import { Home, LayoutGrid, Search, ShoppingBag, User, type LucideIcon } from "lucide-react";
 import { useTranslations } from "next-intl";
 
+import { CartBadge } from "@/components/layout/header";
 import { selectItemCount, useCartHydrated, useCartStore } from "@/features/cart/store";
 import { Link, usePathname } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
 
-const ITEMS = [
-  { key: "home", href: "/", icon: Home, match: (p: string) => p === "/" },
-  { key: "categories", href: "/categorias", icon: LayoutGrid, match: (p: string) => p.startsWith("/categoria") || p.startsWith("/busca") },
-  { key: "cart", href: "/carrinho", icon: ShoppingCart, match: (p: string) => p.startsWith("/carrinho") || p.startsWith("/checkout") },
-  { key: "favorites", href: "/favoritos", icon: Heart, match: (p: string) => p.startsWith("/favoritos") },
-  { key: "account", href: "/conta", icon: User, match: (p: string) => p.startsWith("/conta") || p.startsWith("/entrar") || p.startsWith("/cadastrar") },
-] as const;
+interface NavItem {
+  key: "home" | "categories" | "cart" | "account";
+  href: string;
+  icon: LucideIcon;
+  match: (pathname: string) => boolean;
+}
 
-/** Navegação inferior fixa (mobile). Escondida em ≥ md, onde o header cobre as ações. */
+const LEFT: NavItem[] = [
+  { key: "home", href: "/", icon: Home, match: (p) => p === "/" },
+  {
+    key: "categories",
+    href: "/categorias",
+    icon: LayoutGrid,
+    match: (p) => p.startsWith("/categoria"),
+  },
+];
+const RIGHT: NavItem[] = [
+  {
+    key: "cart",
+    href: "/carrinho",
+    icon: ShoppingBag,
+    match: (p) => p.startsWith("/carrinho") || p.startsWith("/checkout"),
+  },
+  {
+    key: "account",
+    href: "/conta",
+    icon: User,
+    match: (p) => p.startsWith("/conta") || p.startsWith("/entrar") || p.startsWith("/cadastrar"),
+  },
+];
+
+/**
+ * Navegação inferior (mobile): Início · Categorias · [Buscar flutuante] · Carrinho · Conta.
+ * A busca ganha o botão azul elevado no centro — o gesto mais frequente do app.
+ */
 export function BottomNav() {
   const t = useTranslations("nav");
   const pathname = usePathname();
   const hydrated = useCartHydrated();
   const count = useCartStore((s) => selectItemCount(s.lines));
+  const searchActive = pathname.startsWith("/busca");
+
+  const renderItem = ({ key, href, icon: Icon, match }: NavItem) => {
+    const active = match(pathname);
+    return (
+      <li key={key} className="flex">
+        <Link
+          href={href}
+          aria-current={active ? "page" : undefined}
+          className={cn(
+            "flex h-14 flex-1 pressable flex-col items-center justify-center gap-[3px] rounded-xl text-[11px] font-bold transition-colors focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none",
+            active ? "text-primary" : "text-ink-400 hover:text-foreground",
+          )}
+        >
+          <span className="relative">
+            <Icon className="size-[23px]" strokeWidth={active ? 2.3 : 2} />
+            {key === "cart" && hydrated ? (
+              <CartBadge count={count} className="-top-1.5 -right-2.5" />
+            ) : null}
+          </span>
+          <span>{t(key)}</span>
+        </Link>
+      </li>
+    );
+  };
 
   return (
     <nav
       aria-label={t("mainNavigation")}
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 pb-safe backdrop-blur supports-backdrop-filter:bg-background/85 md:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-line-200 bg-card/95 pb-safe backdrop-blur-md supports-backdrop-filter:bg-card/90 md:hidden"
     >
-      <ul className="mx-auto grid h-bottom-nav max-w-lg grid-cols-5">
-        {ITEMS.map(({ key, href, icon: Icon, match }) => {
-          const active = match(pathname);
-          const badge = key === "cart" && hydrated && count > 0 ? count : 0;
-          return (
-            <li key={key} className="flex">
-              <Link
-                href={href}
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  "flex flex-1 flex-col items-center justify-center gap-0.5 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset",
-                  active ? "text-primary" : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                <span className="relative">
-                  <Icon className={cn("size-6", active && "fill-primary/15")} strokeWidth={active ? 2.4 : 2} />
-                  {badge ? (
-                    <span className="absolute -top-1.5 -right-2.5 flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-cta px-1 text-[10px] font-bold text-cta-foreground">
-                      {badge > 99 ? "99+" : badge}
-                    </span>
-                  ) : null}
-                </span>
-                <span>{t(key)}</span>
-              </Link>
-            </li>
-          );
-        })}
+      <ul className="mx-auto grid h-bottom-nav max-w-lg grid-cols-5 items-center px-1.5 pb-3">
+        {LEFT.map(renderItem)}
+        <li className="flex justify-center">
+          <Link
+            href="/busca"
+            aria-label={t("search")}
+            aria-current={searchActive ? "page" : undefined}
+            className={cn(
+              "-mt-[30px] flex size-[60px] pressable items-center justify-center rounded-[21px] text-primary-foreground shadow-primary ring-[6px] ring-background transition-colors focus-visible:ring-primary/40 focus-visible:outline-none",
+              searchActive ? "bg-primary-hover" : "bg-primary hover:bg-primary-hover",
+            )}
+          >
+            <Search className="size-[26px]" strokeWidth={2.4} />
+          </Link>
+        </li>
+        {RIGHT.map(renderItem)}
       </ul>
     </nav>
   );

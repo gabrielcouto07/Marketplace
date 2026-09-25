@@ -10,9 +10,8 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function AccountPage() {
-  const t = await getTranslations("account");
   return (
-    <StoreShell title={t("title")} hideSearch>
+    <StoreShell hideSearch>
       <AccountView />
     </StoreShell>
   );

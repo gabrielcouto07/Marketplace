@@ -38,17 +38,20 @@ export function ForgotPasswordView() {
       title={t("forgotTitle")}
       subtitle={t("forgotSubtitle")}
       footer={
-        <Link href="/entrar" className="font-semibold text-primary hover:underline">
+        <Link href="/entrar" className="font-bold text-primary hover:underline">
           {t("backToLogin")}
         </Link>
       }
     >
       {forgot.isSuccess ? (
-        <div role="status" className="flex flex-col items-center gap-3 py-4 text-center">
-          <span className="flex size-14 items-center justify-center rounded-full bg-success-soft text-success">
-            <MailCheck className="size-7" aria-hidden />
+        <div
+          role="status"
+          className="flex animate-pop flex-col items-center gap-4 py-4 text-center"
+        >
+          <span className="flex size-[72px] items-center justify-center rounded-3xl bg-success-soft text-success">
+            <MailCheck className="size-8" strokeWidth={1.8} aria-hidden />
           </span>
-          <p className="text-sm">{t("linkSent")}</p>
+          <p className="max-w-[280px] text-[13.5px] leading-relaxed text-body">{t("linkSent")}</p>
           <Button variant="outline" render={<Link href="/entrar" />}>
             {t("backToLogin")}
           </Button>
@@ -56,9 +59,23 @@ export function ForgotPasswordView() {
       ) : (
         <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
           <FormField label={t("email")} error={fieldError(formState.errors, "email")}>
-            {(a11y) => <Input {...a11y} type="email" inputMode="email" autoComplete="email" {...register("email")} />}
+            {(a11y) => (
+              <Input
+                {...a11y}
+                type="email"
+                inputMode="email"
+                autoComplete="email"
+                {...register("email")}
+              />
+            )}
           </FormField>
-          <Button type="submit" variant="cta" size="lg" className="w-full" disabled={forgot.isPending}>
+          <Button
+            type="submit"
+            variant="cta"
+            size="lg"
+            className="w-full"
+            disabled={forgot.isPending}
+          >
             <Send data-icon="inline-start" />
             {t("sendLink")}
           </Button>

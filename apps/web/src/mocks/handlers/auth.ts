@@ -53,10 +53,13 @@ export const authHandlers = [
     await simulateLatency();
     const body = (await request.json()) as RegisterRequest;
     const errors: Record<string, string[]> = {};
-    if (!body.fullName || body.fullName.trim().length < 3) errors.fullName = ["Informe seu nome completo."];
+    if (!body.fullName || body.fullName.trim().length < 3)
+      errors.fullName = ["Informe seu nome completo."];
     if (!body.email?.includes("@")) errors.email = ["E-mail inválido."];
-    if (!body.password || body.password.length < 8) errors.password = ["A senha deve ter pelo menos 8 caracteres."];
-    if (body.email?.toLowerCase() === "existe@mktpy.com") errors.email = ["Este e-mail já está cadastrado."];
+    if (!body.password || body.password.length < 8)
+      errors.password = ["A senha deve ter pelo menos 8 caracteres."];
+    if (body.email?.toLowerCase() === "existe@mktpy.com")
+      errors.email = ["Este e-mail já está cadastrado."];
     if (Object.keys(errors).length) return validation(errors);
 
     db.user = {
@@ -114,7 +117,8 @@ export const authHandlers = [
     if (!isAuthorized(request)) return unauthorized();
     const body = (await request.json()) as UpdateProfileRequest;
     const errors: Record<string, string[]> = {};
-    if (!body.fullName || body.fullName.trim().length < 3) errors.fullName = ["Informe seu nome completo."];
+    if (!body.fullName || body.fullName.trim().length < 3)
+      errors.fullName = ["Informe seu nome completo."];
     if (body.cpf && !isValidCpf(body.cpf)) errors.cpf = ["CPF inválido."];
     if (Object.keys(errors).length) return validation(errors);
     db.user = {
@@ -138,7 +142,8 @@ export const authHandlers = [
     await simulateLatency();
     if (!isAuthorized(request)) return unauthorized();
     const body = (await request.json()) as AddressInput;
-    if (!/^\d{8}$/.test(body.postalCode?.replace(/\D/g, "") ?? "")) return validation({ postalCode: ["CEP inválido."] });
+    if (!/^\d{8}$/.test(body.postalCode?.replace(/\D/g, "") ?? ""))
+      return validation({ postalCode: ["CEP inválido."] });
     const address: AddressDto = {
       ...body,
       id: crypto.randomUUID(),
@@ -181,7 +186,8 @@ export const authHandlers = [
     const exists = db.addresses.some((a) => a.id === params.id);
     if (!exists) return notFound("Endereço");
     db.addresses = db.addresses.filter((a) => a.id !== params.id);
-    if (db.addresses.length && !db.addresses.some((a) => a.isDefault)) db.addresses[0].isDefault = true;
+    if (db.addresses.length && !db.addresses.some((a) => a.isDefault))
+      db.addresses[0].isDefault = true;
     persistDb();
     return new HttpResponse(null, { status: 204 });
   }),

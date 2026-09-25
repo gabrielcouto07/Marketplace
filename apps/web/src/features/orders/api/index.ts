@@ -1,20 +1,29 @@
 "use client";
 
-import type { OrderDto, OrderListQuery, PagedResult, PaymentDto, TrackingEventDto } from "@marketplace/contracts";
+import type {
+  OrderDto,
+  OrderListQuery,
+  PagedResult,
+  PaymentDto,
+  TrackingEventDto,
+} from "@marketplace/contracts";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "@/lib/api/http";
 import { queryKeys } from "@/lib/api/query-keys";
 
 export const ordersApi = {
-  list: (query: OrderListQuery) => api.get<PagedResult<OrderDto>>("/orders", { query: { ...query } }),
+  list: (query: OrderListQuery) =>
+    api.get<PagedResult<OrderDto>>("/orders", { query: { ...query } }),
   detail: (id: string) => api.get<OrderDto>(`/orders/${id}`),
   byPurchase: (purchaseId: string) => api.get<OrderDto[]>(`/purchases/${purchaseId}/orders`),
-  tracking: (id: string) => api.get<{ trackingCode: string | null; events: TrackingEventDto[] }>(`/orders/${id}/tracking`),
+  tracking: (id: string) =>
+    api.get<{ trackingCode: string | null; events: TrackingEventDto[] }>(`/orders/${id}/tracking`),
   cancel: (id: string) => api.post<OrderDto>(`/orders/${id}/cancel`),
   openDispute: (id: string) => api.post<OrderDto>(`/orders/${id}/disputes`),
   payment: (id: string) => api.get<PaymentDto>(`/payments/${id}`),
-  simulatePaymentApproval: (id: string) => api.post<PaymentDto>(`/payments/${id}/simulate-approval`),
+  simulatePaymentApproval: (id: string) =>
+    api.post<PaymentDto>(`/payments/${id}/simulate-approval`),
 };
 
 export function useOrders(query: Omit<OrderListQuery, "page"> = {}) {
@@ -23,13 +32,19 @@ export function useOrders(query: Omit<OrderListQuery, "page"> = {}) {
     queryKey: queryKeys.orders.list({ ...query, pageSize }),
     queryFn: ({ pageParam }) => ordersApi.list({ ...query, pageSize, page: pageParam }),
     initialPageParam: 1,
-    getNextPageParam: (last) => (last.page * last.pageSize < last.totalCount ? last.page + 1 : undefined),
+    getNextPageParam: (last) =>
+      last.page * last.pageSize < last.totalCount ? last.page + 1 : undefined,
     staleTime: 30 * 1000,
   });
 }
 
 export function useOrder(id: string) {
-  return useQuery({ queryKey: queryKeys.orders.detail(id), queryFn: () => ordersApi.detail(id), enabled: Boolean(id), staleTime: 30 * 1000 });
+  return useQuery({
+    queryKey: queryKeys.orders.detail(id),
+    queryFn: () => ordersApi.detail(id),
+    enabled: Boolean(id),
+    staleTime: 30 * 1000,
+  });
 }
 
 export function usePurchaseOrders(purchaseId: string) {

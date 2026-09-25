@@ -11,9 +11,11 @@ export function OfflineBanner() {
   const { isOnline } = usePwa();
   if (isOnline) return null;
   return (
-    <div role="status" className="flex items-center justify-center gap-2 bg-warning-soft px-3 py-2 text-sm font-medium text-warning">
-      <WifiOff className="size-4" aria-hidden />
-      {t("offlineBanner")}
+    <div role="status" className="animate-rise px-4 pt-3">
+      <p className="mx-auto flex max-w-6xl items-center justify-center gap-2 rounded-xl bg-warning-soft px-3 py-2.5 text-[12.5px] font-bold text-warning">
+        <WifiOff className="size-4" aria-hidden />
+        {t("offlineBanner")}
+      </p>
     </div>
   );
 }

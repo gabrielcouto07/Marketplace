@@ -4,5 +4,5 @@ export const site = {
   description:
     "Marketplace que conecta vendedores do Paraguai a compradores no Brasil: eletrônicos, perfumes, informática e muito mais com preços de Ciudad del Este.",
   themeColor: "#0038A8",
-  backgroundColor: "#FFFFFF",
+  backgroundColor: "#F3F5F9",
 } as const;

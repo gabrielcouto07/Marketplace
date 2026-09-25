@@ -28,11 +28,15 @@ export const useFavoritesStore = create<FavoritesState>()(
         set((state) => ({
           items: exists
             ? state.items.filter((f) => f.productId !== product.id)
-            : [{ productId: product.id, createdAt: new Date().toISOString(), snapshot: product }, ...state.items],
+            : [
+                { productId: product.id, createdAt: new Date().toISOString(), snapshot: product },
+                ...state.items,
+              ],
         }));
         return !exists;
       },
-      remove: (productId) => set((state) => ({ items: state.items.filter((f) => f.productId !== productId) })),
+      remove: (productId) =>
+        set((state) => ({ items: state.items.filter((f) => f.productId !== productId) })),
       has: (productId) => get().items.some((f) => f.productId === productId),
       clear: () => set({ items: [] }),
     }),

@@ -1,4 +1,8 @@
-import type { ExchangeRateDto, ShippingQuoteDto, ShippingQuoteRequest } from "@marketplace/contracts";
+import type {
+  ExchangeRateDto,
+  ShippingQuoteDto,
+  ShippingQuoteRequest,
+} from "@marketplace/contracts";
 import { HttpResponse, http } from "msw";
 
 import { EXCHANGE_RATES, sellerById } from "../fixtures/base";
@@ -34,7 +38,8 @@ export const shippingHandlers = [
       const variant = i.variantId ? p?.variants.find((v) => v.id === i.variantId) : null;
       return acc + (variant?.price.amount ?? p?.price.amount ?? 0) * i.quantity;
     }, 0);
-    const freeShipping = products.length > 0 && products.every((p) => p!.freeShipping) && subtotal >= 30000;
+    const freeShipping =
+      products.length > 0 && products.every((p) => p!.freeShipping) && subtotal >= 30000;
 
     const quote: ShippingQuoteDto = {
       postalCode: cep,
@@ -50,7 +55,9 @@ export const shippingHandlers = [
     const url = new URL(request.url);
     const from = url.searchParams.get("from");
     const to = url.searchParams.get("to");
-    const rates: ExchangeRateDto[] = EXCHANGE_RATES.filter((r) => (!from || r.from === from) && (!to || r.to === to));
+    const rates: ExchangeRateDto[] = EXCHANGE_RATES.filter(
+      (r) => (!from || r.from === from) && (!to || r.to === to),
+    );
     return HttpResponse.json(rates);
   }),
 ];

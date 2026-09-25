@@ -12,9 +12,26 @@ import type {
 import { HttpResponse, http } from "msw";
 
 import { db, persistDb } from "../db";
-import { CATEGORIES, SELLERS, categoryBySlug, guid, sellerBySlug, toSellerSummary } from "../fixtures/base";
+import {
+  CATEGORIES,
+  SELLERS,
+  categoryBySlug,
+  guid,
+  sellerBySlug,
+  toSellerSummary,
+} from "../fixtures/base";
 import { PRODUCTS, productById, productBySlug, toSummary } from "../fixtures/products";
-import { API, bool, notFound, num, paginate, serverError, shouldFailRandomly, simulateLatency, validation } from "./utils";
+import {
+  API,
+  bool,
+  notFound,
+  num,
+  paginate,
+  serverError,
+  shouldFailRandomly,
+  simulateLatency,
+  validation,
+} from "./utils";
 
 const BANNERS: BannerDto[] = [
   {
@@ -44,10 +61,7 @@ const BANNERS: BannerDto[] = [
 ];
 
 function normalize(s: string): string {
-  return s
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
-    .toLowerCase();
+  return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 }
 
 function sortProducts(items: ProductSummaryDto[], sort: ProductSort): ProductSummaryDto[] {
@@ -207,7 +221,9 @@ export const catalogHandlers = [
     const page = num(url.searchParams.get("page"), 1)!;
     const pageSize = num(url.searchParams.get("pageSize"), 10)!;
     const userQuestions = db.questions.filter((q) => q.productId === record.detail.id);
-    return HttpResponse.json(paginate<QuestionDto>([...userQuestions, ...record.questions], page, pageSize));
+    return HttpResponse.json(
+      paginate<QuestionDto>([...userQuestions, ...record.questions], page, pageSize),
+    );
   }),
 
   http.post(`${API}/products/:id/questions`, async ({ params, request }) => {
@@ -222,7 +238,8 @@ export const catalogHandlers = [
       id: crypto.randomUUID(),
       productId: record.detail.id,
       question: body.question.trim(),
-      askedBy: db.user.fullName.split(" ")[0] + " " + (db.user.fullName.split(" ")[1]?.[0] ?? "") + ".",
+      askedBy:
+        db.user.fullName.split(" ")[0] + " " + (db.user.fullName.split(" ")[1]?.[0] ?? "") + ".",
       askedAt: new Date().toISOString(),
       answer: null,
     };

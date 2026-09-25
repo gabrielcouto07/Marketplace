@@ -42,25 +42,25 @@ o arquivo manual apenas como referência.
 
 ## Estrutura de `apps/web/src`
 
-| Pasta | Responsabilidade |
-| --- | --- |
-| `app/[locale]/(store)` | vitrine e fluxo de compra: home, busca, categoria, produto, loja, carrinho, checkout, pagamento, confirmação, favoritos, instalar, offline |
-| `app/[locale]/(account)` | login, cadastro, recuperar senha, conta, perfil, endereços, pedidos |
-| `app/[locale]/(seller)` | painel do vendedor (esqueleto) |
-| `app/[locale]/(admin)` | painel admin (esqueleto) |
-| `app/manifest.ts`, `robots.ts`, `sitemap.ts` | metadados PWA/SEO (Metadata Routes) |
-| `features/<dominio>/{api,components,store}` | catalog, cart, checkout, orders, payments, auth, account, seller, shipping, home |
-| `components/ui` | shadcn/ui (estilo *base-nova*, primitivos **Base UI**) |
-| `components/layout` | Header, BottomNav, TricolorStripe, InstallPrompt, OfflineBanner, StoreShell, Providers, PwaProvider |
-| `components/shared` | ProductCard, PriceTag, RatingStars, SellerBadge, QuantityStepper, OrderTimeline, estados vazios/erro… |
-| `lib/api` | `http.ts` (fetch wrapper), `errors.ts`, `query-client.tsx`, `query-keys.ts` |
-| `lib/money` | operações e formatação monetária (inteiros) |
-| `lib/validation` | CPF/RUC/CEP + schemas Zod |
-| `i18n` | routing (`pt-BR` padrão sem prefixo, `es-PY` com prefixo), `request.ts`, `navigation.ts`, mensagens |
-| `mocks` | fixtures determinísticas, handlers MSW, "db" em memória + localStorage |
-| `sw.ts` | service worker (Serwist) |
-| `proxy.ts` | (antigo middleware) roteamento de locale via next-intl |
-| `instrumentation.ts` | registra MSW no runtime Node quando `NEXT_PUBLIC_API_MOCKING=true` |
+| Pasta                                        | Responsabilidade                                                                                                                           |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `app/[locale]/(store)`                       | vitrine e fluxo de compra: home, busca, categoria, produto, loja, carrinho, checkout, pagamento, confirmação, favoritos, instalar, offline |
+| `app/[locale]/(account)`                     | login, cadastro, recuperar senha, conta, perfil, endereços, pedidos                                                                        |
+| `app/[locale]/(seller)`                      | painel do vendedor (esqueleto)                                                                                                             |
+| `app/[locale]/(admin)`                       | painel admin (esqueleto)                                                                                                                   |
+| `app/manifest.ts`, `robots.ts`, `sitemap.ts` | metadados PWA/SEO (Metadata Routes)                                                                                                        |
+| `features/<dominio>/{api,components,store}`  | catalog, cart, checkout, orders, payments, auth, account, seller, shipping, home                                                           |
+| `components/ui`                              | shadcn/ui (estilo _base-nova_, primitivos **Base UI**)                                                                                     |
+| `components/layout`                          | Header, BottomNav, TricolorStripe, InstallPrompt, OfflineBanner, StoreShell, Providers, PwaProvider                                        |
+| `components/shared`                          | ProductCard, PriceTag, RatingStars, SellerBadge, QuantityStepper, OrderTimeline, estados vazios/erro…                                      |
+| `lib/api`                                    | `http.ts` (fetch wrapper), `errors.ts`, `query-client.tsx`, `query-keys.ts`                                                                |
+| `lib/money`                                  | operações e formatação monetária (inteiros)                                                                                                |
+| `lib/validation`                             | CPF/RUC/CEP + schemas Zod                                                                                                                  |
+| `i18n`                                       | routing (`pt-BR` padrão sem prefixo, `es-PY` com prefixo), `request.ts`, `navigation.ts`, mensagens                                        |
+| `mocks`                                      | fixtures determinísticas, handlers MSW, "db" em memória + localStorage                                                                     |
+| `sw.ts`                                      | service worker (Serwist)                                                                                                                   |
+| `proxy.ts`                                   | (antigo middleware) roteamento de locale via next-intl                                                                                     |
+| `instrumentation.ts`                         | registra MSW no runtime Node quando `NEXT_PUBLIC_API_MOCKING=true`                                                                         |
 
 ## Regras da camada de dados
 
@@ -85,16 +85,16 @@ o arquivo manual apenas como referência.
 
 ## Decisões relevantes
 
-| Decisão | Motivo |
-| --- | --- |
-| Next 16 + Turbopack | versão estável mais recente; build rápido |
-| shadcn/ui v4 (Base UI) | acessibilidade out-of-the-box; **não existe `asChild`** — usar `render={<Link/>}` |
-| Serwist via CLI (`serwist build`) | o plugin webpack não roda com Turbopack; a CLI gera `public/sw.js` a partir de `src/sw.ts` (ver `PWA.md`) |
-| MSW no browser + Node | mesma fixture no cliente e no servidor (`instrumentation.ts`) |
-| Money como inteiro + fração exata para câmbio | evita float em dinheiro; espelha `long`/`decimal` no .NET |
-| Carrinho por vendedor, um pedido por loja, um pagamento por compra | modelo Mercado Livre; simplifica frete/rastreio por origem e o split de pagamento |
-| Rotas em português sem prefixo (`/produto/[slug]`) e `/es-PY/...` | SEO no Brasil (mercado principal); espanhol para vendedores |
-| Porta de dev **3210** | 3000/3100 já estavam em uso na máquina de desenvolvimento |
+| Decisão                                                            | Motivo                                                                                                    |
+| ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------- |
+| Next 16 + Turbopack                                                | versão estável mais recente; build rápido                                                                 |
+| shadcn/ui v4 (Base UI)                                             | acessibilidade out-of-the-box; **não existe `asChild`** — usar `render={<Link/>}`                         |
+| Serwist via CLI (`serwist build`)                                  | o plugin webpack não roda com Turbopack; a CLI gera `public/sw.js` a partir de `src/sw.ts` (ver `PWA.md`) |
+| MSW no browser + Node                                              | mesma fixture no cliente e no servidor (`instrumentation.ts`)                                             |
+| Money como inteiro + fração exata para câmbio                      | evita float em dinheiro; espelha `long`/`decimal` no .NET                                                 |
+| Carrinho por vendedor, um pedido por loja, um pagamento por compra | modelo Mercado Livre; simplifica frete/rastreio por origem e o split de pagamento                         |
+| Rotas em português sem prefixo (`/produto/[slug]`) e `/es-PY/...`  | SEO no Brasil (mercado principal); espanhol para vendedores                                               |
+| Porta de dev **3210**                                              | 3000/3100 já estavam em uso na máquina de desenvolvimento                                                 |
 
 ## Fluxo do comprador (ponta a ponta com mock)
 

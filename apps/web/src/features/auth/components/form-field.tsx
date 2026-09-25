@@ -23,7 +23,10 @@ export function useValidationMessage() {
 }
 
 /** Aplica erros 422 da API (ApiError.errors) nos campos do react-hook-form. */
-export function applyApiErrors<T extends FieldValues>(error: unknown, setError: UseFormSetError<T>): boolean {
+export function applyApiErrors<T extends FieldValues>(
+  error: unknown,
+  setError: UseFormSetError<T>,
+): boolean {
   if (!isApiError(error) || !error.errors) return false;
   let applied = false;
   for (const [field, messages] of Object.entries(error.errors)) {
@@ -42,7 +45,11 @@ interface FormFieldProps {
   required?: boolean;
   optional?: boolean;
   className?: string;
-  children: (props: { id: string; "aria-invalid": boolean; "aria-describedby": string | undefined }) => ReactNode;
+  children: (props: {
+    id: string;
+    "aria-invalid": boolean;
+    "aria-describedby": string | undefined;
+  }) => ReactNode;
 }
 
 /** Label + controle + erro/dica, acessível (aria-invalid / aria-describedby). */
@@ -53,14 +60,16 @@ export function FormField({ label, error, hint, optional, className, children }:
   const message = translate(error);
   const describedBy = message ? `${id}-error` : hint ? `${id}-hint` : undefined;
   return (
-    <div className={cn("flex flex-col gap-1.5", className)}>
-      <Label htmlFor={id}>
+    <div className={cn("flex flex-col gap-2", className)}>
+      <Label htmlFor={id} className="text-[13px]">
         {label}
-        {optional ? <span className="text-xs font-normal text-muted-foreground">({tCommon("optional")})</span> : null}
+        {optional ? (
+          <span className="text-xs font-medium text-placeholder">({tCommon("optional")})</span>
+        ) : null}
       </Label>
       {children({ id, "aria-invalid": Boolean(message), "aria-describedby": describedBy })}
       {message ? (
-        <p id={`${id}-error`} role="alert" className="text-xs font-medium text-destructive">
+        <p id={`${id}-error`} role="alert" className="text-xs font-bold text-destructive">
           {message}
         </p>
       ) : hint ? (
@@ -78,13 +87,18 @@ export function PasswordInput({ className, ...props }: ComponentProps<typeof Inp
   const [visible, setVisible] = useState(false);
   return (
     <div className="relative">
-      <Input type={visible ? "text" : "password"} autoComplete="current-password" className={cn("pr-12", className)} {...props} />
+      <Input
+        type={visible ? "text" : "password"}
+        autoComplete="current-password"
+        className={cn("pr-12", className)}
+        {...props}
+      />
       <button
         type="button"
         onClick={() => setVisible((v) => !v)}
         aria-label={visible ? t("hidePassword") : t("showPassword")}
         aria-pressed={visible}
-        className="absolute top-1/2 right-0.5 flex size-10 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+        className="absolute top-1/2 right-1 flex size-10 -translate-y-1/2 pressable items-center justify-center rounded-md text-chevron transition-colors hover:bg-surface hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none"
       >
         {visible ? <EyeOff className="size-4.5" /> : <Eye className="size-4.5" />}
       </button>
@@ -93,7 +107,10 @@ export function PasswordInput({ className, ...props }: ComponentProps<typeof Inp
 }
 
 /** Extrai a mensagem de erro de um campo do react-hook-form. */
-export function fieldError<T extends FieldValues>(errors: FieldErrors<T>, name: keyof T): string | undefined {
+export function fieldError<T extends FieldValues>(
+  errors: FieldErrors<T>,
+  name: keyof T,
+): string | undefined {
   const e = errors[name as Path<T>];
   return typeof e?.message === "string" ? e.message : undefined;
 }

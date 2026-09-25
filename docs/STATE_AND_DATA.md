@@ -2,12 +2,12 @@
 
 ## Camadas
 
-| Tipo de estado | Ferramenta | Persistência | Exemplos |
-| --- | --- | --- | --- |
-| Servidor (remoto) | TanStack Query v5 | memória (`gcTime` 24 h) + SW cache HTTP | catálogo, pedidos, cotações |
-| Cliente (local) | Zustand v5 + `persist` | `localStorage` | carrinho, favoritos, sessão |
-| URL | `searchParams` | link compartilhável | filtros/ordenação da busca |
-| Mock DB | módulo + `localStorage` | só com MSW | pedidos criados na demo |
+| Tipo de estado    | Ferramenta              | Persistência                            | Exemplos                    |
+| ----------------- | ----------------------- | --------------------------------------- | --------------------------- |
+| Servidor (remoto) | TanStack Query v5       | memória (`gcTime` 24 h) + SW cache HTTP | catálogo, pedidos, cotações |
+| Cliente (local)   | Zustand v5 + `persist`  | `localStorage`                          | carrinho, favoritos, sessão |
+| URL               | `searchParams`          | link compartilhável                     | filtros/ordenação da busca  |
+| Mock DB           | módulo + `localStorage` | só com MSW                              | pedidos criados na demo     |
 
 ## TanStack Query — `lib/api/query-client.tsx`
 
@@ -15,6 +15,7 @@
 staleTime: 60 s · gcTime: 24 h · refetchOnWindowFocus: false
 retry: 4xx → nunca; outros → até 2 tentativas com backoff (1 s, 2 s, máx. 4 s)
 ```
+
 - `QueryProvider` cria um client por navegador (`getQueryClient`) e novo por request no servidor.
 - Devtools disponíveis em desenvolvimento (botão no canto superior direito).
 - Listas paginadas usam `useInfiniteQuery` (`getNextPageParam` a partir de `page*pageSize < totalCount`);
@@ -25,11 +26,11 @@ retry: 4xx → nunca; outros → até 2 tentativas com backoff (1 s, 2 s, máx. 
 
 ## Zustand — stores
 
-| Store | Chave localStorage | Conteúdo |
-| --- | --- | --- |
-| `features/cart/store.ts` | `mktpy.cart.v1` | `lines: CartLine[]` (snapshot do produto + variante + qty + loja), `lastUpdatedAt` |
-| `features/catalog/favorites-store.ts` | `mktpy.favorites.v1` | `items: { productId, createdAt, snapshot }` |
-| `features/auth/store.ts` | `mktpy.session.v1` | `user`, `accessToken`, `refreshToken`, `expiresAt` |
+| Store                                 | Chave localStorage   | Conteúdo                                                                           |
+| ------------------------------------- | -------------------- | ---------------------------------------------------------------------------------- |
+| `features/cart/store.ts`              | `mktpy.cart.v1`      | `lines: CartLine[]` (snapshot do produto + variante + qty + loja), `lastUpdatedAt` |
+| `features/catalog/favorites-store.ts` | `mktpy.favorites.v1` | `items: { productId, createdAt, snapshot }`                                        |
+| `features/auth/store.ts`              | `mktpy.session.v1`   | `user`, `accessToken`, `refreshToken`, `expiresAt`                                 |
 
 Seletores derivados (puros): `selectItemCount`, `selectSubtotal`, `groupBySeller`. Hidratação: renderizar conteúdo
 dependente da store só após `useXxxStore.persist.hasHydrated()` (ou flag `mounted`) para evitar mismatch SSR.

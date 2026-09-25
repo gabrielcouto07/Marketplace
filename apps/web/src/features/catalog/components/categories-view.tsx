@@ -1,47 +1,44 @@
 "use client";
 
-import { ChevronRight } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { PageContainer } from "@/components/layout/store-shell";
-import { CategoryIcon } from "@/components/shared/category-icon";
+import { CategoryTile } from "@/components/shared/category-tile";
 import { ErrorState } from "@/components/shared/states";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCategories } from "@/features/catalog/api";
-import { Link } from "@/i18n/navigation";
 
+/** Página de departamentos: título grande, subtítulo com a contagem e grade de tiles tintados. */
 export function CategoriesView() {
   const t = useTranslations("catalog");
   const { data, isPending, isError, error, refetch } = useCategories();
 
   return (
-    <PageContainer className="pt-4">
-      <h1 className="mb-4 text-xl font-bold tracking-tight">{t("categoriesTitle")}</h1>
+    <PageContainer className="flex flex-col gap-4 pt-5">
+      <div className="flex flex-col gap-1">
+        <h1 className="text-[28px] font-extrabold tracking-[-0.03em]">{t("categoriesTitle")}</h1>
+        {isPending ? (
+          <Skeleton className="h-4 w-56 rounded-md" />
+        ) : (
+          <p className="text-[13.5px] text-muted-foreground">
+            {t("categoriesSubtitle", { count: data?.length ?? 0 })}
+          </p>
+        )}
+      </div>
+
       {isError ? (
         <ErrorState error={error} onRetry={() => refetch()} />
       ) : (
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+        <ul className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-4">
           {isPending
             ? Array.from({ length: 8 }).map((_, i) => (
                 <li key={i}>
-                  <Skeleton className="h-[88px] rounded-xl" />
+                  <Skeleton className="h-[132px] rounded-[22px]" />
                 </li>
               ))
-            : data.map((c) => (
-                <li key={c.id}>
-                  <Link
-                    href={`/categoria/${c.slug}`}
-                    className="flex min-h-[88px] items-center gap-3 rounded-xl border border-border bg-card p-3 transition-colors hover:border-primary/40 hover:bg-accent/40 focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
-                  >
-                    <span className="flex size-12 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground">
-                      <CategoryIcon iconKey={c.iconKey} className="size-6" />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate font-semibold">{c.name}</span>
-                      <span className="block text-xs text-muted-foreground">{t("categoryProducts", { count: c.productCount })}</span>
-                    </span>
-                    <ChevronRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
-                  </Link>
+            : data.map((c, i) => (
+                <li key={c.id} className="animate-rise" style={{ animationDelay: `${i * 40}ms` }}>
+                  <CategoryTile category={c} variant="card" />
                 </li>
               ))}
         </ul>

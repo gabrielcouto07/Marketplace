@@ -17,7 +17,11 @@ export const sellerQuery = (slug: string) =>
   queryOptions({ queryKey: queryKeys.sellers.detail(slug), queryFn: () => sellerApi.detail(slug) });
 
 export function useSellers() {
-  return useQuery({ queryKey: queryKeys.sellers.all, queryFn: sellerApi.list, staleTime: 30 * 60 * 1000 });
+  return useQuery({
+    queryKey: queryKeys.sellers.all,
+    queryFn: sellerApi.list,
+    staleTime: 30 * 60 * 1000,
+  });
 }
 
 export function useSeller(slug: string) {
@@ -29,7 +33,8 @@ export function useSellerReviews(slug: string) {
     queryKey: queryKeys.sellers.reviews(slug),
     queryFn: ({ pageParam }) => sellerApi.reviews(slug, pageParam),
     initialPageParam: 1,
-    getNextPageParam: (last) => (last.page * last.pageSize < last.totalCount ? last.page + 1 : undefined),
+    getNextPageParam: (last) =>
+      last.page * last.pageSize < last.totalCount ? last.page + 1 : undefined,
     enabled: Boolean(slug),
   });
 }

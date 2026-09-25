@@ -25,10 +25,7 @@ export const optionalCpfSchema = z
 
 export const rucSchema = z.string().trim().refine(isValidRuc, "invalidRuc");
 
-export const cepSchema = z
-  .string()
-  .transform(onlyDigits)
-  .refine(isValidCep, "invalidCep");
+export const cepSchema = z.string().transform(onlyDigits).refine(isValidCep, "invalidCep");
 
 export const phoneBrSchema = z
   .string()
@@ -50,7 +47,10 @@ export const registerSchema = z
     confirmPassword: z.string(),
     acceptTerms: z.boolean().refine((v) => v, "acceptTerms"),
   })
-  .refine((v) => v.password === v.confirmPassword, { path: ["confirmPassword"], message: "passwordMismatch" });
+  .refine((v) => v.password === v.confirmPassword, {
+    path: ["confirmPassword"],
+    message: "passwordMismatch",
+  });
 export type RegisterFormValues = z.infer<typeof registerSchema>;
 
 export const forgotPasswordSchema = z.object({ email: emailSchema });

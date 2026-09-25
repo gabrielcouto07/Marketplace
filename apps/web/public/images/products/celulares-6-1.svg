@@ -3,6 +3,6 @@
 <rect width="600" height="600" fill="url(#g)"/>
 <circle cx="150" cy="80" r="140" fill="hsl(264 55% 42%)" opacity=".07"/>
 <g transform="translate(0 -40) rotate(0 300 300)" fill="hsl(264 55% 42%)" stroke="hsl(264 55% 42%)" stroke-linecap="round" stroke-linejoin="round" opacity=".9"><rect x="205" y="120" width="190" height="360" rx="34"/><circle cx="300" cy="440" r="14" fill="#fff" opacity=".6"/></g>
-<text x="300" y="520" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="600" fill="hsl(264 55% 42%)"><tspan x="300" dy="0">Power bank 20.000 mAh 22.5</tspan><tspan x="300" dy="26">W com cabo integrado</tspan></text>
-<text x="560" y="580" text-anchor="end" font-family="Inter, Arial, sans-serif" font-size="16" fill="hsl(264 55% 42%)" opacity=".7">6/1</text>
+<text x="300" y="520" text-anchor="middle" font-family="Plus Jakarta Sans, Inter, Arial, sans-serif" font-size="22" font-weight="600" fill="hsl(264 55% 42%)"><tspan x="300" dy="0">Power bank 20.000 mAh 22.5</tspan><tspan x="300" dy="26">W com cabo integrado</tspan></text>
+<text x="560" y="580" text-anchor="end" font-family="Plus Jakarta Sans, Inter, Arial, sans-serif" font-size="16" fill="hsl(264 55% 42%)" opacity=".7">6/1</text>
 </svg>

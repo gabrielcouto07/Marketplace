@@ -1,6 +1,11 @@
 "use client";
 
-import type { CheckoutQuoteDto, CheckoutQuoteRequest, PlaceOrderRequest, PlaceOrderResponseDto } from "@marketplace/contracts";
+import type {
+  CheckoutQuoteDto,
+  CheckoutQuoteRequest,
+  PlaceOrderRequest,
+  PlaceOrderResponseDto,
+} from "@marketplace/contracts";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { api } from "@/lib/api/http";
@@ -8,7 +13,10 @@ import { onlyDigits } from "@/lib/validation/documents";
 
 export const checkoutApi = {
   quote: (body: CheckoutQuoteRequest) =>
-    api.post<CheckoutQuoteDto>("/checkout/quotes", { ...body, postalCode: onlyDigits(body.postalCode) }),
+    api.post<CheckoutQuoteDto>("/checkout/quotes", {
+      ...body,
+      postalCode: onlyDigits(body.postalCode),
+    }),
   placeOrder: (body: PlaceOrderRequest) => api.post<PlaceOrderResponseDto>("/orders", body),
 };
 

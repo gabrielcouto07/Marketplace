@@ -27,7 +27,11 @@
     "currencyNote": "Preços em reais (BRL). Valores em guaranis (PYG) são apenas referência.",
     "language": "Idioma",
     "portuguese": "Português (Brasil)",
-    "spanish": "Español (Paraguay)"
+    "spanish": "Español (Paraguay)",
+    "brandLine1": "Marketplace",
+    "brandLine2": "Paraguai",
+    "installmentsShort": "{count}x {amount}",
+    "installmentsLong": "em até {count}x de {amount} sem juros"
   },
   "nav": {
     "home": "Início",
@@ -41,7 +45,9 @@
     "clearSearch": "Limpar busca",
     "quickActions": "Ações rápidas",
     "mainNavigation": "Navegação principal",
-    "cartWithCount": "Carrinho, {count, plural, =0 {vazio} one {# item} other {# itens}}"
+    "cartWithCount": "Carrinho, {count, plural, =0 {vazio} one {# item} other {# itens}}",
+    "search": "Buscar",
+    "openSearch": "Abrir busca"
   },
   "validation": {
     "required": "Campo obrigatório",
@@ -95,11 +101,22 @@
       "installNow": "Instalar agora",
       "alreadyInstalled": "O app já está instalado neste aparelho.",
       "androidTitle": "Android (Chrome)",
-      "androidSteps": ["Toque no menu ⋮ no canto superior direito.", "Escolha \"Instalar app\" ou \"Adicionar à tela inicial\".", "Confirme. O ícone aparecerá junto aos seus apps."],
+      "androidSteps": [
+        "Toque no menu ⋮ no canto superior direito.",
+        "Escolha \"Instalar app\" ou \"Adicionar à tela inicial\".",
+        "Confirme. O ícone aparecerá junto aos seus apps."
+      ],
       "iosTitle": "iPhone e iPad (Safari)",
-      "iosSteps": ["Toque no botão Compartilhar (quadrado com seta para cima).", "Role e toque em \"Adicionar à Tela de Início\".", "Toque em \"Adicionar\" no canto superior direito."],
+      "iosSteps": [
+        "Toque no botão Compartilhar (quadrado com seta para cima).",
+        "Role e toque em \"Adicionar à Tela de Início\".",
+        "Toque em \"Adicionar\" no canto superior direito."
+      ],
       "desktopTitle": "Computador (Chrome ou Edge)",
-      "desktopSteps": ["Clique no ícone de instalação na barra de endereço.", "Confirme em \"Instalar\"."]
+      "desktopSteps": [
+        "Clique no ícone de instalação na barra de endereço.",
+        "Confirme em \"Instalar\"."
+      ]
     }
   },
   "home": {
@@ -114,7 +131,17 @@
     "trustShipping": "Rastreio ponta a ponta",
     "trustTax": "Impostos estimados antes de pagar",
     "trustSellers": "Lojas verificadas no Paraguai",
-    "trustPayment": "Pix, boleto ou cartão em até 12x"
+    "trustPayment": "Pix, boleto ou cartão em até 12x",
+    "deliverTo": "Entregar em {place}",
+    "setCep": "Informe seu CEP para ver prazos",
+    "bannerCta": "Conferir",
+    "dealsEndIn": "As ofertas terminam em {time}",
+    "greetingMorning": "Bom dia",
+    "greetingAfternoon": "Boa tarde",
+    "greetingEvening": "Boa noite",
+    "greetingHint": "Boas compras do Paraguai!",
+    "promoLabel": "Promoções",
+    "cartShortcut": "Abrir carrinho"
   },
   "catalog": {
     "searchTitle": "Busca",
@@ -159,7 +186,28 @@
     "favoritesEmptyTitle": "Nenhum favorito ainda",
     "favoritesEmptyDescription": "Toque no coração de um produto para salvá-lo aqui, mesmo offline.",
     "exploreProducts": "Explorar produtos",
-    "suggestions": "Sugestões"
+    "suggestions": "Sugestões",
+    "soldCompact": "{count} vendidos",
+    "categoriesSubtitle": "{count, plural, one {# departamento} other {# departamentos}} de lojas verificadas no Paraguai",
+    "recentSearches": "Buscas recentes",
+    "trending": "Em alta no Paraguai",
+    "clearRecent": "Limpar",
+    "priceUpTo": "Até {max}",
+    "priceBetween": "{min} a {max}",
+    "priceAbove": "Acima de {min}",
+    "filterFreeShippingHint": "Lojas com envio sem custo",
+    "filterOffersHint": "15% ou mais de desconto",
+    "filterRatingTop": "Bem avaliados",
+    "filterRatingTopHint": "Nota 4,5 ou maior",
+    "quickFreeShipping": "Frete grátis",
+    "quickOffers": "Ofertas",
+    "quickRatingTop": "★ 4,5+",
+    "clear": "Limpar",
+    "closeFilters": "Fechar filtros",
+    "searchSubmit": "Buscar",
+    "favoritesCount": "{count, plural, one {# item} other {# itens}}",
+    "viewProducts": "Ver produtos",
+    "trendingItem": "Buscar por {term}"
   },
   "product": {
     "soldCount": "{count, plural, =0 {Nenhum vendido} one {# vendido} other {# vendidos}}",
@@ -213,7 +261,16 @@
     "metricSales": "vendas",
     "metricPositive": "positivas",
     "metricOnTime": "no prazo",
-    "warrantyLabel": "Garantia"
+    "warrantyLabel": "Garantia",
+    "quantity": "Quantidade",
+    "stockCount": "{count, plural, one {# em estoque} other {# em estoque}}",
+    "taxHint": "Você vê o valor da importação no resumo do pedido. Sem surpresas na entrega.",
+    "shippingFromPrice": "Frete a partir de {price}",
+    "arrivesIn": "Chega em {min}–{max} dias úteis para o CEP {cep}",
+    "metricResponse": "tempo de resposta",
+    "responseHours": "~{hours}h",
+    "addShort": "Adicionar",
+    "sellerCard": "Loja {name}: ver perfil e produtos"
   },
   "seller": {
     "officialStore": "Loja oficial",
@@ -244,7 +301,13 @@
     "metricPositive": "Avaliações positivas",
     "metricOnTime": "Envios no prazo",
     "metricResponse": "Tempo de resposta",
-    "noReviews": "Esta loja ainda não tem avaliações."
+    "noReviews": "Esta loja ainda não tem avaliações.",
+    "viewStore": "Ver loja",
+    "yearsOnMarketplace": "{years, plural, =0 {novo no marketplace} one {há # ano no marketplace} other {há # anos no marketplace}}",
+    "locationShort": "{city}, PY",
+    "reputation": "Reputação",
+    "reviewsCount": "{count, plural, one {# avaliação} other {# avaliações}}",
+    "exchangeTitle": "Trocas e devoluções"
   },
   "cart": {
     "title": "Carrinho",
@@ -266,7 +329,15 @@
     "offlineNote": "Você está offline — o carrinho está salvo e será sincronizado quando a conexão voltar.",
     "maxQuantity": "Quantidade máxima disponível: {max}",
     "estimatedTotal": "Total estimado",
-    "loginToCheckout": "Entre para finalizar a compra"
+    "loginToCheckout": "Entre para finalizar a compra",
+    "itemCount": "{count, plural, one {# item} other {# itens}}",
+    "shippedFrom": "Enviado de {city}, PY",
+    "freeShippingReached": "Frete grátis desbloqueado nesta loja",
+    "freeShippingMissing": "Faltam {amount} para frete grátis",
+    "products": "Produtos",
+    "shippingAndTaxes": "Frete e impostos",
+    "calculatedAtCheckout": "calculados no checkout",
+    "exploreOffers": "Explorar ofertas"
   },
   "checkout": {
     "title": "Checkout",
@@ -323,7 +394,20 @@
     "orderFailed": "Não foi possível confirmar o pedido.",
     "cpfRequired": "Informe o CPF para emissão da declaração de importação.",
     "cardDeclined": "Cartão recusado. Tente outro cartão ou pague com Pix.",
-    "testCardHint": "Mock: qualquer número é aprovado, exceto final 0000 (recusado)."
+    "testCardHint": "Mock: qualquer número é aprovado, exceto final 0000 (recusado).",
+    "heading": "Finalizar compra",
+    "secure": "Seguro",
+    "exchangeLockedFor": "Câmbio travado por {time}",
+    "quotedAt": "cotação de hoje, {time}",
+    "boletoShort": "Boleto",
+    "cardShort": "Cartão",
+    "pixNote": "Aprovação na hora. O QR code e o código copia-e-cola aparecem depois de finalizar, válidos por 30 minutos.",
+    "boletoNote": "Vence em 3 dias úteis. A compensação leva até 2 dias úteis e o câmbio fica travado até lá.",
+    "couponApplied": "{code} aplicado: {amount} de desconto nos produtos",
+    "couponInvalid": "Cupom inválido ou expirado.",
+    "finishOrder": "Finalizar pedido",
+    "summaryShort": "Resumo",
+    "progressLabel": "Etapas do checkout"
   },
   "payment": {
     "title": "Pagamento",
@@ -349,7 +433,11 @@
     "amount": "Valor",
     "goToOrders": "Ver meus pedidos",
     "goToConfirmation": "Ver confirmação",
-    "status": "Status do pagamento"
+    "status": "Status do pagamento",
+    "copyDigitableLine": "Copiar linha digitável",
+    "pendingTitle": "Quase lá!",
+    "qrLabel": "QR code Pix",
+    "expiresInLabel": "Expira em"
   },
   "orders": {
     "title": "Meus pedidos",
@@ -412,7 +500,12 @@
       "EmDisputa": "Em disputa",
       "Devolvido": "Devolvido",
       "Reembolsado": "Reembolsado"
-    }
+    },
+    "totalPaid": "Total pago",
+    "totalDue": "Total a pagar",
+    "awaitingPaymentNote": "Pague para o vendedor iniciar a preparação",
+    "etaShort": "Chega entre {min} e {max}",
+    "moreItems": "+{count}"
   },
   "account": {
     "title": "Minha conta",
@@ -462,7 +555,19 @@
     "city": "Cidade",
     "state": "UF",
     "memberSince": "Cliente desde {date}",
-    "version": "Versão {version}"
+    "version": "Versão {version}",
+    "statOrders": "Pedidos",
+    "statFavorites": "Favoritos",
+    "statAddresses": "Endereços",
+    "viewAllOrders": "Ver todos os pedidos",
+    "noRecentOrders": "Você ainda não tem pedidos",
+    "menuFavoritesHint": "Produtos que você salvou",
+    "menuInstallHint": "Acesso rápido e offline",
+    "menuHelpHint": "Dúvidas e suporte",
+    "menuSellerHint": "Produtos, pedidos e repasses",
+    "menuAdminHint": "Gestão da plataforma",
+    "signOutHint": "Encerrar a sessão neste aparelho",
+    "helpSoon": "A central de ajuda está chegando."
   },
   "auth": {
     "loginTitle": "Entrar",

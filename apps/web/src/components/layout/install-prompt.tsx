@@ -16,7 +16,7 @@ const DISMISS_DAYS = 7;
  * Banner de instalação customizado.
  * - Android/Chrome: usa o evento beforeinstallprompt capturado no PwaProvider.
  * - iOS: mostra instruções (Compartilhar → Adicionar à Tela de Início).
- * Aparece após 2 visitas/8s e respeita "dispensar por 7 dias".
+ * Aparece após 8 s e respeita "dispensar por 7 dias".
  */
 export function InstallPrompt() {
   const t = useTranslations("pwa");
@@ -51,28 +51,36 @@ export function InstallPrompt() {
     <div
       role="dialog"
       aria-labelledby="install-title"
-      className="fixed inset-x-3 bottom-[calc(var(--bottom-nav-height)+var(--safe-bottom)+0.75rem)] z-50 mx-auto max-w-md rounded-2xl border border-border bg-card p-4 shadow-xl md:bottom-6"
+      className="fixed inset-x-3 bottom-[calc(var(--bottom-nav-height)+var(--safe-bottom)+0.75rem)] z-50 mx-auto max-w-md animate-rise rounded-3xl bg-card p-4 shadow-ink md:bottom-6"
     >
       <div className="flex items-start gap-3">
-        <Image src="/icons/icon-192.png" alt="" width={48} height={48} className="size-12 rounded-xl" />
+        <Image
+          src="/icons/icon-192.png"
+          alt=""
+          width={48}
+          height={48}
+          className="size-12 rounded-2xl"
+        />
         <div className="min-w-0 flex-1">
-          <p id="install-title" className="font-semibold">
+          <p id="install-title" className="text-[15px] font-extrabold">
             {t("installTitle")}
           </p>
-          <p className="text-sm text-muted-foreground">
-            {isIos ? (
-              t.rich("iosHint", {
-                share: () => <Share aria-label={t("shareIcon")} className="inline size-4 align-text-bottom" />,
-              })
-            ) : (
-              t("androidHint")
-            )}
+          <p className="mt-0.5 text-[13px] leading-relaxed text-muted-foreground">
+            {isIos
+              ? t.rich("iosHint", {
+                  share: () => (
+                    <Share
+                      aria-label={t("shareIcon")}
+                      className="inline size-4 align-text-bottom"
+                    />
+                  ),
+                })
+              : t("androidHint")}
           </p>
           <div className="mt-3 flex gap-2">
             {canPrompt ? (
               <Button
                 size="sm"
-                variant="cta"
                 onClick={async () => {
                   const result = await promptInstall();
                   if (result !== "dismissed") setVisible(false);
@@ -82,7 +90,7 @@ export function InstallPrompt() {
                 {t("installButton")}
               </Button>
             ) : (
-              <Button size="sm" variant="outline" render={<Link href="/instalar" />}>
+              <Button size="sm" variant="soft" render={<Link href="/instalar" />}>
                 {t("howToInstall")}
               </Button>
             )}
@@ -95,9 +103,9 @@ export function InstallPrompt() {
           type="button"
           onClick={dismiss}
           aria-label={t("close")}
-          className="-mt-1 -mr-1 flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted"
+          className="-mt-1 -mr-1 flex size-9 shrink-0 items-center justify-center rounded-full bg-surface text-foreground hover:bg-surface-strong"
         >
-          <X className="size-4" />
+          <X className="size-4" strokeWidth={2.4} />
         </button>
       </div>
     </div>

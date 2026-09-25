@@ -1,7 +1,16 @@
 "use client";
 
 import type { OrderDto, OrderStatus } from "@marketplace/contracts";
-import { AlertOctagon, Ban, Copy, CreditCard, MapPin, RefreshCw, Truck } from "lucide-react";
+import {
+  AlertOctagon,
+  Ban,
+  Copy,
+  CreditCard,
+  MapPin,
+  RefreshCw,
+  Truck,
+  type LucideIcon,
+} from "lucide-react";
 import Image from "next/image";
 import { useFormatter, useTranslations } from "next-intl";
 import { useState, type ReactNode } from "react";
@@ -11,7 +20,14 @@ import { PageContainer } from "@/components/layout/store-shell";
 import { OrderStatusBadge, OrderTimeline } from "@/components/shared/order-status";
 import { ErrorState } from "@/components/shared/states";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { LoginRequired } from "@/features/account/components/profile-view";
 import { useAuthStore, useCurrentUser } from "@/features/auth/store";
@@ -19,6 +35,7 @@ import { useCartStore } from "@/features/cart/store";
 import { useCancelOrder, useOpenDispute, useOrder } from "@/features/orders/api";
 import { Link, useRouter } from "@/i18n/navigation";
 import { convert, formatMoney } from "@/lib/money";
+import { cn } from "@/lib/utils";
 import { formatCep } from "@/lib/validation/documents";
 
 const CANCELLABLE: OrderStatus[] = ["AguardandoPagamento", "Pago", "EmPreparacao"];
@@ -35,15 +52,16 @@ export function OrderDetailView({ orderId }: { orderId: string }) {
   if (order.isPending) {
     return (
       <PageContainer className="flex flex-col gap-3 py-4">
-        <Skeleton className="h-20 rounded-2xl" />
-        <Skeleton className="h-64 rounded-2xl" />
-        <Skeleton className="h-40 rounded-2xl" />
+        <Skeleton className="h-24 rounded-3xl" />
+        <Skeleton className="h-72 rounded-3xl" />
+        <Skeleton className="h-40 rounded-3xl" />
+        <Skeleton className="h-28 rounded-3xl" />
       </PageContainer>
     );
   }
   if (order.isError) {
     return (
-      <PageContainer>
+      <PageContainer className="py-4">
         <ErrorState error={order.error} onRetry={() => order.refetch()} />
       </PageContainer>
     );
@@ -52,11 +70,34 @@ export function OrderDetailView({ orderId }: { orderId: string }) {
   return <OrderDetail order={order.data} />;
 }
 
-function Section({ title, icon, children }: { title: string; icon?: ReactNode; children: ReactNode }) {
+/** Card branco empilhado com título (e ícone em caixa azul-suave opcional). */
+function Section({
+  title,
+  icon: Icon,
+  children,
+  className,
+  delay = 0,
+}: {
+  title: string;
+  icon?: LucideIcon;
+  children: ReactNode;
+  className?: string;
+  delay?: number;
+}) {
   return (
-    <section className="rounded-2xl border border-border bg-card p-4">
-      <h2 className="mb-3 flex items-center gap-2 text-base font-bold">
-        {icon}
+    <section
+      className={cn(
+        "flex animate-rise flex-col gap-3 rounded-3xl bg-card p-4 shadow-card",
+        className,
+      )}
+      style={{ animationDelay: `${delay}ms` }}
+    >
+      <h2 className="flex items-center gap-2.5 text-[15px] font-extrabold">
+        {Icon ? (
+          <span className="flex size-8 shrink-0 items-center justify-center rounded-[10px] bg-accent text-accent-foreground">
+            <Icon className="size-4" aria-hidden />
+          </span>
+        ) : null}
         {title}
       </h2>
       {children}
@@ -132,143 +173,201 @@ function OrderDetail({ order }: { order: OrderDto }) {
   const tPayStatus = t(`paymentStatus.${order.payment.status}`);
 
   return (
-    <PageContainer className="flex flex-col gap-4 py-4">
-      <header className="flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-border bg-card p-4">
-        <div>
-          <h1 className="text-lg font-bold">{t("orderNumber", { number: order.number })}</h1>
-          <p className="text-xs text-muted-foreground">
-            {t("placedOn", { date: format.dateTime(new Date(order.createdAt), "dateTime") })} · {order.seller.name}
-          </p>
+    <PageContainer className="flex flex-col gap-3 py-4 md:grid md:grid-cols-2 md:items-start">
+      <header className="flex animate-rise flex-col gap-3 rounded-3xl bg-card p-4 shadow-card md:col-span-2">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="text-lg font-extrabold tracking-tight">
+              {t("orderNumber", { number: order.number })}
+            </h1>
+            <p className="text-xs text-muted-foreground">
+              {order.seller.name} ·{" "}
+              {t("placedOn", { date: format.dateTime(new Date(order.createdAt), "dateTime") })}
+            </p>
+          </div>
+          <OrderStatusBadge status={order.status} />
         </div>
-        <OrderStatusBadge status={order.status} />
         {order.status === "AguardandoPagamento" ? (
-          <Button variant="cta" className="w-full" render={<Link href={`/pagamento/${order.payment.id}`} />}>
+          <Button
+            variant="cta"
+            className="w-full"
+            render={<Link href={`/pagamento/${order.payment.id}`} />}
+          >
             <CreditCard data-icon="inline-start" /> {t("payNow")}
           </Button>
         ) : null}
       </header>
 
-      <Section title={t("timelineLabel")}>
-        <OrderTimeline status={order.status} events={order.timeline} />
+      <Section title={t("timelineLabel")} delay={40}>
+        <OrderTimeline status={order.status} events={order.timeline} className="mt-1" />
       </Section>
 
-      <Section title={t("trackingTitle")} icon={<Truck className="size-5 text-primary" aria-hidden />}>
-        <p className="mb-2 text-sm text-muted-foreground">
-          {t("estimatedDelivery")}:{" "}
-          <span className="font-medium text-foreground">
-            {t("estimatedRange", {
-              min: format.dateTime(new Date(order.estimatedDelivery.min), "short"),
-              max: format.dateTime(new Date(order.estimatedDelivery.max), "short"),
-            })}
-          </span>
-        </p>
-        {order.trackingCode ? (
-          <>
-            <div className="flex items-center gap-2 rounded-lg bg-muted px-3 py-2">
-              <span className="min-w-0 flex-1 truncate font-mono text-sm">{order.trackingCode}</span>
-              <Button size="icon-sm" variant="ghost" aria-label={tc("copy")} onClick={copyTracking}>
-                <Copy />
-              </Button>
-            </div>
-            <ol className="mt-3 flex flex-col gap-3 border-l-2 border-border pl-4">
-              {events.map((e, i) => (
-                <li key={`${e.code}-${e.occurredAt}`} className="relative text-sm">
-                  <span className={`absolute top-1.5 -left-[21px] size-2.5 rounded-full ${i === 0 ? "bg-primary" : "bg-neutral-300"}`} aria-hidden />
-                  <p className="font-medium">{e.description}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {format.dateTime(new Date(e.occurredAt), "dateTime")} · {e.location}
-                  </p>
-                </li>
-              ))}
-            </ol>
-          </>
-        ) : (
-          <p className="text-sm text-muted-foreground">{t("noTracking")}</p>
-        )}
-      </Section>
-
-      <Section title={t("items", { count: order.items.length })}>
-        <ul className="flex flex-col divide-y divide-border">
-          {order.items.map((item) => (
-            <li key={item.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
-              <Image src={item.thumbnailUrl} alt="" width={56} height={56} className="size-14 shrink-0 rounded-lg bg-surface object-cover" />
-              <div className="min-w-0 flex-1">
-                <Link href={`/produto/${item.productSlug}`} className="line-clamp-2 text-sm font-medium hover:text-primary">
-                  {item.name}
-                </Link>
-                {item.variantLabel ? <p className="text-xs text-muted-foreground">{item.variantLabel}</p> : null}
-                <p className="text-xs text-muted-foreground">
-                  {item.quantity} × {formatMoney(item.unitPrice)}
-                </p>
+      <div className="flex flex-col gap-3">
+        <Section title={t("trackingTitle")} icon={Truck} delay={80}>
+          <p className="text-[13px] text-muted-foreground">
+            {t("estimatedDelivery")}:{" "}
+            <span className="font-bold text-foreground">
+              {t("estimatedRange", {
+                min: format.dateTime(new Date(order.estimatedDelivery.min), "short"),
+                max: format.dateTime(new Date(order.estimatedDelivery.max), "short"),
+              })}
+            </span>
+          </p>
+          {order.trackingCode ? (
+            <>
+              <div className="flex items-center gap-2 rounded-lg bg-surface py-1.5 pr-1.5 pl-3.5">
+                <span className="min-w-0 flex-1 truncate font-mono text-sm font-semibold">
+                  {order.trackingCode}
+                </span>
+                <Button
+                  size="icon-sm"
+                  variant="white"
+                  aria-label={tc("copy")}
+                  onClick={copyTracking}
+                >
+                  <Copy />
+                </Button>
               </div>
-              <p className="text-sm font-semibold">{formatMoney(item.lineTotal)}</p>
-            </li>
-          ))}
-        </ul>
-      </Section>
+              <ol className="ml-1 flex flex-col gap-3 border-l-2 border-line-200 pl-4">
+                {events.map((e, i) => (
+                  <li key={`${e.code}-${e.occurredAt}`} className="relative text-sm">
+                    <span
+                      className={cn(
+                        "absolute top-1.5 -left-[23px] size-2.5 rounded-full ring-4 ring-card",
+                        i === 0 ? "bg-primary" : "bg-line-300",
+                      )}
+                      aria-hidden
+                    />
+                    <p className="font-bold">{e.description}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {format.dateTime(new Date(e.occurredAt), "dateTime")} · {e.location}
+                    </p>
+                  </li>
+                ))}
+              </ol>
+            </>
+          ) : (
+            <p className="text-[13px] text-muted-foreground">{t("noTracking")}</p>
+          )}
+        </Section>
 
-      <Section title={t("deliveryAddress")} icon={<MapPin className="size-5 text-primary" aria-hidden />}>
-        <p className="text-sm font-medium">{order.shippingAddress.recipientName}</p>
-        <p className="text-sm">
-          {order.shippingAddress.street}, {order.shippingAddress.number}
-          {order.shippingAddress.complement ? ` – ${order.shippingAddress.complement}` : ""}
-        </p>
-        <p className="text-sm">
-          {order.shippingAddress.neighborhood} · {order.shippingAddress.city}/{order.shippingAddress.state} · CEP{" "}
-          {formatCep(order.shippingAddress.postalCode)}
-        </p>
-        <p className="mt-2 text-xs text-muted-foreground">
-          {order.shippingOption.carrier} · {order.shippingOption.service} ·{" "}
-          {tc("businessDays", { min: order.shippingOption.estimatedDays.min, max: order.shippingOption.estimatedDays.max })}
-        </p>
-      </Section>
+        <Section title={t("items", { count: order.items.length })} delay={120}>
+          <ul className="flex flex-col">
+            {order.items.map((item) => (
+              <li
+                key={item.id}
+                className="flex items-center gap-3 border-t border-border py-3 first:border-t-0 first:pt-0 last:pb-0"
+              >
+                <Image
+                  src={item.thumbnailUrl}
+                  alt=""
+                  width={56}
+                  height={56}
+                  className="size-14 shrink-0 rounded-lg bg-surface object-cover"
+                />
+                <div className="min-w-0 flex-1">
+                  <Link
+                    href={`/produto/${item.productSlug}`}
+                    className="line-clamp-2 text-sm font-bold hover:text-primary"
+                  >
+                    {item.name}
+                  </Link>
+                  {item.variantLabel ? (
+                    <p className="text-xs text-muted-foreground">{item.variantLabel}</p>
+                  ) : null}
+                  <p className="text-xs text-muted-foreground tabular-nums">
+                    {item.quantity} × {formatMoney(item.unitPrice)}
+                  </p>
+                </div>
+                <p className="text-sm font-extrabold tabular-nums">{formatMoney(item.lineTotal)}</p>
+              </li>
+            ))}
+          </ul>
+        </Section>
 
-      <Section title={t("paymentInfo")} icon={<CreditCard className="size-5 text-primary" aria-hidden />}>
-        <p className="text-sm">
-          {tPayMethod} · <span className="font-medium">{tPayStatus}</span>
-        </p>
-      </Section>
+        <Section title={t("deliveryAddress")} icon={MapPin} delay={160}>
+          <div className="text-[13.5px] leading-relaxed text-body">
+            <p className="font-bold text-foreground">{order.shippingAddress.recipientName}</p>
+            <p>
+              {order.shippingAddress.street}, {order.shippingAddress.number}
+              {order.shippingAddress.complement ? ` – ${order.shippingAddress.complement}` : ""}
+            </p>
+            <p>
+              {order.shippingAddress.neighborhood} · {order.shippingAddress.city}/
+              {order.shippingAddress.state} · CEP {formatCep(order.shippingAddress.postalCode)}
+            </p>
+          </div>
+          <p className="border-t border-border pt-2.5 text-xs text-muted-foreground">
+            {order.shippingOption.carrier} · {order.shippingOption.service} ·{" "}
+            {tc("businessDays", {
+              min: order.shippingOption.estimatedDays.min,
+              max: order.shippingOption.estimatedDays.max,
+            })}
+          </p>
+        </Section>
 
-      <Section title={t("totals")}>
-        <dl className="flex flex-col gap-1.5 text-sm">
-          <Row label={tCheckout("subtotal")} value={formatMoney(order.totals.subtotal)} />
-          <Row label={tCheckout("shipping")} value={formatMoney(order.totals.shipping)} />
-          <Row label={tCheckout("importTax")} value={formatMoney(order.totals.importTax)} />
-          {order.totals.discount.amount > 0 ? <Row label={tCheckout("discount")} value={`- ${formatMoney(order.totals.discount)}`} /> : null}
-          <div className="my-1 h-px bg-border" />
-          <Row label={tCheckout("total")} value={formatMoney(order.totals.total)} bold />
-          <p className="text-right text-xs text-muted-foreground">≈ {formatMoney(order.totals.totalReference)}</p>
-          <p className="text-right text-xs text-muted-foreground">{t("exchangeUsed", { rate: order.exchangeRate.displayRate })}</p>
-        </dl>
-      </Section>
+        <Section title={t("paymentInfo")} icon={CreditCard} delay={200}>
+          <p className="text-[13.5px] text-body">
+            {tPayMethod} · <span className="font-bold text-foreground">{tPayStatus}</span>
+          </p>
+        </Section>
 
-      <div className="flex flex-col gap-2">
-        <Button variant="cta" size="lg" onClick={buyAgain}>
-          <RefreshCw data-icon="inline-start" /> {t("buyAgain")}
-        </Button>
-        {CANCELLABLE.includes(order.status) ? (
-          <Button variant="outline" className="text-destructive hover:text-destructive" onClick={() => setConfirm("cancel")}>
-            <Ban data-icon="inline-start" /> {t("cancelOrder")}
+        <Section title={t("totals")} delay={240}>
+          <dl className="flex flex-col gap-1.5 text-[13.5px]">
+            <Row label={tCheckout("subtotal")} value={formatMoney(order.totals.subtotal)} />
+            <Row label={tCheckout("shipping")} value={formatMoney(order.totals.shipping)} />
+            <Row label={tCheckout("importTax")} value={formatMoney(order.totals.importTax)} />
+            {order.totals.discount.amount > 0 ? (
+              <Row
+                label={tCheckout("discount")}
+                value={`- ${formatMoney(order.totals.discount)}`}
+              />
+            ) : null}
+            <div className="my-1 h-px bg-border" />
+            <Row label={tCheckout("total")} value={formatMoney(order.totals.total)} bold />
+            <p className="text-right text-xs text-muted-foreground">
+              ≈ {formatMoney(order.totals.totalReference)}
+            </p>
+            <p className="text-right text-xs text-muted-foreground">
+              {t("exchangeUsed", { rate: order.exchangeRate.displayRate })}
+            </p>
+          </dl>
+        </Section>
+
+        <div className="flex animate-rise flex-col gap-2" style={{ animationDelay: "280ms" }}>
+          <Button variant="cta" size="lg" onClick={buyAgain}>
+            <RefreshCw data-icon="inline-start" /> {t("buyAgain")}
           </Button>
-        ) : null}
-        {DISPUTABLE.includes(order.status) ? (
-          <Button variant="outline" onClick={() => setConfirm("dispute")}>
-            <AlertOctagon data-icon="inline-start" /> {t("openDispute")}
-          </Button>
-        ) : null}
+          {DISPUTABLE.includes(order.status) ? (
+            <Button variant="outline" onClick={() => setConfirm("dispute")}>
+              <AlertOctagon data-icon="inline-start" /> {t("openDispute")}
+            </Button>
+          ) : null}
+          {CANCELLABLE.includes(order.status) ? (
+            <Button variant="destructive" onClick={() => setConfirm("cancel")}>
+              <Ban data-icon="inline-start" /> {t("cancelOrder")}
+            </Button>
+          ) : null}
+        </div>
       </div>
 
       <Dialog open={confirm !== null} onOpenChange={(open) => !open && setConfirm(null)}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{confirm === "cancel" ? t("cancelOrder") : t("openDispute")}</DialogTitle>
-            <DialogDescription>{confirm === "cancel" ? t("cancelConfirm") : t("disputeConfirm")}</DialogDescription>
+            <DialogDescription>
+              {confirm === "cancel" ? t("cancelConfirm") : t("disputeConfirm")}
+            </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setConfirm(null)}>
               {tc("cancel")}
             </Button>
-            <Button variant={confirm === "cancel" ? "destructive" : "default"} onClick={runConfirm} disabled={cancel.isPending || dispute.isPending}>
+            <Button
+              variant={confirm === "cancel" ? "destructive" : "default"}
+              onClick={runConfirm}
+              disabled={cancel.isPending || dispute.isPending}
+            >
               {tc("confirm")}
             </Button>
           </DialogFooter>
@@ -280,7 +379,7 @@ function OrderDetail({ order }: { order: OrderDto }) {
 
 function Row({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
   return (
-    <div className={`flex justify-between gap-3 ${bold ? "text-base font-bold" : ""}`}>
+    <div className={cn("flex justify-between gap-3", bold && "text-base font-extrabold")}>
       <dt className={bold ? "" : "text-muted-foreground"}>{label}</dt>
       <dd className="tabular-nums">{value}</dd>
     </div>

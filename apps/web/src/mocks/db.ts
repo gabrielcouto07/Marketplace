@@ -1,4 +1,10 @@
-import type { AddressDto, OrderDto, PaymentDto, QuestionDto, UserProfileDto } from "@marketplace/contracts";
+import type {
+  AddressDto,
+  OrderDto,
+  PaymentDto,
+  QuestionDto,
+  UserProfileDto,
+} from "@marketplace/contracts";
 
 import { DEMO_ADDRESSES, DEMO_USER } from "./fixtures/account";
 import { SEED_DATA } from "./fixtures/orders";

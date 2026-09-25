@@ -4,6 +4,8 @@ import { QueryClient, QueryClientProvider, isServer } from "@tanstack/react-quer
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { useState, type ReactNode } from "react";
 
+import { useIsDesktop } from "@/hooks/use-media-query";
+
 import { isApiError } from "./errors";
 
 function makeQueryClient(): QueryClient {
@@ -38,10 +40,14 @@ export function getQueryClient(): QueryClient {
 
 export function QueryProvider({ children }: { children: ReactNode }) {
   const [client] = useState(getQueryClient);
+  // Devtools só em desktop: o botão flutuante cobriria o hero/carrinho nos testes em mobile.
+  const isDesktop = useIsDesktop();
   return (
     <QueryClientProvider client={client}>
       {children}
-      {process.env.NODE_ENV === "development" ? <ReactQueryDevtools initialIsOpen={false} buttonPosition="top-right" /> : null}
+      {process.env.NODE_ENV === "development" && isDesktop ? (
+        <ReactQueryDevtools initialIsOpen={false} buttonPosition="bottom-right" />
+      ) : null}
     </QueryClientProvider>
   );
 }

@@ -20,7 +20,8 @@ declare const self: ServiceWorkerGlobalScope;
  *  - Navegações: NetworkFirst com fallback para /offline.
  */
 const CATALOG_API = /\/api\/(home|categories|products|sellers|exchange-rates)(\/|\?|$)/;
-const TRANSACTIONAL_API = /\/api\/(orders|payments|purchases|me|checkout|auth|shipping|postal-codes)(\/|\?|$)/;
+const TRANSACTIONAL_API =
+  /\/api\/(orders|payments|purchases|me|checkout|auth|shipping|postal-codes)(\/|\?|$)/;
 
 const serwist = new Serwist({
   precacheEntries: self.__SW_MANIFEST,
@@ -36,7 +37,8 @@ const serwist = new Serwist({
       }),
     },
     {
-      matcher: ({ request, url }) => request.method === "GET" && TRANSACTIONAL_API.test(url.pathname),
+      matcher: ({ request, url }) =>
+        request.method === "GET" && TRANSACTIONAL_API.test(url.pathname),
       handler: new NetworkFirst({
         cacheName: "api-transactional",
         networkTimeoutSeconds: 10,
@@ -52,7 +54,11 @@ const serwist = new Serwist({
       handler: new CacheFirst({
         cacheName: "images",
         plugins: [
-          new ExpirationPlugin({ maxEntries: 300, maxAgeSeconds: 30 * 24 * 60 * 60, maxAgeFrom: "last-used" }),
+          new ExpirationPlugin({
+            maxEntries: 300,
+            maxAgeSeconds: 30 * 24 * 60 * 60,
+            maxAgeFrom: "last-used",
+          }),
         ],
       }),
     },

@@ -19,8 +19,16 @@ function advanceOrder(order: OrderDto, status: OrderStatus): void {
   const now = nowIso();
   order.status = status;
   order.updatedAt = now;
-  order.payment = { ...order.payment, status: status === "Pago" ? "Aprovado" : order.payment.status };
-  order.timeline.push({ status, occurredAt: now, description: TIMELINE_DESCRIPTIONS[status], location: null });
+  order.payment = {
+    ...order.payment,
+    status: status === "Pago" ? "Aprovado" : order.payment.status,
+  };
+  order.timeline.push({
+    status,
+    occurredAt: now,
+    description: TIMELINE_DESCRIPTIONS[status],
+    location: null,
+  });
 }
 
 /** Simula o webhook do PSP: aprova pagamentos pendentes com mais de 20 s e move pedidos para Pago. */
@@ -33,7 +41,8 @@ export function settlePendingPayments(): void {
     payment.status = "Aprovado";
     payment.paidAt = nowIso();
     for (const order of db.orders) {
-      if (order.purchaseId === payment.purchaseId && order.status === "AguardandoPagamento") advanceOrder(order, "Pago");
+      if (order.purchaseId === payment.purchaseId && order.status === "AguardandoPagamento")
+        advanceOrder(order, "Pago");
     }
     changed = true;
   }
@@ -86,7 +95,11 @@ export const orderHandlers = [
     if (!order) return notFound("Pedido");
     if (!["AguardandoPagamento", "Pago", "EmPreparacao"].includes(order.status)) {
       return HttpResponse.json(
-        { status: 409, code: "ORDER_NOT_CANCELLABLE", message: "Este pedido não pode mais ser cancelado." },
+        {
+          status: 409,
+          code: "ORDER_NOT_CANCELLABLE",
+          message: "Este pedido não pode mais ser cancelado.",
+        },
         { status: 409 },
       );
     }
@@ -121,7 +134,8 @@ export const orderHandlers = [
     payment.status = "Aprovado";
     payment.paidAt = nowIso();
     for (const order of db.orders) {
-      if (order.purchaseId === payment.purchaseId && order.status === "AguardandoPagamento") advanceOrder(order, "Pago");
+      if (order.purchaseId === payment.purchaseId && order.status === "AguardandoPagamento")
+        advanceOrder(order, "Pago");
     }
     persistDb();
     const body: PaymentDto = payment;

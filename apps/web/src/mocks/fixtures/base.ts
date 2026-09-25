@@ -1,4 +1,9 @@
-import type { CategoryDto, ExchangeRateDto, SellerDto, SellerSummaryDto } from "@marketplace/contracts";
+import type {
+  CategoryDto,
+  ExchangeRateDto,
+  SellerDto,
+  SellerSummaryDto,
+} from "@marketplace/contracts";
 
 /** PRNG determinístico (mulberry32) para fixtures estáveis entre servidor e cliente. */
 export function seeded(seed: number): () => number {
@@ -119,8 +124,10 @@ export const CATEGORIES: CategoryDto[] = CATEGORY_SEED.map((c) => ({
   productCount: 8,
 }));
 
-export const categoryBySlug = (slug: string): CategoryDto | undefined => CATEGORIES.find((c) => c.slug === slug);
-export const categoryById = (id: string): CategoryDto | undefined => CATEGORIES.find((c) => c.id === id);
+export const categoryBySlug = (slug: string): CategoryDto | undefined =>
+  CATEGORIES.find((c) => c.slug === slug);
+export const categoryById = (id: string): CategoryDto | undefined =>
+  CATEGORIES.find((c) => c.id === id);
 
 // ---------------------------------------------------------------------------
 // Vendedores (8 lojas)
@@ -171,7 +178,8 @@ const SELLER_SEED: SellerSeed[] = [
     ruc: "80023456-3",
     memberSinceDays: 1100,
     categories: ["perfumes"],
-    description: "Importadora oficial de fragrâncias. Todos os perfumes são originais, lacrados e com lote verificável.",
+    description:
+      "Importadora oficial de fragrâncias. Todos os perfumes são originais, lacrados e com lote verificável.",
     salesCount: 9310,
     positive: 99,
     onTime: 96,
@@ -188,7 +196,8 @@ const SELLER_SEED: SellerSeed[] = [
     ruc: "80034567-0",
     memberSinceDays: 720,
     categories: ["casa"],
-    description: "Eletroportáteis e utilidades para o lar com voltagem bivolt e manual em português.",
+    description:
+      "Eletroportáteis e utilidades para o lar com voltagem bivolt e manual em português.",
     salesCount: 4120,
     positive: 95,
     onTime: 93,
@@ -205,7 +214,8 @@ const SELLER_SEED: SellerSeed[] = [
     ruc: "80045678-8",
     memberSinceDays: 900,
     categories: ["eletronicos", "informatica", "celulares", "casa"],
-    description: "Variedade em tecnologia e casa com envio de Assunção. Estoque próprio e atendimento em português.",
+    description:
+      "Variedade em tecnologia e casa com envio de Assunção. Estoque próprio e atendimento em português.",
     salesCount: 7780,
     positive: 94,
     onTime: 92,
@@ -222,7 +232,8 @@ const SELLER_SEED: SellerSeed[] = [
     ruc: "80056789-5",
     memberSinceDays: 2000,
     categories: ["celulares", "eletronicos"],
-    description: "Especialista em smartphones e acessórios. Aparelhos com garantia estendida e suporte pós-venda.",
+    description:
+      "Especialista em smartphones e acessórios. Aparelhos com garantia estendida e suporte pós-venda.",
     salesCount: 22150,
     positive: 97,
     onTime: 98,
@@ -239,7 +250,8 @@ const SELLER_SEED: SellerSeed[] = [
     ruc: "80067890-2",
     memberSinceDays: 400,
     categories: ["bebidas"],
-    description: "Destilados, vinhos e espumantes importados. Embalagem reforçada para transporte internacional.",
+    description:
+      "Destilados, vinhos e espumantes importados. Embalagem reforçada para transporte internacional.",
     salesCount: 1560,
     positive: 90,
     onTime: 88,
@@ -256,7 +268,8 @@ const SELLER_SEED: SellerSeed[] = [
     ruc: "80078901-9",
     memberSinceDays: 610,
     categories: ["esportes"],
-    description: "Equipamentos de esporte e outdoor. Envio de Salto del Guairá com rastreio completo.",
+    description:
+      "Equipamentos de esporte e outdoor. Envio de Salto del Guairá com rastreio completo.",
     salesCount: 2980,
     positive: 96,
     onTime: 94,
@@ -325,5 +338,6 @@ export function toSellerSummary(s: SellerDto): SellerSummaryDto {
   };
 }
 
-export const sellerBySlug = (slug: string): SellerDto | undefined => SELLERS.find((s) => s.slug === slug);
+export const sellerBySlug = (slug: string): SellerDto | undefined =>
+  SELLERS.find((s) => s.slug === slug);
 export const sellerById = (id: string): SellerDto | undefined => SELLERS.find((s) => s.id === id);

@@ -14,7 +14,14 @@ export interface SearchFilters {
   sort?: ProductSort;
 }
 
-export const SORT_OPTIONS: ProductSort[] = ["relevance", "priceAsc", "priceDesc", "newest", "bestSelling", "rating"];
+export const SORT_OPTIONS: ProductSort[] = [
+  "relevance",
+  "priceAsc",
+  "priceDesc",
+  "newest",
+  "bestSelling",
+  "rating",
+];
 
 type ParamsLike = { get(name: string): string | null };
 
@@ -22,6 +29,13 @@ function numParam(value: string | null): number | undefined {
   if (value === null || value === "") return undefined;
   const n = Number(value);
   return Number.isFinite(n) && n >= 0 ? Math.floor(n) : undefined;
+}
+
+/** Nota mínima 0–5 com uma casa decimal (ex.: 4.5). */
+function ratingParam(value: string | null): number | undefined {
+  if (value === null || value === "") return undefined;
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 && n <= 5 ? Math.round(n * 10) / 10 : undefined;
 }
 
 export function parseSearchFilters(params: ParamsLike): SearchFilters {
@@ -34,7 +48,7 @@ export function parseSearchFilters(params: ParamsLike): SearchFilters {
     maxPrice: numParam(params.get("maxPrice")),
     freeShipping: params.get("freeShipping") === "true" || undefined,
     onlyOffers: params.get("onlyOffers") === "true" || undefined,
-    minRating: numParam(params.get("minRating")),
+    minRating: ratingParam(params.get("minRating")),
     sort: sort && SORT_OPTIONS.includes(sort) ? sort : undefined,
   };
 }
@@ -71,7 +85,19 @@ export function filtersToQuery(filters: SearchFilters): Omit<ProductSearchQuery,
 /** Filtros "removíveis" (exclui q, sort e os fixos pelo contexto da página). */
 export type RemovableFilterKey = Exclude<keyof SearchFilters, "q" | "sort">;
 
-export function countActiveFilters(filters: SearchFilters, locked: RemovableFilterKey[] = []): number {
-  const keys: RemovableFilterKey[] = ["categorySlug", "sellerSlug", "minPrice", "maxPrice", "freeShipping", "onlyOffers", "minRating"];
-  return keys.filter((k) => !locked.includes(k) && filters[k] !== undefined && filters[k] !== false).length;
+export function countActiveFilters(
+  filters: SearchFilters,
+  locked: RemovableFilterKey[] = [],
+): number {
+  const keys: RemovableFilterKey[] = [
+    "categorySlug",
+    "sellerSlug",
+    "minPrice",
+    "maxPrice",
+    "freeShipping",
+    "onlyOffers",
+    "minRating",
+  ];
+  return keys.filter((k) => !locked.includes(k) && filters[k] !== undefined && filters[k] !== false)
+    .length;
 }

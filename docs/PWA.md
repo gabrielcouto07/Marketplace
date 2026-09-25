@@ -25,14 +25,14 @@ layout raiz; `appleWebApp` + `apple-touch-icon` para iOS; `viewport-fit=cover`.
 
 ### Estratégias de cache (`src/sw.ts`)
 
-| Alvo | Estratégia | Limites |
-| --- | --- | --- |
-| App shell (`/_next/static/*`, páginas prerenderizadas, `/offline`, logo, ícone) | **Precache** (injetado no build) | revisão por hash |
-| `GET /api/{home,categories,products,sellers,exchange-rates}` | **StaleWhileRevalidate** (`api-catalog`) | 200 entradas, 1 h |
-| `GET /api/{orders,payments,purchases,me,checkout,auth,shipping,postal-codes}` | **NetworkFirst** (`api-transactional`, timeout 10 s) | 50 entradas, 5 min |
-| Imagens (`/images/*`, `/icons/*`, `/_next/image`, `destination: image`) | **CacheFirst** (`images`) | 300 entradas, 30 dias (last-used) |
-| Demais (`defaultCache` do Serwist: fontes, JS, CSS, RSC payloads) | padrões do `@serwist/next/worker` | |
-| Navegações `document` que falham | **fallback `/offline`** | página precacheada |
+| Alvo                                                                            | Estratégia                                           | Limites                           |
+| ------------------------------------------------------------------------------- | ---------------------------------------------------- | --------------------------------- |
+| App shell (`/_next/static/*`, páginas prerenderizadas, `/offline`, logo, ícone) | **Precache** (injetado no build)                     | revisão por hash                  |
+| `GET /api/{home,categories,products,sellers,exchange-rates}`                    | **StaleWhileRevalidate** (`api-catalog`)             | 200 entradas, 1 h                 |
+| `GET /api/{orders,payments,purchases,me,checkout,auth,shipping,postal-codes}`   | **NetworkFirst** (`api-transactional`, timeout 10 s) | 50 entradas, 5 min                |
+| Imagens (`/images/*`, `/icons/*`, `/_next/image`, `destination: image`)         | **CacheFirst** (`images`)                            | 300 entradas, 30 dias (last-used) |
+| Demais (`defaultCache` do Serwist: fontes, JS, CSS, RSC payloads)               | padrões do `@serwist/next/worker`                    |                                   |
+| Navegações `document` que falham                                                | **fallback `/offline`**                              | página precacheada                |
 
 `skipWaiting` + `clientsClaim` = atualizações imediatas; `navigationPreload` acelera a primeira navegação.
 

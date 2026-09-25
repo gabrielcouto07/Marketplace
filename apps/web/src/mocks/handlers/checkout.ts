@@ -15,7 +15,14 @@ import { isValidCpf } from "@/lib/validation/documents";
 
 import { db, persistDb } from "../db";
 import { getRate, sellerById, toSellerSummary } from "../fixtures/base";
-import { IMPORT_TAX_BASIS_POINTS, TIMELINE_DESCRIPTIONS, buildOrderItems, buildPayment, computeTotals, nextOrderNumber } from "../fixtures/orders";
+import {
+  IMPORT_TAX_BASIS_POINTS,
+  TIMELINE_DESCRIPTIONS,
+  buildOrderItems,
+  buildPayment,
+  computeTotals,
+  nextOrderNumber,
+} from "../fixtures/orders";
 import { productById } from "../fixtures/products";
 import { lookupPostalCode, quoteShipping } from "../fixtures/shipping";
 import { API, addDays, addMinutes, notFound, nowIso, simulateLatency, validation } from "./utils";
@@ -25,7 +32,9 @@ const quotes = new Map<string, CheckoutQuoteDto>();
 /** Idempotência: mesma chave → mesma resposta. */
 const placed = new Map<string, PlaceOrderResponseDto>();
 
-function buildGroups(body: CheckoutQuoteRequest): CheckoutGroupDto[] | { error: ReturnType<typeof validation> } {
+function buildGroups(
+  body: CheckoutQuoteRequest,
+): CheckoutGroupDto[] | { error: ReturnType<typeof validation> } {
   const groups: CheckoutGroupDto[] = [];
   for (const g of body.groups) {
     const seller = sellerById(g.sellerId);
@@ -33,7 +42,8 @@ function buildGroups(body: CheckoutQuoteRequest): CheckoutGroupDto[] | { error: 
     const lines: CheckoutLineDto[] = [];
     for (const item of g.items) {
       const record = productById(item.productId);
-      if (!record) return { error: validation({ items: [`Produto ${item.productId} não encontrado.`] }) };
+      if (!record)
+        return { error: validation({ items: [`Produto ${item.productId} não encontrado.`] }) };
       const p = record.detail;
       const variant = item.variantId ? p.variants.find((v) => v.id === item.variantId) : null;
       const unit: Money = variant?.price ?? p.price;
@@ -50,7 +60,12 @@ function buildGroups(body: CheckoutQuoteRequest): CheckoutGroupDto[] | { error: 
     }
     const subtotal = sum(lines.map((l) => l.lineTotal));
     const allFree = g.items.every((i) => productById(i.productId)?.detail.freeShipping);
-    const options = quoteShipping(body.postalCode, seller.id, g.items, allFree && subtotal.amount >= 30000);
+    const options = quoteShipping(
+      body.postalCode,
+      seller.id,
+      g.items,
+      allFree && subtotal.amount >= 30000,
+    );
     const selected = options.find((o) => o.id === g.shippingOptionId) ?? options[0];
     groups.push({
       seller: toSellerSummary(seller),
@@ -69,7 +84,8 @@ export const checkoutHandlers = [
     await simulateLatency();
     const body = (await request.json()) as CheckoutQuoteRequest;
     const cep = body.postalCode?.replace(/\D/g, "") ?? "";
-    if (cep.length !== 8 || !lookupPostalCode(cep)) return validation({ postalCode: ["CEP inválido."] });
+    if (cep.length !== 8 || !lookupPostalCode(cep))
+      return validation({ postalCode: ["CEP inválido."] });
     if (!body.groups?.length) return validation({ groups: ["Carrinho vazio."] });
 
     const result = buildGroups({ ...body, postalCode: cep });
@@ -77,8 +93,14 @@ export const checkoutHandlers = [
 
     const subtotal = sum(result.map((g) => g.subtotal));
     const shippingTotal = sum(result.map((g) => g.shipping));
-    const discount: Money = body.couponCode?.toUpperCase() === "PARAGUAI10" ? multiplyBasisPoints(subtotal, 1000) : { amount: 0, currency: "BRL" };
-    const taxable: Money = { amount: subtotal.amount + shippingTotal.amount - discount.amount, currency: "BRL" };
+    const discount: Money =
+      body.couponCode?.toUpperCase() === "PARAGUAI10"
+        ? multiplyBasisPoints(subtotal, 1000)
+        : { amount: 0, currency: "BRL" };
+    const taxable: Money = {
+      amount: subtotal.amount + shippingTotal.amount - discount.amount,
+      currency: "BRL",
+    };
     const estimatedImportTax = multiplyBasisPoints(taxable, IMPORT_TAX_BASIS_POINTS);
     const total: Money = { amount: taxable.amount + estimatedImportTax.amount, currency: "BRL" };
     const rate = getRate("BRL", "PYG");
@@ -112,8 +134,10 @@ export const checkoutHandlers = [
     if (!quote) return validation({ quoteId: ["Cotação expirada. Atualize o resumo do pedido."] });
     const address = db.addresses.find((a) => a.id === body.addressId);
     if (!address) return notFound("Endereço");
-    if (!isValidCpf(body.payment.payerDocument ?? "")) return validation({ payerDocument: ["CPF inválido."] });
-    if (body.payment.method === "Cartao" && !body.payment.card) return validation({ card: ["Dados do cartão obrigatórios."] });
+    if (!isValidCpf(body.payment.payerDocument ?? ""))
+      return validation({ payerDocument: ["CPF inválido."] });
+    if (body.payment.method === "Cartao" && !body.payment.card)
+      return validation({ card: ["Dados do cartão obrigatórios."] });
 
     const now = nowIso();
     const purchaseId = crypto.randomUUID();
@@ -124,15 +148,32 @@ export const checkoutHandlers = [
 
     const orders: OrderDto[] = quote.groups.map((group) => {
       const groupInput = body.groups.find((g) => g.sellerId === group.seller.id);
-      const shippingOption = group.shippingOptions.find((o) => o.id === groupInput?.shippingOptionId) ?? group.shippingOptions[0];
+      const shippingOption =
+        group.shippingOptions.find((o) => o.id === groupInput?.shippingOptionId) ??
+        group.shippingOptions[0];
       const items = buildOrderItems(
-        group.lines.map((l) => ({ product: productById(l.productId)!.detail, quantity: l.quantity, variantId: l.variantId })),
+        group.lines.map((l) => ({
+          product: productById(l.productId)!.detail,
+          quantity: l.quantity,
+          variantId: l.variantId,
+        })),
       );
       const totals = computeTotals(items, shippingOption.price);
       const timeline: OrderDto["timeline"] = [
-        { status: "AguardandoPagamento", occurredAt: now, description: TIMELINE_DESCRIPTIONS.AguardandoPagamento, location: null },
+        {
+          status: "AguardandoPagamento",
+          occurredAt: now,
+          description: TIMELINE_DESCRIPTIONS.AguardandoPagamento,
+          location: null,
+        },
       ];
-      if (status === "Pago") timeline.push({ status: "Pago", occurredAt: now, description: TIMELINE_DESCRIPTIONS.Pago, location: null });
+      if (status === "Pago")
+        timeline.push({
+          status: "Pago",
+          occurredAt: now,
+          description: TIMELINE_DESCRIPTIONS.Pago,
+          location: null,
+        });
       return {
         id: crypto.randomUUID(),
         number: nextOrderNumber(),
@@ -152,7 +193,11 @@ export const checkoutHandlers = [
         },
         totals,
         exchangeRate: rate,
-        payment: { id: paymentId, method: body.payment.method, status: cardApproved ? "Aprovado" : "Pendente" },
+        payment: {
+          id: paymentId,
+          method: body.payment.method,
+          status: cardApproved ? "Aprovado" : "Pendente",
+        },
         timeline,
       };
     });
@@ -163,7 +208,11 @@ export const checkoutHandlers = [
       method: body.payment.method,
       amount: quote.total,
       createdAt: now,
-      status: cardApproved ? "Aprovado" : body.payment.method === "Cartao" ? "Recusado" : "Pendente",
+      status: cardApproved
+        ? "Aprovado"
+        : body.payment.method === "Cartao"
+          ? "Recusado"
+          : "Pendente",
       installments: body.payment.card?.installments ?? 1,
     });
 

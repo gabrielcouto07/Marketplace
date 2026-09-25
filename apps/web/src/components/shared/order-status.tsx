@@ -18,7 +18,10 @@ import { useFormatter, useTranslations } from "next-intl";
 
 import { cn } from "@/lib/utils";
 
-export const ORDER_STATUS_META: Record<OrderStatus, { icon: LucideIcon; tone: "neutral" | "info" | "success" | "warning" | "danger" }> = {
+export const ORDER_STATUS_META: Record<
+  OrderStatus,
+  { icon: LucideIcon; tone: "neutral" | "info" | "success" | "warning" | "danger" }
+> = {
   AguardandoPagamento: { icon: Clock, tone: "warning" },
   Pago: { icon: CircleDollarSign, tone: "info" },
   EmPreparacao: { icon: PackageOpen, tone: "info" },
@@ -26,26 +29,39 @@ export const ORDER_STATUS_META: Record<OrderStatus, { icon: LucideIcon; tone: "n
   EmTransitoInternacional: { icon: Globe2, tone: "info" },
   Entregue: { icon: PackageCheck, tone: "success" },
   Concluido: { icon: Check, tone: "success" },
-  Cancelado: { icon: Ban, tone: "neutral" },
+  Cancelado: { icon: Ban, tone: "danger" },
   EmDisputa: { icon: AlertOctagon, tone: "danger" },
   Devolvido: { icon: Undo2, tone: "neutral" },
   Reembolsado: { icon: RotateCcw, tone: "success" },
 };
 
 const TONE_CLASSES = {
-  neutral: "bg-neutral-100 text-neutral-700 dark:bg-neutral-800 dark:text-neutral-200",
+  neutral: "bg-surface text-muted-foreground",
   info: "bg-accent text-accent-foreground",
   success: "bg-success-soft text-success",
   warning: "bg-warning-soft text-warning",
-  danger: "bg-destructive/10 text-destructive",
+  danger: "bg-destructive-soft text-destructive",
 } as const;
 
-export function OrderStatusBadge({ status, className }: { status: OrderStatus; className?: string }) {
+/** Pílula de status (ícone + rótulo) com o tom do status. */
+export function OrderStatusBadge({
+  status,
+  className,
+}: {
+  status: OrderStatus;
+  className?: string;
+}) {
   const t = useTranslations("orders.status");
   const meta = ORDER_STATUS_META[status];
   const Icon = meta.icon;
   return (
-    <span className={cn("inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold", TONE_CLASSES[meta.tone], className)}>
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11.5px] font-extrabold whitespace-nowrap",
+        TONE_CLASSES[meta.tone],
+        className,
+      )}
+    >
       <Icon className="size-3.5" aria-hidden />
       {t(status)}
     </span>
@@ -72,10 +88,15 @@ export function OrderTimeline({ status, events, className }: OrderTimelineProps)
   // Etapas do caminho feliz até onde o pedido chegou; se houve ramificação, corta após o último passo feliz atingido.
   const lastHappyReached = Math.max(...events.map((e) => ORDER_HAPPY_PATH.indexOf(e.status)), 0);
   const steps: OrderStatus[] =
-    branch.length > 0 ? [...ORDER_HAPPY_PATH.slice(0, lastHappyReached + 1), ...branch] : [...ORDER_HAPPY_PATH];
+    branch.length > 0
+      ? [...ORDER_HAPPY_PATH.slice(0, lastHappyReached + 1), ...branch]
+      : [...ORDER_HAPPY_PATH];
 
   return (
-    <ol className={cn("relative ml-3 border-l-2 border-border", className)} aria-label={t("timelineLabel")}>
+    <ol
+      className={cn("relative ml-3.5 border-l-2 border-line-200", className)}
+      aria-label={t("timelineLabel")}
+    >
       {steps.map((step, i) => {
         const event = byStatus.get(step);
         const done = Boolean(event);
@@ -88,16 +109,20 @@ export function OrderTimeline({ status, events, className }: OrderTimelineProps)
           <li key={step} className="relative pb-6 pl-6 last:pb-0">
             <span
               className={cn(
-                "absolute top-0 -left-[13px] flex size-6 items-center justify-center rounded-full ring-4 ring-background",
-                done ? (isBranch ? TONE_CLASSES[meta.tone] : "bg-primary text-primary-foreground") : "bg-neutral-200 text-neutral-500 dark:bg-neutral-700",
-                current && "ring-primary/30",
+                "absolute top-0 -left-[15px] flex size-7 items-center justify-center rounded-[9px] ring-4 ring-card",
+                done
+                  ? isBranch
+                    ? TONE_CLASSES[meta.tone]
+                    : "bg-primary text-primary-foreground"
+                  : "bg-surface-strong text-ink-400",
+                current && "shadow-[0_0_0_3px_var(--accent)]",
               )}
               aria-hidden
             >
-              <Icon className="size-3.5" />
+              <Icon className="size-3.5" strokeWidth={2.4} />
             </span>
             <div className={cn(future && "opacity-50")}>
-              <p className={cn("text-sm font-semibold", current && "text-primary")}>
+              <p className={cn("text-sm font-bold", current && "text-primary")}>
                 {t(`status.${step}`)}
                 {current ? <span className="sr-only"> ({t("currentStep")})</span> : null}
               </p>
@@ -107,7 +132,9 @@ export function OrderTimeline({ status, events, className }: OrderTimelineProps)
                     {format.dateTime(new Date(event.occurredAt), "dateTime")}
                     {event.location ? ` · ${event.location}` : ""}
                   </p>
-                  {event.description ? <p className="mt-0.5 text-xs text-muted-foreground">{event.description}</p> : null}
+                  {event.description ? (
+                    <p className="mt-0.5 text-xs text-muted-foreground">{event.description}</p>
+                  ) : null}
                 </>
               ) : (
                 <p className="text-xs text-muted-foreground">{t("pendingStep")}</p>

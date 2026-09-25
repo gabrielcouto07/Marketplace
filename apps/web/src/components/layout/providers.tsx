@@ -14,7 +14,12 @@ import { MockProvider } from "@/mocks/mock-provider";
  */
 export function Providers({ children }: { children: ReactNode }) {
   return (
-    <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false} disableTransitionOnChange>
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="light"
+      enableSystem={false}
+      disableTransitionOnChange
+    >
       <PwaProvider>
         <MockProvider>
           <QueryProvider>

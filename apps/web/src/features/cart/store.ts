@@ -39,7 +39,15 @@ export interface CartSellerGroup {
 export interface AddToCartInput {
   product: Pick<
     ProductSummaryDto,
-    "id" | "slug" | "name" | "thumbnailUrl" | "price" | "referencePrice" | "stock" | "freeShipping" | "seller"
+    | "id"
+    | "slug"
+    | "name"
+    | "thumbnailUrl"
+    | "price"
+    | "referencePrice"
+    | "stock"
+    | "freeShipping"
+    | "seller"
   >;
   variantId?: string | null;
   variantLabel?: string | null;
@@ -67,7 +75,14 @@ export const useCartStore = create<CartState>()(
     (set) => ({
       lines: [],
       lastUpdatedAt: null,
-      add: ({ product, variantId = null, variantLabel = null, unitPrice, quantity = 1, maxQuantity }) =>
+      add: ({
+        product,
+        variantId = null,
+        variantLabel = null,
+        unitPrice,
+        quantity = 1,
+        maxQuantity,
+      }) =>
         set((state) => {
           const key = cartLineKey(product.id, variantId);
           const max = maxQuantity ?? product.stock ?? 99;
@@ -77,7 +92,9 @@ export const useCartStore = create<CartState>()(
             return {
               lastUpdatedAt: now,
               lines: state.lines.map((l) =>
-                l.key === key ? { ...l, quantity: Math.min(l.quantity + quantity, max), maxQuantity: max } : l,
+                l.key === key
+                  ? { ...l, quantity: Math.min(l.quantity + quantity, max), maxQuantity: max }
+                  : l,
               ),
             };
           }
@@ -105,10 +122,15 @@ export const useCartStore = create<CartState>()(
           lines:
             quantity <= 0
               ? state.lines.filter((l) => l.key !== key)
-              : state.lines.map((l) => (l.key === key ? { ...l, quantity: Math.min(quantity, l.maxQuantity) } : l)),
+              : state.lines.map((l) =>
+                  l.key === key ? { ...l, quantity: Math.min(quantity, l.maxQuantity) } : l,
+                ),
         })),
       remove: (key) =>
-        set((state) => ({ lastUpdatedAt: new Date().toISOString(), lines: state.lines.filter((l) => l.key !== key) })),
+        set((state) => ({
+          lastUpdatedAt: new Date().toISOString(),
+          lines: state.lines.filter((l) => l.key !== key),
+        })),
       removeSeller: (sellerId) =>
         set((state) => ({
           lastUpdatedAt: new Date().toISOString(),
@@ -143,11 +165,19 @@ export function groupBySeller(lines: CartLine[]): CartSellerGroup[] {
   for (const line of lines) {
     let g = groups.get(line.seller.id);
     if (!g) {
-      g = { seller: line.seller, lines: [], subtotal: { amount: 0, currency: "BRL" }, itemCount: 0 };
+      g = {
+        seller: line.seller,
+        lines: [],
+        subtotal: { amount: 0, currency: "BRL" },
+        itemCount: 0,
+      };
       groups.set(line.seller.id, g);
     }
     g.lines.push(line);
-    g.subtotal = { amount: g.subtotal.amount + line.unitPrice.amount * line.quantity, currency: "BRL" };
+    g.subtotal = {
+      amount: g.subtotal.amount + line.unitPrice.amount * line.quantity,
+      currency: "BRL",
+    };
     g.itemCount += line.quantity;
   }
   return [...groups.values()];

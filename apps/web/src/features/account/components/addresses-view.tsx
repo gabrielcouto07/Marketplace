@@ -8,13 +8,27 @@ import { toast } from "sonner";
 
 import { PageContainer } from "@/components/layout/store-shell";
 import { EmptyState, ErrorState } from "@/components/shared/states";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useAddresses, useCreateAddress, useDeleteAddress, useUpdateAddress } from "@/features/account/api";
+import {
+  useAddresses,
+  useCreateAddress,
+  useDeleteAddress,
+  useUpdateAddress,
+} from "@/features/account/api";
 import { useAuthStore, useCurrentUser } from "@/features/auth/store";
 import { isApiError } from "@/lib/api/errors";
+import { cn } from "@/lib/utils";
 import { formatCep } from "@/lib/validation/documents";
 
 import { AddressForm } from "./address-form";
@@ -75,11 +89,11 @@ export function AddressesView() {
   };
 
   return (
-    <PageContainer className="flex flex-col gap-4 py-4">
+    <PageContainer className="flex flex-col gap-3 py-4">
       {addresses.isPending ? (
         <div className="flex flex-col gap-3">
           {Array.from({ length: 2 }).map((_, i) => (
-            <Skeleton key={i} className="h-28 rounded-2xl" />
+            <Skeleton key={i} className="h-36 rounded-3xl" />
           ))}
         </div>
       ) : addresses.isError ? (
@@ -96,35 +110,51 @@ export function AddressesView() {
           }
         />
       ) : (
-        <ul className="flex flex-col gap-3">
-          {addresses.data.map((a) => (
-            <li key={a.id} className="rounded-2xl border border-border bg-card p-4">
+        <ul className="flex flex-col gap-3 md:grid md:grid-cols-2">
+          {addresses.data.map((a, i) => (
+            <li
+              key={a.id}
+              className={cn(
+                "flex animate-rise flex-col gap-3 rounded-3xl border-2 bg-card p-4 shadow-card",
+                a.isDefault ? "border-primary bg-selected" : "border-transparent",
+              )}
+              style={{ animationDelay: `${Math.min(i, 8) * 40}ms` }}
+            >
               <div className="flex items-start gap-3">
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground">
-                  <MapPin className="size-5" aria-hidden />
+                <span
+                  className={cn(
+                    "flex size-[38px] shrink-0 items-center justify-center rounded-md",
+                    a.isDefault
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-accent text-accent-foreground",
+                  )}
+                >
+                  <MapPin className="size-[18px]" aria-hidden />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="flex flex-wrap items-center gap-2 font-semibold">
+                  <p className="flex flex-wrap items-center gap-2 text-[15px] font-extrabold">
                     {a.label}
-                    {a.isDefault ? (
-                      <span className="rounded-full bg-success-soft px-2 py-0.5 text-[11px] font-semibold text-success">{t("default")}</span>
-                    ) : null}
+                    {a.isDefault ? <Badge variant="soft">{t("default")}</Badge> : null}
                   </p>
-                  <p className="text-sm text-muted-foreground">{a.recipientName}</p>
-                  <p className="text-sm">
+                  <p className="text-[13px] text-muted-foreground">{a.recipientName}</p>
+                  <p className="mt-1 text-[13.5px] leading-relaxed text-body">
                     {a.street}, {a.number}
                     {a.complement ? ` – ${a.complement}` : ""}
-                  </p>
-                  <p className="text-sm">
+                    <br />
                     {a.neighborhood} · {a.city}/{a.state} · CEP {formatCep(a.postalCode)}
                   </p>
                 </div>
               </div>
-              <div className="mt-3 flex gap-2">
+              <div className="flex gap-2">
                 <Button variant="outline" size="sm" className="flex-1" onClick={() => openEdit(a)}>
                   <Pencil data-icon="inline-start" /> {tc("edit")}
                 </Button>
-                <Button variant="outline" size="sm" className="flex-1 text-destructive hover:text-destructive" onClick={() => setDeleting(a)}>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  className="flex-1"
+                  onClick={() => setDeleting(a)}
+                >
                   <Trash2 data-icon="inline-start" /> {tc("delete")}
                 </Button>
               </div>
@@ -140,7 +170,10 @@ export function AddressesView() {
       ) : null}
 
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent side="bottom" className="max-h-[92dvh] overflow-y-auto rounded-t-2xl pb-safe sm:mx-auto sm:max-w-lg">
+        <SheetContent
+          side="bottom"
+          className="max-h-[92dvh] overflow-y-auto sm:mx-auto sm:max-w-lg"
+        >
           <SheetHeader>
             <SheetTitle>{editing ? t("editAddress") : t("addAddress")}</SheetTitle>
           </SheetHeader>

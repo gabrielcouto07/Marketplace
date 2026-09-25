@@ -8,7 +8,16 @@ import { env } from "@/lib/env";
  */
 export default function sitemap(): MetadataRoute.Sitemap {
   const base = env.siteUrl;
-  const categories = ["eletronicos", "perfumes", "informatica", "celulares", "bebidas", "casa", "esportes", "moda"];
+  const categories = [
+    "eletronicos",
+    "perfumes",
+    "informatica",
+    "celulares",
+    "bebidas",
+    "casa",
+    "esportes",
+    "moda",
+  ];
   const now = new Date();
   return [
     { url: `${base}/`, lastModified: now, changeFrequency: "daily", priority: 1 },

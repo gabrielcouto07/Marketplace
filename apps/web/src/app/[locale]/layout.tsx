@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import { notFound } from "next/navigation";
 import { hasLocale, NextIntlClientProvider } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
@@ -12,9 +12,10 @@ import { routing } from "@/i18n/routing";
 import { env } from "@/lib/env";
 import { site } from "@/lib/site";
 
-const inter = Inter({
+const jakarta = Plus_Jakarta_Sans({
   subsets: ["latin", "latin-ext"],
-  variable: "--font-inter",
+  variable: "--font-jakarta",
+  weight: ["400", "500", "600", "700", "800"],
   display: "swap",
 });
 
@@ -22,7 +23,11 @@ export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
 }
 
-export async function generateMetadata({ params }: { params: Promise<{ locale: string }> }): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
   const { locale: requested } = await params;
   const locale = hasLocale(routing.locales, requested) ? requested : routing.defaultLocale;
   const t = await getTranslations({ locale, namespace: "common" });
@@ -35,7 +40,10 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
     appleWebApp: { capable: true, statusBarStyle: "default", title: site.shortName },
     formatDetection: { telephone: false },
     icons: {
-      icon: [{ url: "/favicon-32.png", sizes: "32x32", type: "image/png" }, { url: "/logo.svg", type: "image/svg+xml" }],
+      icon: [
+        { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
+        { url: "/logo.svg", type: "image/svg+xml" },
+      ],
       apple: "/icons/apple-touch-icon.png",
     },
     openGraph: {
@@ -72,7 +80,7 @@ export default async function LocaleLayout({
   setRequestLocale(locale);
 
   return (
-    <html lang={locale} className={`${inter.variable} h-full`} suppressHydrationWarning>
+    <html lang={locale} className={`${jakarta.variable} h-full`} suppressHydrationWarning>
       <body className="flex min-h-full flex-col bg-background text-foreground">
         <NextIntlClientProvider>
           <Providers>{children}</Providers>

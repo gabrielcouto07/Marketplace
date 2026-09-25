@@ -3,7 +3,6 @@ import { setRequestLocale } from "next-intl/server";
 import { Suspense } from "react";
 
 import { StoreShell } from "@/components/layout/store-shell";
-import { CategoryHeader } from "@/features/catalog/components/category-header";
 import { SearchView } from "@/features/catalog/components/search-view";
 import type { AppLocale } from "@/i18n/routing";
 
@@ -22,12 +21,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return { title, alternates: { canonical: `/categoria/${slug}` } };
 }
 
+/** A SearchView desenha o topo (nome da categoria + contagem + busca); por isso sem `title`/`showBack`. */
 export default async function CategoryPage({ params }: PageProps) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
   return (
     <StoreShell>
-      <CategoryHeader slug={slug} />
       <Suspense fallback={null}>
         <SearchView fixed={{ categorySlug: slug }} hideHeading />
       </Suspense>

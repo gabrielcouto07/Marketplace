@@ -167,12 +167,7 @@ export interface ProductDetailDto extends ProductSummaryDto {
 }
 
 export type ProductSort =
-  | "relevance"
-  | "priceAsc"
-  | "priceDesc"
-  | "newest"
-  | "bestSelling"
-  | "rating";
+  "relevance" | "priceAsc" | "priceDesc" | "newest" | "bestSelling" | "rating";
 
 export interface ProductSearchQuery extends PagedQuery {
   q?: string;

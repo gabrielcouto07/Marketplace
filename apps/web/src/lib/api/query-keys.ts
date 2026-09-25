@@ -25,7 +25,8 @@ export const queryKeys = {
   },
   shipping: {
     postalCode: (cep: string) => ["postal-codes", cep] as const,
-    quote: (cep: string, sellerId: string, itemsKey: string) => ["shipping", "quotes", cep, sellerId, itemsKey] as const,
+    quote: (cep: string, sellerId: string, itemsKey: string) =>
+      ["shipping", "quotes", cep, sellerId, itemsKey] as const,
     exchangeRates: ["exchange-rates"] as const,
   },
   orders: {

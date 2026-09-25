@@ -3,6 +3,6 @@
 <rect width="600" height="600" fill="url(#g)"/>
 <circle cx="300" cy="80" r="140" fill="hsl(188 55% 42%)" opacity=".07"/>
 <g transform="translate(0 -40) rotate(-8 300 300)" fill="hsl(188 55% 42%)" stroke="hsl(188 55% 42%)" stroke-linecap="round" stroke-linejoin="round" opacity=".9"><path d="M300 130 130 290h50v170h120v-110h60v110h120V290h50z"/></g>
-<text x="300" y="520" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="600" fill="hsl(188 55% 42%)"><tspan x="300" dy="0">Robô aspirador com</tspan><tspan x="300" dy="26">mapeamento e mop 4000 Pa</tspan></text>
-<text x="560" y="580" text-anchor="end" font-family="Inter, Arial, sans-serif" font-size="16" fill="hsl(188 55% 42%)" opacity=".7">1/2</text>
+<text x="300" y="520" text-anchor="middle" font-family="Plus Jakarta Sans, Inter, Arial, sans-serif" font-size="22" font-weight="600" fill="hsl(188 55% 42%)"><tspan x="300" dy="0">Robô aspirador com</tspan><tspan x="300" dy="26">mapeamento e mop 4000 Pa</tspan></text>
+<text x="560" y="580" text-anchor="end" font-family="Plus Jakarta Sans, Inter, Arial, sans-serif" font-size="16" fill="hsl(188 55% 42%)" opacity=".7">1/2</text>
 </svg>

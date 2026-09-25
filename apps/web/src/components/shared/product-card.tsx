@@ -1,7 +1,6 @@
 import type { ProductSummaryDto } from "@marketplace/contracts";
-import { Truck } from "lucide-react";
 import Image from "next/image";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 
 import { FavoriteButton } from "@/components/shared/favorite-button";
 import { PriceTag } from "@/components/shared/price-tag";
@@ -12,77 +11,117 @@ import { cn } from "@/lib/utils";
 
 interface ProductCardProps {
   product: ProductSummaryDto;
-  /** "grid" (2 colunas mobile) ou "row" (carrossel horizontal, largura fixa). */
+  /** "grid" (2 colunas mobile) ou "row" (carrossel horizontal, largura fixa de 160 px). */
   layout?: "grid" | "row";
   priority?: boolean;
   className?: string;
 }
 
-/** Card denso e legível: imagem quadrada, selos, preço BRL + PYG, avaliação, loja. */
+/**
+ * Card branco sem borda (cantos 20 px) com imagem arredondada, selos em pílula,
+ * nome em 2 linhas, nota + vendidos, preço em destaque, parcela e frete grátis.
+ * Levita no hover e encolhe ao toque.
+ */
 export function ProductCard({ product, layout = "grid", priority, className }: ProductCardProps) {
   const t = useTranslations("catalog");
+  const format = useFormatter();
   const soldOut = product.stock <= 0;
 
   return (
     <article
       className={cn(
-        "group relative flex flex-col overflow-hidden rounded-xl border border-border bg-card transition-shadow hover:shadow-md",
-        layout === "row" && "w-40 shrink-0 sm:w-44",
+        "group relative flex pressable flex-col rounded-2xl bg-card p-1.5 pb-3 shadow-card transition-[box-shadow,transform] duration-200 hover:-translate-y-0.5 hover:shadow-float",
+        layout === "row" && "w-40 shrink-0",
         className,
       )}
     >
-      <Link href={`/produto/${product.slug}`} className="flex flex-1 flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset">
-        <div className="relative aspect-square w-full overflow-hidden bg-surface">
+      <Link
+        href={`/produto/${product.slug}`}
+        className="flex flex-1 flex-col gap-2 rounded-2xl focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+      >
+        <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-surface">
           <Image
             src={product.thumbnailUrl}
             alt={product.name}
             fill
-            sizes={layout === "row" ? "176px" : "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"}
+            sizes={
+              layout === "row" ? "160px" : "(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 20vw"
+            }
             priority={priority}
-            className={cn("object-cover transition-transform duration-300 group-hover:scale-[1.03]", soldOut && "opacity-60")}
+            className={cn(
+              "object-cover transition-transform duration-500 group-hover:scale-[1.04]",
+              soldOut && "opacity-60 grayscale",
+            )}
           />
-          <div className="absolute top-2 left-2 flex flex-col gap-1">
+          <div className="absolute top-2 left-2 flex flex-col items-start gap-1">
             {product.discountPercent > 0 ? (
-              <span className="rounded-md bg-cta px-1.5 py-0.5 text-[11px] font-bold text-cta-foreground shadow-sm">
+              <span className="rounded-full bg-cta px-[7px] py-[3px] text-[11px] font-extrabold text-cta-foreground">
                 -{product.discountPercent}%
               </span>
             ) : null}
             {product.isNew ? (
-              <span className="rounded-md bg-primary px-1.5 py-0.5 text-[11px] font-bold text-primary-foreground shadow-sm">{t("newBadge")}</span>
+              <span className="rounded-full bg-primary px-[7px] py-[3px] text-[11px] font-extrabold text-primary-foreground">
+                {t("newBadge")}
+              </span>
             ) : null}
           </div>
           {soldOut ? (
-            <span className="absolute inset-x-0 bottom-0 bg-neutral-900/80 py-1 text-center text-xs font-semibold text-white">{t("soldOut")}</span>
-          ) : null}
-        </div>
-        <div className="flex flex-1 flex-col gap-1 p-2.5">
-          <h3 className="line-clamp-2 min-h-[2.5rem] text-sm leading-tight font-medium text-foreground">{product.name}</h3>
-          <PriceTag price={product.price} compareAtPrice={product.compareAtPrice} referencePrice={product.referencePrice} size="sm" />
-          {product.freeShipping ? (
-            <span className="flex items-center gap-1 text-[11px] font-semibold text-success">
-              <Truck className="size-3.5" aria-hidden /> {t("freeShipping")}
+            <span className="absolute inset-x-0 bottom-0 bg-ink/80 py-1 text-center text-xs font-bold text-ink-foreground">
+              {t("soldOut")}
             </span>
           ) : null}
-          <div className="mt-auto flex flex-col gap-0.5 pt-1">
-            {product.reviewCount > 0 ? <RatingStars value={product.rating} count={product.reviewCount} size="xs" /> : null}
-            <span className="truncate text-[11px] text-muted-foreground">{product.seller.name}</span>
-          </div>
+        </div>
+        <div className="flex flex-1 flex-col gap-[3px] px-1.5">
+          <h3 className="line-clamp-2 min-h-[34px] text-[13px] leading-[1.3] font-medium text-foreground">
+            {product.name}
+          </h3>
+          {product.reviewCount > 0 || product.soldCount > 0 ? (
+            <p className="mt-0.5 flex items-center gap-1 text-[11.5px] text-muted-foreground">
+              {product.reviewCount > 0 ? (
+                <RatingStars value={product.rating} size="xs" variant="compact" />
+              ) : null}
+              {product.reviewCount > 0 && product.soldCount > 0 ? <span aria-hidden>·</span> : null}
+              {product.soldCount > 0 ? (
+                <span>
+                  {t("soldCompact", {
+                    count: format.number(product.soldCount, { notation: "compact" }),
+                  })}
+                </span>
+              ) : null}
+            </p>
+          ) : null}
+          <PriceTag
+            price={product.price}
+            compareAtPrice={product.compareAtPrice}
+            size="sm"
+            installments="short"
+            className="mt-auto pt-1"
+          />
+          {product.freeShipping ? (
+            <span className="text-[11.5px] font-bold text-success">{t("freeShipping")}</span>
+          ) : null}
         </div>
       </Link>
-      <FavoriteButton product={product} className="absolute top-2 right-2" />
+      <FavoriteButton product={product} className="absolute top-1 right-1" />
     </article>
   );
 }
 
 export function ProductCardSkeleton({ layout = "grid" }: { layout?: "grid" | "row" }) {
   return (
-    <div className={cn("flex flex-col overflow-hidden rounded-xl border border-border bg-card", layout === "row" && "w-40 shrink-0 sm:w-44")}>
-      <Skeleton className="aspect-square w-full rounded-none" />
-      <div className="flex flex-col gap-2 p-2.5">
-        <Skeleton className="h-3.5 w-full" />
-        <Skeleton className="h-3.5 w-3/4" />
-        <Skeleton className="mt-1 h-5 w-1/2" />
-        <Skeleton className="h-3 w-1/3" />
+    <div
+      className={cn(
+        "flex flex-col gap-2 rounded-2xl bg-card p-1.5 pb-3 shadow-card",
+        layout === "row" && "w-40 shrink-0",
+      )}
+    >
+      <Skeleton className="aspect-square w-full rounded-xl" />
+      <div className="flex flex-col gap-2 px-1.5">
+        <Skeleton className="h-3.5 w-full rounded-md" />
+        <Skeleton className="h-3.5 w-3/4 rounded-md" />
+        <Skeleton className="mt-1 h-3 w-1/3 rounded-md" />
+        <Skeleton className="h-5 w-1/2 rounded-md" />
+        <Skeleton className="h-3 w-2/5 rounded-md" />
       </div>
     </div>
   );

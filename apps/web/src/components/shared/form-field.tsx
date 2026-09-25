@@ -31,19 +31,29 @@ interface FormFieldProps {
 }
 
 /** Label + controle + mensagem de erro/dica, com aria-describedby e aria-invalid. */
-export function FormField({ id, label, error, hint, optional, className, children }: FormFieldProps) {
+export function FormField({
+  id,
+  label,
+  error,
+  hint,
+  optional,
+  className,
+  children,
+}: FormFieldProps) {
   const t = useTranslations("common");
   const message = useValidationMessage();
   const errorText = message(error);
   return (
-    <div className={cn("flex flex-col gap-1.5", className)}>
-      <Label htmlFor={id}>
+    <div className={cn("flex flex-col gap-2", className)}>
+      <Label htmlFor={id} className="text-[13px]">
         {label}
-        {optional ? <span className="font-normal text-muted-foreground">({t("optional")})</span> : null}
+        {optional ? (
+          <span className="text-xs font-medium text-placeholder">({t("optional")})</span>
+        ) : null}
       </Label>
       {children}
       {errorText ? (
-        <p id={`${id}-error`} role="alert" className="text-xs font-medium text-destructive">
+        <p id={`${id}-error`} role="alert" className="text-xs font-bold text-destructive">
           {errorText}
         </p>
       ) : hint ? (

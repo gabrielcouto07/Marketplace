@@ -40,8 +40,10 @@ function buildTimeline(status: OrderStatus, createdDaysAgo: number): OrderTimeli
   const path: OrderStatus[] = [];
   if (status === "Cancelado") path.push("AguardandoPagamento", "Cancelado");
   else if (status === "EmDisputa") path.push(...ORDER_HAPPY_PATH.slice(0, 6), "EmDisputa");
-  else if (status === "Devolvido") path.push(...ORDER_HAPPY_PATH.slice(0, 6), "EmDisputa", "Devolvido");
-  else if (status === "Reembolsado") path.push(...ORDER_HAPPY_PATH.slice(0, 6), "EmDisputa", "Devolvido", "Reembolsado");
+  else if (status === "Devolvido")
+    path.push(...ORDER_HAPPY_PATH.slice(0, 6), "EmDisputa", "Devolvido");
+  else if (status === "Reembolsado")
+    path.push(...ORDER_HAPPY_PATH.slice(0, 6), "EmDisputa", "Devolvido", "Reembolsado");
   else path.push(...ORDER_HAPPY_PATH.slice(0, ORDER_HAPPY_PATH.indexOf(status) + 1));
 
   const step = Math.max(1, Math.floor(createdDaysAgo / Math.max(1, path.length)));
@@ -49,32 +51,86 @@ function buildTimeline(status: OrderStatus, createdDaysAgo: number): OrderTimeli
     status: s,
     occurredAt: isoDaysAgo(createdDaysAgo - i * step, 9 + i),
     description: TIMELINE_DESCRIPTIONS[s],
-    location: s === "Enviado" ? "Ciudad del Este, PY" : s === "EmTransitoInternacional" ? "Curitiba, PR" : null,
+    location:
+      s === "Enviado"
+        ? "Ciudad del Este, PY"
+        : s === "EmTransitoInternacional"
+          ? "Curitiba, PR"
+          : null,
   }));
 }
 
-function buildTracking(status: OrderStatus, createdDaysAgo: number, city: string): TrackingEventDto[] {
+function buildTracking(
+  status: OrderStatus,
+  createdDaysAgo: number,
+  city: string,
+): TrackingEventDto[] {
   const reached = (s: OrderStatus) => {
-    const order: OrderStatus[] = ["Enviado", "EmTransitoInternacional", "Entregue", "Concluido", "EmDisputa", "Devolvido", "Reembolsado"];
+    const order: OrderStatus[] = [
+      "Enviado",
+      "EmTransitoInternacional",
+      "Entregue",
+      "Concluido",
+      "EmDisputa",
+      "Devolvido",
+      "Reembolsado",
+    ];
     return order.indexOf(status) >= order.indexOf(s);
   };
   const events: TrackingEventDto[] = [];
   if (!reached("Enviado")) return events;
-  events.push({ code: "POSTED", description: "Objeto postado", location: `${city}, PY`, occurredAt: isoDaysAgo(createdDaysAgo - 3, 15) });
-  events.push({ code: "EXPORT", description: "Objeto encaminhado para exportação", location: "Asunción, PY", occurredAt: isoDaysAgo(createdDaysAgo - 4, 9) });
+  events.push({
+    code: "POSTED",
+    description: "Objeto postado",
+    location: `${city}, PY`,
+    occurredAt: isoDaysAgo(createdDaysAgo - 3, 15),
+  });
+  events.push({
+    code: "EXPORT",
+    description: "Objeto encaminhado para exportação",
+    location: "Asunción, PY",
+    occurredAt: isoDaysAgo(createdDaysAgo - 4, 9),
+  });
   if (reached("EmTransitoInternacional")) {
-    events.push({ code: "ARRIVED_BR", description: "Objeto recebido no Brasil", location: "Curitiba, PR", occurredAt: isoDaysAgo(createdDaysAgo - 7, 11) });
-    events.push({ code: "CUSTOMS", description: "Em fiscalização aduaneira", location: "Curitiba, PR", occurredAt: isoDaysAgo(createdDaysAgo - 8, 14) });
-    events.push({ code: "CUSTOMS_RELEASED", description: "Liberado pela fiscalização", location: "Curitiba, PR", occurredAt: isoDaysAgo(createdDaysAgo - 10, 10) });
+    events.push({
+      code: "ARRIVED_BR",
+      description: "Objeto recebido no Brasil",
+      location: "Curitiba, PR",
+      occurredAt: isoDaysAgo(createdDaysAgo - 7, 11),
+    });
+    events.push({
+      code: "CUSTOMS",
+      description: "Em fiscalização aduaneira",
+      location: "Curitiba, PR",
+      occurredAt: isoDaysAgo(createdDaysAgo - 8, 14),
+    });
+    events.push({
+      code: "CUSTOMS_RELEASED",
+      description: "Liberado pela fiscalização",
+      location: "Curitiba, PR",
+      occurredAt: isoDaysAgo(createdDaysAgo - 10, 10),
+    });
   }
   if (reached("Entregue")) {
-    events.push({ code: "OUT_FOR_DELIVERY", description: "Saiu para entrega", location: "São Paulo, SP", occurredAt: isoDaysAgo(createdDaysAgo - 13, 8) });
-    events.push({ code: "DELIVERED", description: "Objeto entregue ao destinatário", location: "São Paulo, SP", occurredAt: isoDaysAgo(createdDaysAgo - 13, 14) });
+    events.push({
+      code: "OUT_FOR_DELIVERY",
+      description: "Saiu para entrega",
+      location: "São Paulo, SP",
+      occurredAt: isoDaysAgo(createdDaysAgo - 13, 8),
+    });
+    events.push({
+      code: "DELIVERED",
+      description: "Objeto entregue ao destinatário",
+      location: "São Paulo, SP",
+      occurredAt: isoDaysAgo(createdDaysAgo - 13, 14),
+    });
   }
   return events;
 }
 
-export function buildOrderItems(products: Array<{ product: ProductDetailDto; quantity: number; variantId?: string | null }>): OrderItemDto[] {
+export function buildOrderItems(
+  products: Array<{ product: ProductDetailDto; quantity: number; variantId?: string | null }>,
+): OrderItemDto[] {
   return products.map(({ product, quantity, variantId = null }, i) => {
     const variant = variantId ? product.variants.find((v) => v.id === variantId) : null;
     const unit = variant?.price ?? product.price;
@@ -95,7 +151,10 @@ export function buildOrderItems(products: Array<{ product: ProductDetailDto; qua
 
 export function computeTotals(items: OrderItemDto[], shipping: Money) {
   const subtotal = sum(items.map((i) => i.lineTotal));
-  const importTax = multiplyBasisPoints({ amount: subtotal.amount + shipping.amount, currency: "BRL" }, IMPORT_TAX_BASIS_POINTS);
+  const importTax = multiplyBasisPoints(
+    { amount: subtotal.amount + shipping.amount, currency: "BRL" },
+    IMPORT_TAX_BASIS_POINTS,
+  );
   const total = sum([subtotal, shipping, importTax]);
   return {
     subtotal,
@@ -187,7 +246,10 @@ export function buildPayment(input: {
             brand: "Visa",
             last4: "4242",
             installments,
-            installmentAmount: { amount: Math.ceil(amount.amount / installments), currency: amount.currency },
+            installmentAmount: {
+              amount: Math.ceil(amount.amount / installments),
+              currency: amount.currency,
+            },
           }
         : null,
   };
@@ -202,7 +264,12 @@ function buildSeedOrders(): { orders: OrderDto[]; payments: PaymentDto[] } {
     const products = seed.productIdx.map((i) => PRODUCTS[i % PRODUCTS.length]);
     const seller = products[0].seller;
     const items = buildOrderItems(products.map((p) => ({ product: p, quantity: 1 })));
-    const options = quoteShipping(address.postalCode, seller.id, items.map((i) => ({ productId: i.productId, variantId: i.variantId, quantity: i.quantity })), products.every((p) => p.freeShipping));
+    const options = quoteShipping(
+      address.postalCode,
+      seller.id,
+      items.map((i) => ({ productId: i.productId, variantId: i.variantId, quantity: i.quantity })),
+      products.every((p) => p.freeShipping),
+    );
     const shippingOption: ShippingOptionDto = options[idx % 2];
     const totals = computeTotals(items, shippingOption.price);
     const createdAt = isoDaysAgo(seed.daysAgo, 10);
@@ -225,7 +292,15 @@ function buildSeedOrders(): { orders: OrderDto[]; payments: PaymentDto[] } {
       items,
       shippingAddress: address,
       shippingOption,
-      trackingCode: ["Enviado", "EmTransitoInternacional", "Entregue", "Concluido", "EmDisputa", "Devolvido", "Reembolsado"].includes(seed.status)
+      trackingCode: [
+        "Enviado",
+        "EmTransitoInternacional",
+        "Entregue",
+        "Concluido",
+        "EmDisputa",
+        "Devolvido",
+        "Reembolsado",
+      ].includes(seed.status)
         ? `PY${String(700000 + idx * 137).padStart(9, "0")}BR`
         : null,
       trackingEvents: buildTracking(seed.status, seed.daysAgo, seller.city),

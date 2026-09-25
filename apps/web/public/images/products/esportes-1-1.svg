@@ -3,6 +3,6 @@
 <rect width="600" height="600" fill="url(#g)"/>
 <circle cx="150" cy="80" r="140" fill="hsl(114 55% 42%)" opacity=".07"/>
 <g transform="translate(0 -40) rotate(0 300 300)" fill="hsl(114 55% 42%)" stroke="hsl(114 55% 42%)" stroke-linecap="round" stroke-linejoin="round" opacity=".9"><circle cx="300" cy="300" r="150"/><path d="M300 150v300M150 300h300" stroke="#fff" stroke-width="16" opacity=".5"/></g>
-<text x="300" y="520" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="600" fill="hsl(114 55% 42%)"><tspan x="300" dy="0">Bicicleta ergométrica</tspan><tspan x="300" dy="26">magnética dobrável</tspan></text>
-<text x="560" y="580" text-anchor="end" font-family="Inter, Arial, sans-serif" font-size="16" fill="hsl(114 55% 42%)" opacity=".7">1/1</text>
+<text x="300" y="520" text-anchor="middle" font-family="Plus Jakarta Sans, Inter, Arial, sans-serif" font-size="22" font-weight="600" fill="hsl(114 55% 42%)"><tspan x="300" dy="0">Bicicleta ergométrica</tspan><tspan x="300" dy="26">magnética dobrável</tspan></text>
+<text x="560" y="580" text-anchor="end" font-family="Plus Jakarta Sans, Inter, Arial, sans-serif" font-size="16" fill="hsl(114 55% 42%)" opacity=".7">1/1</text>
 </svg>

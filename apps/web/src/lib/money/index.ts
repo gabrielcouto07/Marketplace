@@ -39,7 +39,8 @@ export function subtract(a: Money, b: Money): Money {
 }
 
 export function multiply(m: Money, factor: number): Money {
-  if (!Number.isInteger(factor)) throw new TypeError("Use multiplyBasisPoints para fatores fracionários");
+  if (!Number.isInteger(factor))
+    throw new TypeError("Use multiplyBasisPoints para fatores fracionários");
   return { amount: m.amount * factor, currency: m.currency };
 }
 
@@ -85,7 +86,11 @@ const LOCALE_BY_CURRENCY: Record<CurrencyCode, string> = {
 
 const formatterCache = new Map<string, Intl.NumberFormat>();
 
-function getFormatter(locale: string, currency: CurrencyCode, opts?: { compact?: boolean }): Intl.NumberFormat {
+function getFormatter(
+  locale: string,
+  currency: CurrencyCode,
+  opts?: { compact?: boolean },
+): Intl.NumberFormat {
   const key = `${locale}|${currency}|${opts?.compact ? "c" : "f"}`;
   let f = formatterCache.get(key);
   if (!f) {
@@ -110,14 +115,21 @@ export interface FormatMoneyOptions {
 
 export function formatMoney(m: Money, options: FormatMoneyOptions = {}): string {
   const locale = options.locale ?? LOCALE_BY_CURRENCY[m.currency];
-  const formatted = getFormatter(locale, m.currency, { compact: options.compact }).format(toMajorUnits(m));
+  const formatted = getFormatter(locale, m.currency, { compact: options.compact }).format(
+    toMajorUnits(m),
+  );
   // Alguns navegadores retornam "PYG" em vez de "₲" para es-PY; normaliza.
   return m.currency === "PYG" ? formatted.replace(/PYG\s?/, "₲ ") : formatted;
 }
 
 /** Divide o valor em partes (símbolo, inteiro, decimais) para composição visual do PriceTag. */
-export function formatMoneyParts(m: Money, locale?: string): { symbol: string; integer: string; fraction: string | null } {
-  const parts = getFormatter(locale ?? LOCALE_BY_CURRENCY[m.currency], m.currency).formatToParts(toMajorUnits(m));
+export function formatMoneyParts(
+  m: Money,
+  locale?: string,
+): { symbol: string; integer: string; fraction: string | null } {
+  const parts = getFormatter(locale ?? LOCALE_BY_CURRENCY[m.currency], m.currency).formatToParts(
+    toMajorUnits(m),
+  );
   const symbol = parts.find((p) => p.type === "currency")?.value ?? m.currency;
   const integer = parts
     .filter((p) => p.type === "integer" || p.type === "group")

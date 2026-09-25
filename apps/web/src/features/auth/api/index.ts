@@ -48,7 +48,10 @@ export function useRegister() {
 /** Login com Google (mock): na integração real, obter o idToken via Google Identity Services. */
 export function useGoogleLogin() {
   const set = useSessionSetter();
-  return useMutation({ mutationFn: () => authApi.google({ idToken: `mock-google-${Date.now()}` }), onSuccess: set });
+  return useMutation({
+    mutationFn: () => authApi.google({ idToken: `mock-google-${Date.now()}` }),
+    onSuccess: set,
+  });
 }
 
 export function useForgotPassword() {

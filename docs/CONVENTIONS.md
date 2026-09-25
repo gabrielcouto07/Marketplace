@@ -2,12 +2,12 @@
 
 ## Ferramentas
 
-| Ferramenta | Config | Comando |
-| --- | --- | --- |
-| TypeScript strict, sem `any` (`@typescript-eslint/no-explicit-any: error`) | `apps/web/tsconfig.json` | `pnpm typecheck` |
-| ESLint 9 flat config (`eslint-config-next` core-web-vitals + typescript + prettier) | `apps/web/eslint.config.mjs` | `pnpm lint` / `pnpm lint:fix` |
-| Prettier + `prettier-plugin-tailwindcss` (ordena classes) | `.prettierrc` na raiz | `pnpm format` |
-| pnpm 12 workspaces | `pnpm-workspace.yaml` (`allowBuilds` para sharp/msw/esbuild/swc) | `pnpm install` |
+| Ferramenta                                                                          | Config                                                           | Comando                       |
+| ----------------------------------------------------------------------------------- | ---------------------------------------------------------------- | ----------------------------- |
+| TypeScript strict, sem `any` (`@typescript-eslint/no-explicit-any: error`)          | `apps/web/tsconfig.json`                                         | `pnpm typecheck`              |
+| ESLint 9 flat config (`eslint-config-next` core-web-vitals + typescript + prettier) | `apps/web/eslint.config.mjs`                                     | `pnpm lint` / `pnpm lint:fix` |
+| Prettier + `prettier-plugin-tailwindcss` (ordena classes)                           | `.prettierrc` na raiz                                            | `pnpm format`                 |
+| pnpm 12 workspaces                                                                  | `pnpm-workspace.yaml` (`allowBuilds` para sharp/msw/esbuild/swc) | `pnpm install`                |
 
 Regra ESLint customizada: `fetch` é proibido fora de `src/lib/api`, `src/mocks`, `src/sw.ts` e `scripts/`.
 
@@ -20,6 +20,7 @@ features/<dominio>/
   store.ts            → Zustand quando há estado de cliente (cart, auth, favorites)
   types.ts            → tipos locais (os DTOs ficam em @marketplace/contracts)
 ```
+
 Páginas em `app/[locale]/(grupo)/rota/page.tsx` são Server Components mínimos:
 
 ```tsx
@@ -35,6 +36,7 @@ export default async function Page({ params }: { params: Promise<{ locale: AppLo
   return <StoreShell title="…" showBack><ProductView slug={slug} /></StoreShell>;
 }
 ```
+
 `searchParams` também é `Promise`; componentes client que usam `useSearchParams` devem estar dentro de `<Suspense>`.
 
 ## Nomenclatura
@@ -53,6 +55,12 @@ export default async function Page({ params }: { params: Promise<{ locale: AppLo
   <Button variant="cta" render={<Link href="/carrinho" />}>Ver carrinho</Button>
   <Sheet open={open} onOpenChange={setOpen}><SheetContent side="bottom">…</SheetContent></Sheet>
   ```
+- **Cabeçalho por página** (ver `docs/DESIGN_SYSTEM.md › Layout`): páginas internas passam `title`/`showBack` ao
+  `StoreShell`; home, produto, loja, busca e conta desenham o próprio topo (hero ou botões flutuantes) e não passam.
+- **Superfícies**: conteúdo em cards `rounded-3xl bg-card shadow-card` sobre o canvas; nunca bordas cinza em cards.
+  Cores e raios só via tokens (`text-muted-foreground`, `bg-accent`, `rounded-lg`…), nunca hex solto no JSX.
+- **Cor por categoria/loja**: `hueStyle(categoryHue(slug))` + `tint-bg`/`tint-fg`; `SellerAvatar` para lojas.
+- **Movimento**: `pressable` em cards/tiles clicáveis, `animate-rise` (escalonado) em listas que carregam; nada além disso.
 - Ícones `lucide-react`; em botões, `data-icon="inline-start|inline-end"` ajusta o padding.
 - Estados: `Skeleton` durante `isPending`; `ErrorState` com `onRetry={refetch}`; `EmptyState` com CTA.
 - Toasts com `sonner` (`toast.success(...)`, ação "Desfazer").

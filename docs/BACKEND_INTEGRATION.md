@@ -9,6 +9,7 @@ NEXT_PUBLIC_API_URL=https://api.seudominio.com/api   # base absoluta (CORS liber
 NEXT_PUBLIC_API_MOCKING=false                        # desliga MSW (browser e Node)
 NEXT_PUBLIC_SITE_URL=https://www.seudominio.com
 ```
+
 Com o mock desligado, `MockProvider` não bloqueia a renderização e `instrumentation.ts` não registra o MSW.
 
 ## 2. Contrato
@@ -57,11 +58,17 @@ Com o mock desligado, `MockProvider` não bloqueia a renderização e `instrumen
 ## 7. Prefetch no servidor (opcional, melhora SEO/LCP)
 
 Com a API real acessível do servidor Next, as páginas podem pré-carregar dados:
+
 ```tsx
 const queryClient = getQueryClient();
 await queryClient.prefetchQuery(productQuery(slug));
-return <HydrationBoundary state={dehydrate(queryClient)}><ProductView slug={slug} /></HydrationBoundary>;
+return (
+  <HydrationBoundary state={dehydrate(queryClient)}>
+    <ProductView slug={slug} />
+  </HydrationBoundary>
+);
 ```
+
 e `generateMetadata` pode chamar `catalogApi.product(slug)` para título/descrição/OG reais.
 `sitemap.ts` deve listar produtos/categorias/lojas a partir da API.
 

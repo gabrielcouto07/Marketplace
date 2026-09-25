@@ -11,17 +11,26 @@ const outDir = join(root, "public/icons");
 mkdirSync(outDir, { recursive: true });
 
 const THEME = "#0038A8";
+const CANVAS = "#F3F5F9";
 
 async function plain(size) {
-  const buf = await sharp(logo).resize(size, size, { fit: "contain", background: { r: 255, g: 255, b: 255, alpha: 0 } }).png().toBuffer();
+  const buf = await sharp(logo)
+    .resize(size, size, { fit: "contain", background: { r: 255, g: 255, b: 255, alpha: 0 } })
+    .png()
+    .toBuffer();
   writeFileSync(join(outDir, `icon-${size}.png`), buf);
 }
 
 /** Maskable: logo ocupa a "safe zone" (80% central) sobre fundo branco. */
 async function maskable(size) {
   const inner = Math.round(size * 0.66);
-  const logoBuf = await sharp(logo).resize(inner, inner, { fit: "contain", background: { r: 255, g: 255, b: 255, alpha: 0 } }).png().toBuffer();
-  const buf = await sharp({ create: { width: size, height: size, channels: 4, background: "#FFFFFF" } })
+  const logoBuf = await sharp(logo)
+    .resize(inner, inner, { fit: "contain", background: { r: 255, g: 255, b: 255, alpha: 0 } })
+    .png()
+    .toBuffer();
+  const buf = await sharp({
+    create: { width: size, height: size, channels: 4, background: "#FFFFFF" },
+  })
     .composite([{ input: logoBuf, gravity: "center" }])
     .png()
     .toBuffer();
@@ -30,8 +39,13 @@ async function maskable(size) {
 
 async function apple(size) {
   const inner = Math.round(size * 0.74);
-  const logoBuf = await sharp(logo).resize(inner, inner, { fit: "contain", background: { r: 255, g: 255, b: 255, alpha: 0 } }).png().toBuffer();
-  const buf = await sharp({ create: { width: size, height: size, channels: 4, background: "#FFFFFF" } })
+  const logoBuf = await sharp(logo)
+    .resize(inner, inner, { fit: "contain", background: { r: 255, g: 255, b: 255, alpha: 0 } })
+    .png()
+    .toBuffer();
+  const buf = await sharp({
+    create: { width: size, height: size, channels: 4, background: "#FFFFFF" },
+  })
     .composite([{ input: logoBuf, gravity: "center" }])
     .png()
     .toBuffer();
@@ -47,9 +61,9 @@ async function splash() {
     `<svg width="${w}" height="12"><rect width="400" height="12" fill="#D52B1E"/><rect x="400" width="400" height="12" fill="#FFFFFF"/><rect x="800" width="400" height="12" fill="${THEME}"/></svg>`,
   );
   const text = Buffer.from(
-    `<svg width="${w}" height="${h}"><text x="600" y="470" text-anchor="middle" font-family="Arial, sans-serif" font-size="56" font-weight="800" fill="#0F172A">Marketplace Paraguai</text><text x="600" y="530" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" fill="#475569">Do Paraguai para a sua casa, com rastreio ponta a ponta</text></svg>`,
+    `<svg width="${w}" height="${h}"><text x="600" y="470" text-anchor="middle" font-family="Plus Jakarta Sans, Arial, sans-serif" font-size="56" font-weight="800" fill="#0F1728">Marketplace Paraguai</text><text x="600" y="530" text-anchor="middle" font-family="Plus Jakarta Sans, Arial, sans-serif" font-size="28" fill="#5A6478">Do Paraguai para a sua casa, com rastreio ponta a ponta</text></svg>`,
   );
-  const buf = await sharp({ create: { width: w, height: h, channels: 4, background: "#FFFFFF" } })
+  const buf = await sharp({ create: { width: w, height: h, channels: 4, background: CANVAS } })
     .composite([
       { input: logoBuf, top: 120, left: 470 },
       { input: text, top: 0, left: 0 },

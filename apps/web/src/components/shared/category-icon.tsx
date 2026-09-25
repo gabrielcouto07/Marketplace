@@ -1,4 +1,15 @@
-import { Dumbbell, Laptop, Package, Shirt, Smartphone, Sofa, SprayCan, Tv, Wine, type LucideIcon } from "lucide-react";
+import {
+  Dumbbell,
+  Laptop,
+  Package,
+  Shirt,
+  Smartphone,
+  Sofa,
+  SprayCan,
+  Tv,
+  Wine,
+  type LucideIcon,
+} from "lucide-react";
 
 const ICONS: Record<string, LucideIcon> = {
   tv: Tv,

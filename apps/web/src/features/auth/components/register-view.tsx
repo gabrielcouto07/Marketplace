@@ -11,11 +11,18 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { useRegister } from "@/features/auth/api";
 import { Link } from "@/i18n/navigation";
+import { cn } from "@/lib/utils";
 import { formatPhoneBr } from "@/lib/validation/documents";
 import { registerSchema, type RegisterFormValues } from "@/lib/validation/schemas";
 
 import { AuthCard, GoogleButton, OrDivider } from "./auth-card";
-import { FormField, PasswordInput, applyApiErrors, fieldError, useValidationMessage } from "./form-field";
+import {
+  FormField,
+  PasswordInput,
+  applyApiErrors,
+  fieldError,
+  useValidationMessage,
+} from "./form-field";
 import { useAuthRedirect, useRedirectIfAuthenticated } from "./use-auth-redirect";
 
 export function RegisterView() {
@@ -27,13 +34,25 @@ export function RegisterView() {
 
   const form = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
-    defaultValues: { fullName: "", email: "", phone: "", password: "", confirmPassword: "", acceptTerms: false },
+    defaultValues: {
+      fullName: "",
+      email: "",
+      phone: "",
+      password: "",
+      confirmPassword: "",
+      acceptTerms: false,
+    },
   });
   const { register, handleSubmit, setError, control, formState } = form;
 
   const onSubmit = handleSubmit((values) =>
     registerMutation.mutate(
-      { fullName: values.fullName, email: values.email, phone: values.phone, password: values.password },
+      {
+        fullName: values.fullName,
+        email: values.email,
+        phone: values.phone,
+        password: values.password,
+      },
       {
         onSuccess: (session) => {
           toast.success(t("welcome", { name: session.user.fullName.split(" ")[0] }));
@@ -55,7 +74,7 @@ export function RegisterView() {
       footer={
         <>
           {t("hasAccount")}{" "}
-          <Link href="/entrar" className="font-semibold text-primary hover:underline">
+          <Link href="/entrar" className="font-bold text-primary hover:underline">
             {t("signIn")}
           </Link>
         </>
@@ -66,7 +85,15 @@ export function RegisterView() {
           {(a11y) => <Input {...a11y} autoComplete="name" {...register("fullName")} />}
         </FormField>
         <FormField label={t("email")} error={fieldError(formState.errors, "email")}>
-          {(a11y) => <Input {...a11y} type="email" inputMode="email" autoComplete="email" {...register("email")} />}
+          {(a11y) => (
+            <Input
+              {...a11y}
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              {...register("email")}
+            />
+          )}
         </FormField>
         <FormField label={t("phone")} error={fieldError(formState.errors, "phone")}>
           {(a11y) => (
@@ -91,10 +118,17 @@ export function RegisterView() {
           )}
         </FormField>
         <FormField label={t("password")} error={fieldError(formState.errors, "password")}>
-          {(a11y) => <PasswordInput {...a11y} autoComplete="new-password" {...register("password")} />}
+          {(a11y) => (
+            <PasswordInput {...a11y} autoComplete="new-password" {...register("password")} />
+          )}
         </FormField>
-        <FormField label={t("confirmPassword")} error={fieldError(formState.errors, "confirmPassword")}>
-          {(a11y) => <PasswordInput {...a11y} autoComplete="new-password" {...register("confirmPassword")} />}
+        <FormField
+          label={t("confirmPassword")}
+          error={fieldError(formState.errors, "confirmPassword")}
+        >
+          {(a11y) => (
+            <PasswordInput {...a11y} autoComplete="new-password" {...register("confirmPassword")} />
+          )}
         </FormField>
 
         <Controller
@@ -102,22 +136,29 @@ export function RegisterView() {
           name="acceptTerms"
           render={({ field }) => (
             <div className="flex flex-col gap-1">
-              <label className="flex min-h-11 cursor-pointer items-start gap-3 text-sm">
+              <label
+                className={cn(
+                  "flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border-[1.5px] bg-surface p-3 text-[13.5px] leading-snug text-body transition-colors",
+                  termsError
+                    ? "border-destructive"
+                    : "border-transparent has-checked:border-primary has-checked:bg-selected",
+                )}
+              >
                 <Checkbox
                   checked={field.value}
                   onCheckedChange={(checked) => field.onChange(checked === true)}
                   aria-invalid={Boolean(termsError)}
-                  className="mt-0.5 size-5"
+                  className="mt-px"
                 />
                 <span>
                   {t.rich("acceptTerms", {
                     terms: (chunks) => (
-                      <a href="#" className="font-medium text-primary underline">
+                      <a href="#" className="font-bold text-primary underline">
                         {chunks}
                       </a>
                     ),
                     privacy: (chunks) => (
-                      <a href="#" className="font-medium text-primary underline">
+                      <a href="#" className="font-bold text-primary underline">
                         {chunks}
                       </a>
                     ),
@@ -133,7 +174,13 @@ export function RegisterView() {
           )}
         />
 
-        <Button type="submit" variant="cta" size="lg" className="w-full" disabled={registerMutation.isPending}>
+        <Button
+          type="submit"
+          variant="cta"
+          size="lg"
+          className="w-full"
+          disabled={registerMutation.isPending}
+        >
           <UserPlus data-icon="inline-start" />
           {t("signUp")}
         </Button>

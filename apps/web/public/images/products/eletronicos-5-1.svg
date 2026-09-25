@@ -3,6 +3,6 @@
 <rect width="600" height="600" fill="url(#g)"/>
 <circle cx="150" cy="80" r="140" fill="hsl(236 55% 42%)" opacity=".07"/>
 <g transform="translate(0 -40) rotate(0 300 300)" fill="hsl(236 55% 42%)" stroke="hsl(236 55% 42%)" stroke-linecap="round" stroke-linejoin="round" opacity=".9"><rect x="120" y="170" width="360" height="220" rx="18"/><path d="M240 430h120M300 390v40" stroke-width="22"/></g>
-<text x="300" y="520" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="600" fill="hsl(236 55% 42%)"><tspan x="300" dy="0">Câmera de ação 4K 60fps</tspan><tspan x="300" dy="26">com estabilização</tspan></text>
-<text x="560" y="580" text-anchor="end" font-family="Inter, Arial, sans-serif" font-size="16" fill="hsl(236 55% 42%)" opacity=".7">5/1</text>
+<text x="300" y="520" text-anchor="middle" font-family="Plus Jakarta Sans, Inter, Arial, sans-serif" font-size="22" font-weight="600" fill="hsl(236 55% 42%)"><tspan x="300" dy="0">Câmera de ação 4K 60fps</tspan><tspan x="300" dy="26">com estabilização</tspan></text>
+<text x="560" y="580" text-anchor="end" font-family="Plus Jakarta Sans, Inter, Arial, sans-serif" font-size="16" fill="hsl(236 55% 42%)" opacity=".7">5/1</text>
 </svg>

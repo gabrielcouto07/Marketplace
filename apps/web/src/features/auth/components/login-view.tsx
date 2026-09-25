@@ -12,7 +12,7 @@ import { useLogin } from "@/features/auth/api";
 import { Link } from "@/i18n/navigation";
 import { loginSchema, type LoginFormValues } from "@/lib/validation/schemas";
 
-import { AuthCard, GoogleButton, OrDivider } from "./auth-card";
+import { AuthCard, DemoHint, GoogleButton, OrDivider } from "./auth-card";
 import { FormField, PasswordInput, applyApiErrors, fieldError } from "./form-field";
 import { useAuthRedirect, useRedirectIfAuthenticated } from "./use-auth-redirect";
 
@@ -47,7 +47,7 @@ export function LoginView() {
       footer={
         <>
           {t("noAccount")}{" "}
-          <Link href="/cadastrar" className="font-semibold text-primary hover:underline">
+          <Link href="/cadastrar" className="font-bold text-primary hover:underline">
             {t("signUp")}
           </Link>
         </>
@@ -55,13 +55,27 @@ export function LoginView() {
     >
       <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
         <FormField label={t("email")} error={fieldError(formState.errors, "email")}>
-          {(a11y) => <Input {...a11y} type="email" inputMode="email" autoComplete="email" placeholder="voce@exemplo.com" {...register("email")} />}
+          {(a11y) => (
+            <Input
+              {...a11y}
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              placeholder="voce@exemplo.com"
+              {...register("email")}
+            />
+          )}
         </FormField>
         <FormField label={t("password")} error={fieldError(formState.errors, "password")}>
-          {(a11y) => <PasswordInput {...a11y} autoComplete="current-password" {...register("password")} />}
+          {(a11y) => (
+            <PasswordInput {...a11y} autoComplete="current-password" {...register("password")} />
+          )}
         </FormField>
-        <div className="-mt-2 text-right">
-          <Link href="/recuperar-senha" className="text-sm font-medium text-primary hover:underline">
+        <div className="-mt-1.5 text-right">
+          <Link
+            href="/recuperar-senha"
+            className="inline-flex min-h-8 items-center text-[13px] font-bold text-primary hover:underline"
+          >
             {t("forgotPassword")}
           </Link>
         </div>
@@ -69,7 +83,7 @@ export function LoginView() {
           <LogIn data-icon="inline-start" />
           {t("signIn")}
         </Button>
-        <p className="rounded-md bg-accent px-3 py-2 text-center text-xs text-accent-foreground">{t("demoHint")}</p>
+        <DemoHint>{t("demoHint")}</DemoHint>
       </form>
       <OrDivider />
       <GoogleButton />

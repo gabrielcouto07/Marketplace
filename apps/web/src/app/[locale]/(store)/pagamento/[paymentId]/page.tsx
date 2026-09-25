@@ -16,9 +16,9 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 export default async function PaymentPage({ params }: { params: Params }) {
   const { locale, paymentId } = await params;
   setRequestLocale(locale);
-  const t = await getTranslations({ locale, namespace: "payment" });
+  // Layout "done": a view desenha o ícone + título — sem barra de título no shell.
   return (
-    <StoreShell title={t("title")} showBack hideSearch hideBottomNav>
+    <StoreShell hideSearch hideBottomNav>
       <PaymentView paymentId={paymentId} />
     </StoreShell>
   );

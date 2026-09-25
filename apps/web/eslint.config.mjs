@@ -10,14 +10,21 @@ const eslintConfig = defineConfig([
   {
     rules: {
       "@typescript-eslint/no-explicit-any": "error",
-      "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
-      "@typescript-eslint/consistent-type-imports": ["warn", { prefer: "type-imports", fixStyle: "inline-type-imports" }],
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
+      "@typescript-eslint/consistent-type-imports": [
+        "warn",
+        { prefer: "type-imports", fixStyle: "inline-type-imports" },
+      ],
       // Restringe fetch direto fora da camada de API.
       "no-restricted-globals": [
         "error",
         {
           name: "fetch",
-          message: "Use os hooks em features/*/api (camada http em lib/api). Componentes não chamam fetch.",
+          message:
+            "Use os hooks em features/*/api (camada http em lib/api). Componentes não chamam fetch.",
         },
       ],
     },
@@ -31,7 +38,14 @@ const eslintConfig = defineConfig([
     files: ["src/components/ui/**"],
     rules: { "react-hooks/set-state-in-effect": "off" },
   },
-  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts", "public/sw.js", "public/mockServiceWorker.js"]),
+  globalIgnores([
+    ".next/**",
+    "out/**",
+    "build/**",
+    "next-env.d.ts",
+    "public/sw.js",
+    "public/mockServiceWorker.js",
+  ]),
 ]);
 
 export default eslintConfig;

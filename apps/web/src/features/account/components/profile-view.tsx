@@ -15,6 +15,7 @@ import { useUpdateProfile } from "@/features/auth/api";
 import { FormField, applyApiErrors, fieldError } from "@/features/auth/components/form-field";
 import { useAuthStore, useCurrentUser } from "@/features/auth/store";
 import { Link } from "@/i18n/navigation";
+import { initials } from "@/lib/palette";
 import { formatCpf, formatPhoneBr } from "@/lib/validation/documents";
 import { profileSchema, type ProfileFormValues } from "@/lib/validation/schemas";
 
@@ -26,10 +27,11 @@ export function ProfileView() {
   const hydrated = useAuthStore.persist.hasHydrated();
   const update = useUpdateProfile();
 
-  const { register, handleSubmit, control, reset, setError, formState } = useForm<ProfileFormValues>({
-    resolver: zodResolver(profileSchema),
-    defaultValues: { fullName: "", phone: "", cpf: "" },
-  });
+  const { register, handleSubmit, control, reset, setError, formState } =
+    useForm<ProfileFormValues>({
+      resolver: zodResolver(profileSchema),
+      defaultValues: { fullName: "", phone: "", cpf: "" },
+    });
 
   useEffect(() => {
     if (user) reset({ fullName: user.fullName, phone: user.phone ?? "", cpf: user.cpf ?? "" });
@@ -51,8 +53,26 @@ export function ProfileView() {
   );
 
   return (
-    <PageContainer className="py-4">
-      <form onSubmit={onSubmit} noValidate className="mx-auto flex max-w-md flex-col gap-4 rounded-2xl border border-border bg-card p-4 sm:p-6">
+    <PageContainer className="flex flex-col gap-3 py-4">
+      <div className="mx-auto flex w-full max-w-md animate-rise items-center gap-3.5 rounded-3xl bg-card p-4 shadow-card">
+        <span
+          aria-hidden
+          className="flex size-[52px] shrink-0 items-center justify-center rounded-2xl bg-accent text-lg font-extrabold text-primary"
+        >
+          {initials(user.fullName)}
+        </span>
+        <div className="min-w-0">
+          <p className="truncate text-[15px] font-extrabold">{user.fullName}</p>
+          <p className="truncate text-[13px] text-muted-foreground">{user.email}</p>
+        </div>
+      </div>
+
+      <form
+        onSubmit={onSubmit}
+        noValidate
+        className="mx-auto flex w-full max-w-md animate-rise flex-col gap-4 rounded-3xl bg-card p-4 shadow-card sm:p-6"
+        style={{ animationDelay: "40ms" }}
+      >
         <FormField label={t("email")}>
           {(a11y) => <Input {...a11y} type="email" value={user.email} readOnly disabled />}
         </FormField>
@@ -100,7 +120,13 @@ export function ProfileView() {
             />
           )}
         </FormField>
-        <Button type="submit" variant="cta" size="lg" disabled={update.isPending || !formState.isDirty}>
+        <Button
+          type="submit"
+          variant="cta"
+          size="lg"
+          className="mt-1"
+          disabled={update.isPending || !formState.isDirty}
+        >
           <Save data-icon="inline-start" />
           {tCommon("save")}
         </Button>
@@ -113,15 +139,20 @@ export function LoginRequired({ next }: { next?: string }) {
   const t = useTranslations("account");
   const tErrors = useTranslations("errors");
   return (
-    <EmptyState
-      title={t("guestTitle")}
-      description={tErrors("unauthorized")}
-      className="min-h-[50vh]"
-      action={
-        <Button variant="cta" render={<Link href={next ? `/entrar?next=${encodeURIComponent(next)}` : "/entrar"} />}>
-          {t("signIn")}
-        </Button>
-      }
-    />
+    <PageContainer className="py-4">
+      <EmptyState
+        title={t("guestTitle")}
+        description={tErrors("unauthorized")}
+        className="min-h-[50vh]"
+        action={
+          <Button
+            variant="cta"
+            render={<Link href={next ? `/entrar?next=${encodeURIComponent(next)}` : "/entrar"} />}
+          >
+            {t("signIn")}
+          </Button>
+        }
+      />
+    </PageContainer>
   );
 }

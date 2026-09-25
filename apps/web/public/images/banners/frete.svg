@@ -4,6 +4,6 @@
 <circle cx="1000" cy="240" r="260" fill="#0F172A" opacity=".08"/>
 <circle cx="1100" cy="120" r="140" fill="#0F172A" opacity=".08"/>
 <rect x="0" y="464" width="400" height="16" fill="#D52B1E"/><rect x="400" y="464" width="400" height="16" fill="#FFFFFF"/><rect x="800" y="464" width="400" height="16" fill="#0038A8"/>
-<text x="72" y="220" font-family="Inter, Arial, sans-serif" font-size="64" font-weight="800" fill="#0F172A">Frete grátis acima de R$ 300</text>
-<text x="72" y="290" font-family="Inter, Arial, sans-serif" font-size="30" fill="#0F172A" opacity=".85">Nas lojas participantes, com rastreio ponta a ponta</text>
+<text x="72" y="220" font-family="Plus Jakarta Sans, Inter, Arial, sans-serif" font-size="64" font-weight="800" fill="#0F172A">Frete grátis acima de R$ 300</text>
+<text x="72" y="290" font-family="Plus Jakarta Sans, Inter, Arial, sans-serif" font-size="30" fill="#0F172A" opacity=".85">Nas lojas participantes, com rastreio ponta a ponta</text>
 </svg>

@@ -11,7 +11,17 @@ import type {
 
 import { convert } from "@/lib/money";
 
-import { CATEGORIES, SELLERS, getRate, guid, hashString, isoDaysAgo, seeded, slugify, toSellerSummary } from "./base";
+import {
+  CATEGORIES,
+  SELLERS,
+  getRate,
+  guid,
+  hashString,
+  isoDaysAgo,
+  seeded,
+  slugify,
+  toSellerSummary,
+} from "./base";
 import templatesJson from "./product-templates.json";
 
 interface Template {
@@ -53,15 +63,24 @@ function buildVariants(
     // Variantes "maiores" (2ª, 3ª opção) custam mais: +0%, +18%, +36%...
     const firstOpt = options[0];
     const idx = firstOpt.values.indexOf(attributes[firstOpt.name]);
-    const bump = firstOpt.name === "Cor" || firstOpt.name === "Sabor" || firstOpt.name === "Fragrância" ? 0 : idx * 18;
-    const price: Money = { amount: Math.round((base.amount * (100 + bump)) / 100), currency: "BRL" };
+    const bump =
+      firstOpt.name === "Cor" || firstOpt.name === "Sabor" || firstOpt.name === "Fragrância"
+        ? 0
+        : idx * 18;
+    const price: Money = {
+      amount: Math.round((base.amount * (100 + bump)) / 100),
+      currency: "BRL",
+    };
     const cmp: Money | null = compareAt
       ? { amount: Math.round((compareAt.amount * (100 + bump)) / 100), currency: "BRL" }
       : null;
     const stock = rnd() < 0.12 ? 0 : 1 + Math.floor(rnd() * 25);
     return {
       id: guid(`${productKey}:variant:${i}`),
-      sku: `${productKey.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8)}-${String(i + 1).padStart(2, "0")}`,
+      sku: `${productKey
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, "")
+        .slice(0, 8)}-${String(i + 1).padStart(2, "0")}`,
       attributes,
       price,
       compareAtPrice: cmp,
@@ -71,7 +90,12 @@ function buildVariants(
   });
 }
 
-function buildDescription(name: string, categoryName: string, attrs: Array<[string, string]>, sellerCity: string): string {
+function buildDescription(
+  name: string,
+  categoryName: string,
+  attrs: Array<[string, string]>,
+  sellerCity: string,
+): string {
   const specs = attrs.map(([k, v]) => `• ${k}: ${v}`).join("\n");
   return (
     `${name} — produto novo, lacrado e original, enviado diretamente de ${sellerCity} (Paraguai).\n\n` +
@@ -105,26 +129,76 @@ const REVIEW_AUTHORS = [
 ];
 
 const REVIEW_TEXTS: Array<{ rating: number; title: string; comment: string }> = [
-  { rating: 5, title: "Chegou antes do prazo", comment: "Produto original, lacrado e chegou 5 dias antes da estimativa. Recomendo a loja." },
-  { rating: 5, title: "Excelente custo-benefício", comment: "Mesmo com o imposto ficou bem mais barato do que no Brasil. Embalagem impecável." },
-  { rating: 4, title: "Muito bom", comment: "Produto conforme o anúncio. Só o rastreio demorou alguns dias para atualizar na alfândega." },
-  { rating: 4, title: "Gostei", comment: "Funciona perfeitamente. A caixa veio um pouco amassada, mas o produto estava intacto." },
-  { rating: 3, title: "Ok, mas demorou", comment: "Chegou dentro da faixa de prazo, mas no limite. Produto bom." },
-  { rating: 5, title: "Perfeito", comment: "Segunda compra com esse vendedor, sempre entrega certinho e responde rápido." },
-  { rating: 2, title: "Veio com defeito", comment: "Veio com um problema, mas a loja resolveu a troca sem burocracia. Por isso não dou 1." },
-  { rating: 5, title: "Recomendo", comment: "Atendimento excelente, tiraram todas as dúvidas antes da compra." },
+  {
+    rating: 5,
+    title: "Chegou antes do prazo",
+    comment: "Produto original, lacrado e chegou 5 dias antes da estimativa. Recomendo a loja.",
+  },
+  {
+    rating: 5,
+    title: "Excelente custo-benefício",
+    comment: "Mesmo com o imposto ficou bem mais barato do que no Brasil. Embalagem impecável.",
+  },
+  {
+    rating: 4,
+    title: "Muito bom",
+    comment:
+      "Produto conforme o anúncio. Só o rastreio demorou alguns dias para atualizar na alfândega.",
+  },
+  {
+    rating: 4,
+    title: "Gostei",
+    comment:
+      "Funciona perfeitamente. A caixa veio um pouco amassada, mas o produto estava intacto.",
+  },
+  {
+    rating: 3,
+    title: "Ok, mas demorou",
+    comment: "Chegou dentro da faixa de prazo, mas no limite. Produto bom.",
+  },
+  {
+    rating: 5,
+    title: "Perfeito",
+    comment: "Segunda compra com esse vendedor, sempre entrega certinho e responde rápido.",
+  },
+  {
+    rating: 2,
+    title: "Veio com defeito",
+    comment:
+      "Veio com um problema, mas a loja resolveu a troca sem burocracia. Por isso não dou 1.",
+  },
+  {
+    rating: 5,
+    title: "Recomendo",
+    comment: "Atendimento excelente, tiraram todas as dúvidas antes da compra.",
+  },
 ];
 
 const QUESTION_TEXTS: Array<{ q: string; a: string | null }> = [
-  { q: "Vem com nota fiscal e garantia no Brasil?", a: "Olá! Enviamos com invoice e a garantia é de fábrica, atendida por assistência credenciada no Brasil." },
-  { q: "Qual o prazo real de entrega para São Paulo?", a: "Em média 12 a 18 dias úteis, já contando o desembaraço." },
-  { q: "O imposto já está incluso no preço?", a: "O imposto de importação é estimado no checkout e exibido separadamente antes de você pagar." },
-  { q: "Aceita parcelamento no cartão?", a: "Sim, em até 12x com juros da operadora ou à vista no Pix com desconto." },
+  {
+    q: "Vem com nota fiscal e garantia no Brasil?",
+    a: "Olá! Enviamos com invoice e a garantia é de fábrica, atendida por assistência credenciada no Brasil.",
+  },
+  {
+    q: "Qual o prazo real de entrega para São Paulo?",
+    a: "Em média 12 a 18 dias úteis, já contando o desembaraço.",
+  },
+  {
+    q: "O imposto já está incluso no preço?",
+    a: "O imposto de importação é estimado no checkout e exibido separadamente antes de você pagar.",
+  },
+  {
+    q: "Aceita parcelamento no cartão?",
+    a: "Sim, em até 12x com juros da operadora ou à vista no Pix com desconto.",
+  },
   { q: "Tem estoque disponível para envio imediato?", a: null },
   { q: "É bivolt?", a: "Sim, 110/220 V automático." },
 ];
 
-function buildReviews(productKey: string, rnd: () => number): { reviews: ReviewDto[]; summary: ReviewSummaryDto } {
+function buildReviews(
+  productKey: string,
+  rnd: () => number,
+): { reviews: ReviewDto[]; summary: ReviewSummaryDto } {
   const count = 3 + Math.floor(rnd() * 4);
   const reviews: ReviewDto[] = Array.from({ length: count }, (_, i) => {
     const text = REVIEW_TEXTS[Math.floor(rnd() * REVIEW_TEXTS.length)];
@@ -180,11 +254,17 @@ function buildAll(): ProductRecord[] {
         ? Object.entries(t.variants).map(([name, values]) => ({ name, values }))
         : [];
       const variants = buildVariants(key, price, compareAt, options, rnd);
-      const stock = variants.length ? variants.reduce((a, v) => a + v.stock, 0) : rnd() < 0.08 ? 0 : 3 + Math.floor(rnd() * 40);
+      const stock = variants.length
+        ? variants.reduce((a, v) => a + v.stock, 0)
+        : rnd() < 0.08
+          ? 0
+          : 3 + Math.floor(rnd() * 40);
       const { reviews, summary } = buildReviews(key, rnd);
       const questions = buildQuestions(key, rnd);
       const createdDaysAgo = Math.floor(rnd() * 200);
-      const discount = compareAt ? Math.round(((compareAt.amount - price.amount) / compareAt.amount) * 100) : 0;
+      const discount = compareAt
+        ? Math.round(((compareAt.amount - price.amount) / compareAt.amount) * 100)
+        : 0;
       const images = [1, 2, 3].map((n) => ({
         id: guid(`${key}:image:${n}`),
         url: `/images/products/${category.slug}-${i + 1}-${n}.svg`,

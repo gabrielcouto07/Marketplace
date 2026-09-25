@@ -1,7 +1,16 @@
 "use client";
 
 import { SerwistProvider } from "@serwist/next/react";
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+  type ReactNode,
+} from "react";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -26,7 +35,8 @@ export function usePwa(): PwaContextValue {
   return ctx;
 }
 
-const DISABLE_SW = process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_SW_DEV !== "true";
+const DISABLE_SW =
+  process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_SW_DEV !== "true";
 
 // ----- Fontes externas (useSyncExternalStore evita setState em effects e mismatch de hidratação) -----
 

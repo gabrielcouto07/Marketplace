@@ -1,18 +1,24 @@
 "use client";
 
-import type { ProductDetailDto } from "@marketplace/contracts";
-import { Check, Package, Share2, ShieldCheck, ShoppingCart, Truck } from "lucide-react";
+import type { ProductDetailDto, ShippingQuoteDto } from "@marketplace/contracts";
+import { ChevronRight, Share2, ShieldCheck, ShoppingCart, Truck } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { PageContainer } from "@/components/layout/store-shell";
+import { PageContainer, StickyBar } from "@/components/layout/store-shell";
+import { BackButton } from "@/components/shared/back-button";
 import { CepShippingCalculator } from "@/components/shared/cep-shipping-calculator";
 import { FavoriteButton } from "@/components/shared/favorite-button";
 import { PriceTag } from "@/components/shared/price-tag";
 import { QuantityStepper } from "@/components/shared/quantity-stepper";
 import { RatingStars } from "@/components/shared/rating-stars";
-import { SellerBadge } from "@/components/shared/seller-badge";
+import {
+  OfficialBadge,
+  ReputationMeter,
+  SellerAvatar,
+  SellerBadge,
+} from "@/components/shared/seller-badge";
 import { ErrorState } from "@/components/shared/states";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -22,19 +28,24 @@ import { useSeller } from "@/features/seller/api";
 import { useExchangeRates } from "@/features/shipping/api";
 import { Link, useRouter } from "@/i18n/navigation";
 import { formatMoney } from "@/lib/money";
+import { categoryHue } from "@/lib/palette";
 import { cn } from "@/lib/utils";
+import { formatCep } from "@/lib/validation/documents";
 
 import { ProductGallery } from "./product-gallery";
 import { ProductQuestions } from "./product-questions";
 import { ProductReviews } from "./product-reviews";
 import { VariantSelector, findVariant } from "./variant-selector";
 
+const CARD = "rounded-3xl bg-card p-4.5 shadow-card";
+
 export function ProductView({ slug }: { slug: string }) {
   const { data, isPending, isError, error, refetch } = useProduct(slug);
 
   if (isError) {
     return (
-      <PageContainer>
+      <PageContainer className="pt-4">
+        <BackButton className="mb-4" />
         <ErrorState error={error} onRetry={() => refetch()} className="min-h-[60vh]" />
       </PageContainer>
     );
@@ -47,33 +58,52 @@ function ProductContent({ product }: { product: ProductDetailDto }) {
   const t = useTranslations("product");
   const tc = useTranslations("common");
   const tcat = useTranslations("catalog");
+  const ts = useTranslations("seller");
   const format = useFormatter();
   const router = useRouter();
   const addToCart = useCartStore((s) => s.add);
   const rates = useExchangeRates();
   const seller = useSeller(product.seller.slug);
+  const hue = categoryHue(product.categoryPath.at(-1)?.slug ?? product.categoryId);
 
   // Seleção de variação: pré-seleciona a primeira combinação com estoque.
   const [selection, setSelection] = useState<Record<string, string>>(() => {
     const first = product.variants.find((v) => v.stock > 0) ?? product.variants[0];
     return first ? { ...first.attributes } : {};
   });
-  const variant = useMemo(() => findVariant(product.variants, selection, product.variantOptions), [product, selection]);
+  const variant = useMemo(
+    () => findVariant(product.variants, selection, product.variantOptions),
+    [product, selection],
+  );
   const needsVariant = product.variantOptions.length > 0;
   const price = variant?.price ?? product.price;
   const compareAt = variant ? variant.compareAtPrice : product.compareAtPrice;
   const stock = needsVariant ? (variant?.stock ?? 0) : product.stock;
   // Quantidade "amarrada" à variante: troca de variante reinicia para 1 sem useEffect (padrão de estado derivado).
-  const [quantityState, setQuantityState] = useState<{ variantId: string | undefined; value: number }>({ variantId: variant?.id, value: 1 });
+  const [quantityState, setQuantityState] = useState<{
+    variantId: string | undefined;
+    value: number;
+  }>({ variantId: variant?.id, value: 1 });
   const quantity = quantityState.variantId === variant?.id ? quantityState.value : 1;
   const setQuantity = (value: number) => setQuantityState({ variantId: variant?.id, value });
 
   const rate = rates.data?.find((r) => r.from === "BRL" && r.to === "PYG");
   const referencePrice = rate
-    ? { amount: Math.round((price.amount * rate.numerator) / rate.denominator), currency: "PYG" as const }
+    ? {
+        amount: Math.round((price.amount * rate.numerator) / rate.denominator),
+        currency: "PYG" as const,
+      }
     : product.referencePrice;
   const variantLabel = variant ? Object.values(variant.attributes).join(" / ") : null;
   const canBuy = stock > 0 && (!needsVariant || Boolean(variant));
+
+  // Última cotação de frete: alimenta o título "Frete a partir de…" e o prazo estimado.
+  const [quote, setQuote] = useState<ShippingQuoteDto | null>(null);
+  const cheapest =
+    quote?.options.reduce<ShippingQuoteDto["options"][number] | null>(
+      (min, o) => (!min || o.price.amount < min.price.amount ? o : min),
+      null,
+    ) ?? null;
 
   const add = () => {
     addToCart({
@@ -88,7 +118,9 @@ function ProductContent({ product }: { product: ProductDetailDto }) {
 
   const onAddToCart = () => {
     add();
-    toast.success(t("addedToCart"), { action: { label: t("viewCart"), onClick: () => router.push("/carrinho") } });
+    toast.success(t("addedToCart"), {
+      action: { label: t("viewCart"), onClick: () => router.push("/carrinho") },
+    });
   };
 
   const onBuyNow = () => {
@@ -111,10 +143,12 @@ function ProductContent({ product }: { product: ProductDetailDto }) {
   };
 
   const shippingItems = [{ productId: product.id, variantId: variant?.id ?? null, quantity }];
+  const stockHint =
+    stock <= 0 ? t("outOfStock") : stock <= 5 ? t("lowStock") : t("stockCount", { count: stock });
 
   return (
-    <PageContainer className="pt-2 sm:pt-4">
-      <nav aria-label="breadcrumb" className="mb-2 hidden text-xs text-muted-foreground sm:block">
+    <PageContainer className="lg:pt-5">
+      <nav aria-label="breadcrumb" className="mb-3 hidden text-xs text-muted-foreground lg:block">
         <ol className="flex items-center gap-1">
           <li>
             <Link href="/" className="hover:text-primary">
@@ -132,192 +166,394 @@ function ProductContent({ product }: { product: ProductDetailDto }) {
         </ol>
       </nav>
 
-      <div className="grid gap-6 md:grid-cols-2 md:gap-10">
+      <div className="lg:grid lg:grid-cols-2 lg:grid-rows-[auto_auto] lg:items-start lg:gap-x-8 lg:gap-y-2.5">
+        {/* Galeria: sangra até as bordas no mobile; coluna esquerda no desktop. */}
         <ProductGallery
           images={product.images}
           name={product.name}
-          discountPercent={product.discountPercent}
-          overlay={
+          hue={hue}
+          className="-mx-4 lg:col-start-1 lg:row-start-1 lg:mx-0"
+          topLeft={
+            <BackButton fallbackHref={`/categoria/${product.categoryPath.at(-1)?.slug ?? ""}`} />
+          }
+          topRight={
             <>
+              <Button variant="white" size="icon" aria-label={t("share")} onClick={share}>
+                <Share2 className="size-[19px]" />
+              </Button>
               <FavoriteButton product={product} size="md" />
-              <button
-                type="button"
-                onClick={share}
-                aria-label={t("share")}
-                className="flex size-11 items-center justify-center rounded-full bg-white/90 text-neutral-700 shadow-sm ring-1 ring-black/5 hover:bg-white dark:bg-neutral-800/90 dark:text-neutral-100"
-              >
-                <Share2 className="size-5" />
-              </button>
             </>
           }
         />
 
-        <div className="flex flex-col gap-5">
-          <div>
-            <div className="mb-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-              {product.isNew ? <span className="rounded-md bg-primary px-1.5 py-0.5 text-[11px] font-bold text-primary-foreground">{tcat("newBadge")}</span> : null}
-              <span>{t("soldCount", { count: product.soldCount })}</span>
+        {/* Cards de compra: sobem 24 px sobre a galeria no mobile; coluna direita no desktop. */}
+        <div className="relative -mt-6 flex flex-col gap-2.5 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:mt-0">
+          {/* a. Título e preço */}
+          <section
+            aria-labelledby="product-title"
+            className={cn(CARD, "flex animate-rise flex-col gap-3 pt-5")}
+          >
+            <SellerBadge seller={product.seller} variant="pill" className="self-start" />
+            <h1
+              id="product-title"
+              className="text-[21px] leading-[1.25] font-bold tracking-[-0.015em] text-pretty"
+            >
+              {product.name}
+            </h1>
+            <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[13px] text-muted-foreground">
+              <RatingStars
+                value={product.rating}
+                count={product.reviewCount}
+                size="sm"
+                variant="full"
+              />
+              {product.soldCount > 0 ? (
+                <>
+                  <span aria-hidden>·</span>
+                  <span>
+                    {tcat("soldCompact", {
+                      count: format.number(product.soldCount, { notation: "compact" }),
+                    })}
+                  </span>
+                </>
+              ) : null}
             </div>
-            <h1 className="text-xl leading-snug font-bold tracking-tight sm:text-2xl">{product.name}</h1>
-            <div className="mt-2 flex items-center gap-2">
-              <RatingStars value={product.rating} count={product.reviewCount} size="sm" />
-              <a href="#reviews-title" className="text-xs text-primary hover:underline">
-                {t("reviewsTitle")}
-              </a>
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-border bg-card p-4">
-            <PriceTag price={price} compareAtPrice={compareAt} referencePrice={referencePrice} size="lg" showInstallments />
-            <p className="mt-2 text-xs text-muted-foreground">
-              {t("priceReference")}
-              {rate ? ` · ${t("priceLocked", { rate: rate.displayRate })}` : null}
-            </p>
-            <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-              <ShieldCheck className="size-3.5" aria-hidden /> {t("importTaxNote")}
-            </p>
-            {product.freeShipping ? (
-              <p className="mt-2 flex items-center gap-1 text-sm font-semibold text-success">
-                <Truck className="size-4" aria-hidden /> {t("freeShippingLabel")}
+            <div className="flex flex-col gap-0.5 pt-1">
+              <PriceTag
+                price={price}
+                compareAtPrice={compareAt}
+                referencePrice={referencePrice}
+                size="lg"
+                installments="long"
+                showDiscountBadge
+              />
+              <p className="text-[12.5px] text-muted-foreground">
+                {t("priceReference")}
+                {rate ? ` · ${t("priceLocked", { rate: rate.displayRate })}` : null}
               </p>
-            ) : null}
-          </div>
-
-          <VariantSelector options={product.variantOptions} variants={product.variants} selection={selection} onChange={setSelection} />
-
-          <div className="flex flex-wrap items-center gap-4">
-            <QuantityStepper value={quantity} min={1} max={Math.max(1, stock)} onChange={setQuantity} />
-            <p className={cn("text-sm", stock <= 0 ? "font-semibold text-destructive" : stock <= 5 ? "font-medium text-warning" : "text-muted-foreground")}>
-              {stock <= 0 ? t("outOfStock") : stock <= 5 ? t("lowStock") : t("inStock", { count: stock })}
-            </p>
-          </div>
-
-          <div className="hidden gap-2 md:flex">
-            <Button variant="cta" size="lg" className="flex-1" disabled={!canBuy} onClick={onBuyNow}>
-              {t("buyNow")}
-            </Button>
-            <Button variant="outline" size="lg" className="flex-1" disabled={!canBuy} onClick={onAddToCart}>
-              <ShoppingCart data-icon="inline-start" /> {t("addToCart")}
-            </Button>
-          </div>
-
-          <CepShippingCalculator sellerId={product.seller.id} items={shippingItems} />
-
-          <ul className="grid gap-2 text-sm sm:grid-cols-2">
-            <li className="flex items-center gap-2 text-muted-foreground">
-              <Package className="size-4 shrink-0 text-primary" aria-hidden /> {t("shippingFrom", { city: product.originCity })}
-            </li>
-            <li className="flex items-center gap-2 text-muted-foreground">
-              <Truck className="size-4 shrink-0 text-primary" aria-hidden /> {t("handlingDays", { min: product.handlingDays.min, max: product.handlingDays.max })}
-            </li>
-            <li className="flex items-center gap-2 text-muted-foreground">
-              <ShieldCheck className="size-4 shrink-0 text-primary" aria-hidden />{" "}
-              {product.warrantyMonths ? t("warranty", { months: product.warrantyMonths }) : t("noWarranty")}
-            </li>
-          </ul>
-
-          <section aria-labelledby="seller-title" className="flex flex-col gap-2">
-            <h2 id="seller-title" className="text-sm font-semibold">
-              {t("sellerTitle")}
-            </h2>
-            <SellerBadge seller={product.seller} variant="card" />
-            {seller.data ? (
-              <ul className="grid grid-cols-3 gap-2 text-center text-xs">
-                <li className="rounded-lg bg-surface p-2">
-                  <span className="block text-base font-bold">{format.number(seller.data.metrics.salesCount)}</span>
-                  <span className="text-muted-foreground">{t("metricSales")}</span>
-                </li>
-                <li className="rounded-lg bg-surface p-2">
-                  <span className="block text-base font-bold text-success">{seller.data.metrics.positiveRatingPercent}%</span>
-                  <span className="text-muted-foreground">{t("metricPositive")}</span>
-                </li>
-                <li className="rounded-lg bg-surface p-2">
-                  <span className="block text-base font-bold">{seller.data.metrics.onTimeShippingPercent}%</span>
-                  <span className="text-muted-foreground">{t("metricOnTime")}</span>
-                </li>
-              </ul>
-            ) : null}
+            </div>
           </section>
-        </div>
-      </div>
 
-      <div className="mt-10 grid gap-10 md:grid-cols-[2fr_1fr]">
-        <div className="flex flex-col gap-10">
-          <section aria-labelledby="description-title">
-            <h2 id="description-title" className="mb-3 text-lg font-bold">
+          {/* b. Opções e quantidade */}
+          <section
+            aria-label={t("quantity")}
+            className={cn(CARD, "flex animate-rise flex-col gap-3.5")}
+            style={{ animationDelay: "40ms" }}
+          >
+            <VariantSelector
+              options={product.variantOptions}
+              variants={product.variants}
+              selection={selection}
+              onChange={setSelection}
+            />
+            <div
+              className={cn(
+                "flex items-center justify-between gap-3",
+                needsVariant && "border-t border-border pt-3.5",
+              )}
+            >
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <span className="text-sm font-bold">{t("quantity")}</span>
+                <span
+                  className={cn(
+                    "text-[12.5px]",
+                    stock <= 0
+                      ? "font-bold text-destructive"
+                      : stock <= 5
+                        ? "font-semibold text-warning"
+                        : "text-muted-foreground",
+                  )}
+                >
+                  {stockHint}
+                </span>
+              </div>
+              <QuantityStepper
+                value={quantity}
+                min={1}
+                max={Math.max(1, stock)}
+                onChange={setQuantity}
+              />
+            </div>
+          </section>
+
+          {/* c. Frete e impostos */}
+          <section
+            aria-label={t("shippingTitle")}
+            className={cn(CARD, "flex animate-rise flex-col py-1.5")}
+            style={{ animationDelay: "80ms" }}
+          >
+            <div className="flex flex-col gap-3 border-b border-border py-3.5">
+              <div className="flex gap-3">
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-[13px] bg-success-soft text-success">
+                  <Truck className="size-5" aria-hidden />
+                </span>
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  <span className="text-sm font-bold">
+                    {product.freeShipping
+                      ? t("freeShippingLabel")
+                      : cheapest
+                        ? t("shippingFromPrice", {
+                            price:
+                              cheapest.price.amount === 0
+                                ? t("freeShippingLabel")
+                                : formatMoney(cheapest.price),
+                          })
+                        : t("shippingTitle")}
+                  </span>
+                  <span className="text-[12.5px] text-muted-foreground">
+                    {quote && cheapest
+                      ? `${t("arrivesIn", { min: cheapest.estimatedDays.min, max: cheapest.estimatedDays.max, cep: formatCep(quote.postalCode) })} · ${t("shippingFrom", { city: product.originCity })}`
+                      : `${t("shippingFrom", { city: product.originCity })} · ${t("handlingDays", { min: product.handlingDays.min, max: product.handlingDays.max })}`}
+                  </span>
+                </div>
+              </div>
+              <CepShippingCalculator
+                sellerId={product.seller.id}
+                items={shippingItems}
+                onQuote={setQuote}
+              />
+            </div>
+            <div className="flex gap-3 py-3.5">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-[13px] bg-accent text-primary">
+                <ShieldCheck className="size-5" aria-hidden />
+              </span>
+              <div className="flex min-w-0 flex-col gap-0.5">
+                <span className="text-sm font-bold">{t("importTaxNote")}</span>
+                <span className="text-[12.5px] text-muted-foreground">{t("taxHint")}</span>
+              </div>
+            </div>
+          </section>
+
+          {/* d. Vendedor */}
+          <Link
+            href={`/loja/${product.seller.slug}`}
+            aria-label={t("sellerCard", { name: product.seller.name })}
+            className={cn(
+              CARD,
+              "flex pressable animate-rise flex-col gap-3.5 transition-shadow hover:shadow-float focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+            )}
+            style={{ animationDelay: "120ms" }}
+          >
+            <span className="flex items-center gap-3">
+              <SellerAvatar seller={product.seller} size="lg" />
+              <span className="flex min-w-0 flex-1 flex-col gap-0.5">
+                <span className="flex items-center gap-1.5">
+                  <span className="truncate text-[15px] font-extrabold">{product.seller.name}</span>
+                  {product.seller.isOfficialStore ? <OfficialBadge /> : null}
+                </span>
+                <span className="truncate text-[12.5px] text-muted-foreground">
+                  {product.seller.city}
+                  {seller.data
+                    ? ` · ${ts("sales", { count: seller.data.metrics.salesCount })}`
+                    : null}
+                </span>
+              </span>
+              <ChevronRight
+                className="size-[18px] shrink-0 text-chevron"
+                strokeWidth={2.2}
+                aria-hidden
+              />
+            </span>
+            <ReputationMeter level={product.seller.reputationLevel} />
+            {seller.data ? (
+              <span className="grid grid-cols-3 gap-2">
+                <MetricTile
+                  value={`${seller.data.metrics.positiveRatingPercent}%`}
+                  label={t("metricPositive")}
+                  tone="success"
+                />
+                <MetricTile
+                  value={`${seller.data.metrics.onTimeShippingPercent}%`}
+                  label={t("metricOnTime")}
+                />
+                <MetricTile
+                  value={t("responseHours", { hours: seller.data.metrics.avgResponseTimeHours })}
+                  label={t("metricResponse")}
+                />
+              </span>
+            ) : seller.isPending ? (
+              <span className="grid grid-cols-3 gap-2">
+                {Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton key={i} className="h-[58px] rounded-lg" />
+                ))}
+              </span>
+            ) : null}
+          </Link>
+        </div>
+
+        {/* Descrição, avaliações e perguntas: abaixo no mobile; coluna esquerda no desktop. */}
+        <div className="mt-2.5 flex flex-col gap-2.5 lg:col-start-1 lg:row-start-2 lg:mt-0">
+          <section
+            aria-labelledby="description-title"
+            className={cn(CARD, "flex animate-rise flex-col gap-3")}
+            style={{ animationDelay: "160ms" }}
+          >
+            <h2 id="description-title" className="text-base font-extrabold tracking-tight">
               {t("description")}
             </h2>
-            <p className="text-sm leading-relaxed whitespace-pre-line text-foreground/90">{product.description}</p>
+            <p className="text-sm leading-relaxed text-pretty whitespace-pre-line text-body">
+              {product.description}
+            </p>
+            {product.attributes.length > 0 || product.warrantyMonths ? (
+              <dl className="mt-1 flex flex-col overflow-hidden rounded-lg" aria-label={t("specs")}>
+                {product.attributes.map((a, i) => (
+                  <SpecRow key={a.name} name={a.name} value={a.value} zebra={i % 2 === 0} />
+                ))}
+                {product.warrantyMonths ? (
+                  <SpecRow
+                    name={t("warrantyLabel")}
+                    value={t("warranty", { months: product.warrantyMonths })}
+                    zebra={product.attributes.length % 2 === 0}
+                  />
+                ) : null}
+              </dl>
+            ) : null}
           </section>
 
-          <ProductReviews productId={product.id} />
-          <ProductQuestions productId={product.id} productSlug={product.slug} />
+          <ProductReviews productId={product.id} className="animate-rise" />
+          <ProductQuestions
+            productId={product.id}
+            productSlug={product.slug}
+            className="animate-rise"
+          />
         </div>
-
-        <aside>
-          <section aria-labelledby="specs-title">
-            <h2 id="specs-title" className="mb-3 text-lg font-bold">
-              {t("specs")}
-            </h2>
-            <dl className="overflow-hidden rounded-xl border border-border text-sm">
-              {product.attributes.map((a, i) => (
-                <div key={a.name} className={cn("grid grid-cols-[40%_1fr] gap-2 px-3 py-2", i % 2 === 0 && "bg-surface")}>
-                  <dt className="text-muted-foreground">{a.name}</dt>
-                  <dd className="font-medium">{a.value}</dd>
-                </div>
-              ))}
-              {product.warrantyMonths ? (
-                <div className={cn("grid grid-cols-[40%_1fr] gap-2 px-3 py-2", product.attributes.length % 2 === 0 && "bg-surface")}>
-                  <dt className="text-muted-foreground">{t("warrantyLabel")}</dt>
-                  <dd className="font-medium">{t("warranty", { months: product.warrantyMonths })}</dd>
-                </div>
-              ) : null}
-            </dl>
-          </section>
-        </aside>
       </div>
 
-      {/* Barra fixa mobile */}
-      <div className="fixed inset-x-0 bottom-[calc(var(--bottom-nav-height)+var(--safe-bottom))] z-30 border-t border-border bg-background/95 p-3 backdrop-blur supports-backdrop-filter:bg-background/85 md:hidden">
-        <div className="mx-auto flex max-w-6xl items-center gap-3">
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-lg leading-tight font-bold">{formatMoney(price)}</p>
-            <p className="truncate text-[11px] text-muted-foreground">
-              {stock > 0 ? (
-                <>
-                  <Check className="inline size-3 text-success" aria-hidden /> {variantLabel ?? t("installments")}
-                </>
-              ) : (
-                t("outOfStock")
-              )}
-            </p>
-          </div>
-          <Button variant="outline" size="icon-lg" aria-label={t("addToCart")} disabled={!canBuy} onClick={onAddToCart}>
-            <ShoppingCart />
+      {/* Espaço para a barra fixa não cobrir o conteúdo no mobile. */}
+      <div className="h-24 md:hidden" aria-hidden />
+
+      <StickyBar
+        tone="light"
+        className="bottom-[calc(var(--bottom-nav-height)+var(--safe-bottom))] pb-3 md:bottom-4 md:pb-3"
+      >
+        <div className="hidden min-w-0 flex-1 flex-col md:flex">
+          <span className="truncate text-lg leading-tight font-extrabold tabular-nums">
+            {formatMoney(price)}
+          </span>
+          <span className="truncate text-xs text-muted-foreground">
+            {stock > 0 ? (variantLabel ?? t("installments")) : t("outOfStock")}
+          </span>
+        </div>
+        <div className="grid w-full grid-cols-2 gap-2.5 md:w-auto md:grid-cols-[200px_200px]">
+          <Button
+            variant="outline"
+            size="lg"
+            className="h-13 text-[14.5px] font-extrabold"
+            disabled={!canBuy}
+            onClick={onAddToCart}
+          >
+            <ShoppingCart data-icon="inline-start" /> {t("addShort")}
           </Button>
-          <Button variant="cta" size="lg" disabled={!canBuy} onClick={onBuyNow}>
+          <Button
+            variant="cta"
+            size="lg"
+            className="h-13 text-[14.5px] font-extrabold"
+            disabled={!canBuy}
+            onClick={onBuyNow}
+          >
             {t("buyNow")}
           </Button>
         </div>
-      </div>
-      <div className="h-20 md:hidden" aria-hidden />
+      </StickyBar>
     </PageContainer>
+  );
+}
+
+function MetricTile({ value, label, tone }: { value: string; label: string; tone?: "success" }) {
+  return (
+    <span className="flex flex-col gap-0.5 rounded-lg bg-surface p-2.5">
+      <span
+        className={cn(
+          "text-[15px] leading-tight font-extrabold tabular-nums",
+          tone === "success" && "text-success",
+        )}
+      >
+        {value}
+      </span>
+      <span className="text-[11.5px] leading-[1.25] text-muted-foreground">{label}</span>
+    </span>
+  );
+}
+
+function SpecRow({ name, value, zebra }: { name: string; value: string; zebra: boolean }) {
+  return (
+    <div
+      className={cn(
+        "flex justify-between gap-3 px-3 py-[11px] text-[13px]",
+        zebra ? "bg-surface" : "bg-card",
+      )}
+    >
+      <dt className="text-muted-foreground">{name}</dt>
+      <dd className="text-right font-bold">{value}</dd>
+    </div>
   );
 }
 
 function ProductSkeleton() {
   return (
-    <PageContainer className="pt-2 sm:pt-4">
-      <div className="grid gap-6 md:grid-cols-2 md:gap-10">
-        <Skeleton className="-mx-4 aspect-square rounded-none sm:mx-0 sm:rounded-2xl" />
-        <div className="flex flex-col gap-4">
-          <Skeleton className="h-4 w-24" />
-          <Skeleton className="h-7 w-full" />
-          <Skeleton className="h-7 w-3/4" />
-          <Skeleton className="h-28 rounded-xl" />
-          <Skeleton className="h-11 w-40" />
-          <Skeleton className="h-12 w-full" />
-          <Skeleton className="h-32 rounded-xl" />
+    <PageContainer className="lg:pt-5">
+      <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-x-8">
+        <div className="relative -mx-4 lg:mx-0">
+          <Skeleton className="h-[370px] rounded-none bg-surface-strong lg:h-[520px] lg:rounded-3xl" />
+          <div className="absolute top-3 left-3 size-11 rounded-lg bg-card/70" />
+          <div className="absolute top-3 right-3 flex gap-2">
+            <div className="size-11 rounded-lg bg-card/70" />
+            <div className="size-11 rounded-lg bg-card/70" />
+          </div>
+        </div>
+        <div className="relative -mt-6 flex flex-col gap-2.5 lg:mt-0">
+          <div className={cn(CARD, "flex flex-col gap-3 pt-5")}>
+            <Skeleton className="h-7 w-32 rounded-full" />
+            <Skeleton className="h-6 w-full" />
+            <Skeleton className="h-6 w-3/4" />
+            <Skeleton className="h-4 w-40" />
+            <Skeleton className="mt-1 h-10 w-44" />
+            <Skeleton className="h-4 w-52" />
+          </div>
+          <div className={cn(CARD, "flex flex-col gap-3")}>
+            <Skeleton className="h-4 w-24" />
+            <div className="flex gap-2">
+              <Skeleton className="h-10.5 w-16 rounded-md" />
+              <Skeleton className="h-10.5 w-16 rounded-md" />
+              <Skeleton className="h-10.5 w-16 rounded-md" />
+            </div>
+            <div className="flex items-center justify-between border-t border-border pt-3.5">
+              <Skeleton className="h-9 w-28" />
+              <Skeleton className="h-[46px] w-[126px] rounded-lg" />
+            </div>
+          </div>
+          <div className={cn(CARD, "flex flex-col gap-3.5")}>
+            <div className="flex gap-3">
+              <Skeleton className="size-10 rounded-[13px]" />
+              <div className="flex flex-1 flex-col gap-1.5">
+                <Skeleton className="h-4 w-36" />
+                <Skeleton className="h-3 w-full" />
+              </div>
+            </div>
+            <Skeleton className="h-12 w-full rounded-lg" />
+            <div className="flex gap-3 border-t border-border pt-3.5">
+              <Skeleton className="size-10 rounded-[13px]" />
+              <div className="flex flex-1 flex-col gap-1.5">
+                <Skeleton className="h-4 w-48" />
+                <Skeleton className="h-3 w-full" />
+              </div>
+            </div>
+          </div>
+          <div className={cn(CARD, "flex flex-col gap-3.5")}>
+            <div className="flex items-center gap-3">
+              <Skeleton className="size-[50px] rounded-2xl" />
+              <div className="flex flex-1 flex-col gap-1.5">
+                <Skeleton className="h-4 w-40" />
+                <Skeleton className="h-3 w-32" />
+              </div>
+            </div>
+            <Skeleton className="h-1.5 w-full rounded-full" />
+            <div className="grid grid-cols-3 gap-2">
+              <Skeleton className="h-[58px] rounded-lg" />
+              <Skeleton className="h-[58px] rounded-lg" />
+              <Skeleton className="h-[58px] rounded-lg" />
+            </div>
+          </div>
         </div>
       </div>
     </PageContainer>

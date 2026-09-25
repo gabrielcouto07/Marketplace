@@ -3,60 +3,119 @@
 import type { ProductImageDto } from "@marketplace/contracts";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
-import { useEffect, useState } from "react";
+import { useRef, useState, type ReactNode, type UIEvent } from "react";
 
-import { Carousel, CarouselContent, CarouselItem, type CarouselApi } from "@/components/ui/carousel";
+import { hueStyle } from "@/lib/palette";
 import { cn } from "@/lib/utils";
 
 interface ProductGalleryProps {
   images: ProductImageDto[];
   name: string;
-  discountPercent?: number;
-  /** Conteúdo sobreposto no canto superior direito (ex.: favorito/compartilhar). */
-  overlay?: React.ReactNode;
+  /** Matiz da categoria (0–360): tinge o fundo e o círculo decorativo. */
+  hue: number;
+  /** Botões flutuantes no canto superior esquerdo (voltar). */
+  topLeft?: ReactNode;
+  /** Botões flutuantes no canto superior direito (compartilhar/favoritar). */
+  topRight?: ReactNode;
+  className?: string;
 }
 
-/** Galeria com swipe (embla), contador "n/total" e thumbnails. */
-export function ProductGallery({ images, name, discountPercent = 0, overlay }: ProductGalleryProps) {
+/**
+ * Galeria full-bleed de 370 px com snap-scroll nativo sobre fundo tingido pela categoria,
+ * pontos indicadores (o ativo vira uma pílula de 20 px) e miniaturas no desktop.
+ */
+export function ProductGallery({
+  images,
+  name,
+  hue,
+  topLeft,
+  topRight,
+  className,
+}: ProductGalleryProps) {
   const t = useTranslations("product");
-  const [api, setApi] = useState<CarouselApi>();
+  const trackRef = useRef<HTMLDivElement>(null);
   const [current, setCurrent] = useState(0);
   const sorted = [...images].sort((a, b) => a.sortOrder - b.sortOrder);
 
-  useEffect(() => {
-    if (!api) return;
-    const onSelect = () => setCurrent(api.selectedScrollSnap());
-    onSelect();
-    api.on("select", onSelect);
-    return () => {
-      api.off("select", onSelect);
-    };
-  }, [api]);
+  const onScroll = (e: UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    const index = Math.round(el.scrollLeft / Math.max(1, el.clientWidth));
+    if (index !== current) setCurrent(Math.min(sorted.length - 1, Math.max(0, index)));
+  };
+
+  const scrollTo = (index: number) => {
+    const el = trackRef.current;
+    if (!el) return;
+    el.scrollTo({ left: index * el.clientWidth, behavior: "smooth" });
+  };
 
   return (
-    <div className="flex flex-col gap-2" aria-label={t("gallery")} role="region">
-      <div className="relative -mx-4 sm:mx-0 sm:overflow-hidden sm:rounded-2xl">
-        <Carousel setApi={setApi} opts={{ loop: sorted.length > 1 }} className="bg-surface">
-          <CarouselContent className="ml-0">
+    <div
+      className={cn("flex flex-col gap-3", className)}
+      role="region"
+      aria-label={t("gallery")}
+      style={hueStyle(hue)}
+    >
+      <div className="relative overflow-hidden tint-bg lg:rounded-3xl">
+        <div
+          ref={trackRef}
+          onScroll={onScroll}
+          className="scrollbar-none flex snap-x snap-mandatory overflow-x-auto scroll-smooth"
+          aria-live="polite"
+        >
+          {sorted.map((img, i) => (
+            <div
+              key={img.id}
+              className="relative flex h-[370px] w-full shrink-0 snap-start items-center justify-center overflow-hidden lg:h-[520px]"
+            >
+              <span
+                aria-hidden
+                className="absolute -top-10 -right-15 size-60 rounded-full tint-bg-strong lg:-top-16 lg:-right-20 lg:size-80"
+              />
+              <Image
+                src={img.url}
+                alt={img.alt || name}
+                fill
+                priority={i === 0}
+                sizes="(max-width: 1024px) 100vw, 50vw"
+                className="object-cover"
+              />
+            </div>
+          ))}
+        </div>
+
+        <div className="pointer-events-none absolute inset-x-3 top-3 flex items-start justify-between">
+          <div className="pointer-events-auto flex gap-2">{topLeft}</div>
+          <div className="pointer-events-auto flex gap-2">{topRight}</div>
+        </div>
+
+        {sorted.length > 1 ? (
+          <div
+            className="pointer-events-none absolute inset-x-0 bottom-9 flex justify-center gap-[5px] lg:bottom-5"
+            aria-hidden
+          >
             {sorted.map((img, i) => (
-              <CarouselItem key={img.id} className="pl-0">
-                <div className="relative aspect-square w-full">
-                  <Image src={img.url} alt={img.alt || name} fill priority={i === 0} sizes="(max-width: 640px) 100vw, 50vw" className="object-cover" />
-                </div>
-              </CarouselItem>
+              <span
+                key={img.id}
+                className={cn(
+                  "h-1.5 rounded-full transition-all duration-200",
+                  i === current ? "w-5 bg-ink" : "w-1.5 bg-ink/25",
+                )}
+              />
             ))}
-          </CarouselContent>
-        </Carousel>
-        {discountPercent > 0 ? (
-          <span className="absolute top-3 left-3 rounded-md bg-cta px-2 py-1 text-xs font-bold text-cta-foreground shadow-sm">-{discountPercent}%</span>
+          </div>
         ) : null}
-        {overlay ? <div className="absolute top-3 right-3 flex flex-col gap-2">{overlay}</div> : null}
-        <span className="absolute right-3 bottom-3 rounded-full bg-black/60 px-2 py-0.5 text-xs font-medium text-white" aria-live="polite">
+        <span className="sr-only">
           {t("imageOf", { current: current + 1, total: sorted.length })}
         </span>
       </div>
+
       {sorted.length > 1 ? (
-        <ul className="flex gap-2 overflow-x-auto scrollbar-none" role="tablist" aria-label={t("gallery")}>
+        <ul
+          className="scrollbar-none hidden gap-2 overflow-x-auto lg:flex"
+          role="tablist"
+          aria-label={t("gallery")}
+        >
           {sorted.map((img, i) => (
             <li key={img.id}>
               <button
@@ -64,13 +123,13 @@ export function ProductGallery({ images, name, discountPercent = 0, overlay }: P
                 role="tab"
                 aria-selected={i === current}
                 aria-label={t("imageOf", { current: i + 1, total: sorted.length })}
-                onClick={() => api?.scrollTo(i)}
+                onClick={() => scrollTo(i)}
                 className={cn(
-                  "relative size-14 shrink-0 overflow-hidden rounded-lg border-2 bg-surface transition-colors",
-                  i === current ? "border-primary" : "border-transparent hover:border-border",
+                  "relative size-16 shrink-0 pressable overflow-hidden rounded-lg border-2 tint-bg transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
+                  i === current ? "border-primary" : "border-transparent hover:border-line-200",
                 )}
               >
-                <Image src={img.url} alt="" fill sizes="56px" className="object-cover" />
+                <Image src={img.url} alt="" fill sizes="64px" className="object-contain p-1.5" />
               </button>
             </li>
           ))}

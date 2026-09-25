@@ -6,9 +6,14 @@ porquê de cada modelo e como mapeá-lo para o .NET/PostgreSQL.
 ## Primitivos
 
 ### `Money`
+
 ```ts
-interface Money { amount: number; currency: "BRL" | "PYG" | "USD" }
+interface Money {
+  amount: number;
+  currency: "BRL" | "PYG" | "USD";
+}
 ```
+
 - `amount` **inteiro** em unidades mínimas: BRL/USD → centavos (2 casas); PYG → guaranis (0 casas).
 - Operações em `lib/money`: `add`, `subtract`, `multiply` (fator inteiro), `multiplyBasisPoints` (percentuais em
   bp, 10000 = 100%, arredondamento half-up), `sum`, `convert`, `splitInstallments` (última parcela absorve o resto).
@@ -17,24 +22,26 @@ interface Money { amount: number; currency: "BRL" | "PYG" | "USD" }
 - .NET: `record Money(long Amount, string Currency)`; coluna `numeric(18,0)`/`bigint` + `char(3)`.
 
 ### `ExchangeRateDto`
+
 Fração exata `numerator/denominator` para evitar float: `toMinor = round(fromMinor × num / den)`.
 Ex.: BRL→PYG `1389/100` (1 centavo → 13,89 guaranis), PYG→BRL `72/1000`. Tem `id`, `quotedAt`, `expiresAt` e
 `displayRate` pronto para exibir. O `id` é enviado no `PlaceOrderRequest` (`exchangeRateId`) e gravado no pedido
 (`OrderDto.exchangeRate`) — **câmbio travado no momento do checkout** e mostrado ao usuário.
 
 ### `PagedResult<T>` — `{ items, page, pageSize, totalCount }` (page 1-based).
+
 ### `ApiErrorDto` — `{ status, code, message, errors?, traceId? }` (ProblemDetails simplificado).
 
 ## Catálogo
 
-| DTO | Campos-chave | Observações |
-| --- | --- | --- |
-| `CategoryDto` | `slug`, `name`, `iconKey`, `parentId` | 8 categorias raiz; `iconKey` mapeia para lucide (`CategoryIcon`) |
-| `ProductSummaryDto` | `price`, `compareAtPrice`, `referencePrice` (PYG), `discountPercent`, `rating`, `soldCount`, `stock`, `freeShipping`, `isNew`, `isOffer`, `seller` | tudo que o `ProductCard` precisa, sem detalhes pesados |
-| `ProductDetailDto` | + `description`, `images[]`, `variantOptions[]`, `variants[]`, `attributes[]`, `originCity`, `handlingDays`, `warrantyMonths` | variantes = produto cartesiano das opções; cada variante tem preço/estoque próprios |
-| `ReviewDto` / `ReviewSummaryDto` | `rating`, `verifiedPurchase`, `distribution[5]` | |
-| `QuestionDto` | `answer: {text, answeredAt} | null` | |
-| `SellerSummaryDto` / `SellerDto` | `reputationLevel 1–5`, `isOfficialStore`, `ruc`, `metrics` | reputação estilo termômetro |
+| DTO                              | Campos-chave                                                                                                                                       | Observações                                                                         |
+| -------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `CategoryDto`                    | `slug`, `name`, `iconKey`, `parentId`                                                                                                              | 8 categorias raiz; `iconKey` mapeia para lucide (`CategoryIcon`)                    |
+| `ProductSummaryDto`              | `price`, `compareAtPrice`, `referencePrice` (PYG), `discountPercent`, `rating`, `soldCount`, `stock`, `freeShipping`, `isNew`, `isOffer`, `seller` | tudo que o `ProductCard` precisa, sem detalhes pesados                              |
+| `ProductDetailDto`               | + `description`, `images[]`, `variantOptions[]`, `variants[]`, `attributes[]`, `originCity`, `handlingDays`, `warrantyMonths`                      | variantes = produto cartesiano das opções; cada variante tem preço/estoque próprios |
+| `ReviewDto` / `ReviewSummaryDto` | `rating`, `verifiedPurchase`, `distribution[5]`                                                                                                    |                                                                                     |
+| `QuestionDto`                    | `answer: {text, answeredAt}                                                                                                                        | null`                                                                               |     |
+| `SellerSummaryDto` / `SellerDto` | `reputationLevel 1–5`, `isOfficialStore`, `ruc`, `metrics`                                                                                         | reputação estilo termômetro                                                         |
 
 **Variações**: `variantOptions` descreve as opções (Cor, Tamanho…); `variants[].attributes` é o mapa
 `{ Cor: "Preto", Armazenamento: "256 GB" }`. Preço exibido = variante selecionada ou `price` base.
@@ -61,19 +68,19 @@ chave `productId:variantId`. Agrupamento por vendedor (`groupBySeller`) é deriv
   vendedor) = 1 pagamento**.
 - `OrderDto.status: OrderStatus` (enum de string):
 
-| Status | Significado | Quem transita |
-| --- | --- | --- |
-| `AguardandoPagamento` | criado, Pix/boleto pendente | sistema |
-| `Pago` | pagamento aprovado (webhook) | sistema |
-| `EmPreparacao` | vendedor separando | vendedor |
-| `Enviado` | postado no Paraguai (`trackingCode`) | vendedor |
-| `EmTransitoInternacional` | exportação/alfândega BR | rastreio |
-| `Entregue` | entregue | rastreio |
-| `Concluido` | comprador confirmou / prazo | comprador/sistema |
-| `Cancelado` | antes do envio | comprador/vendedor/admin |
-| `EmDisputa` | comprador abriu disputa | comprador |
-| `Devolvido` | produto voltou | admin |
-| `Reembolsado` | estorno concluído | admin/sistema |
+| Status                    | Significado                          | Quem transita            |
+| ------------------------- | ------------------------------------ | ------------------------ |
+| `AguardandoPagamento`     | criado, Pix/boleto pendente          | sistema                  |
+| `Pago`                    | pagamento aprovado (webhook)         | sistema                  |
+| `EmPreparacao`            | vendedor separando                   | vendedor                 |
+| `Enviado`                 | postado no Paraguai (`trackingCode`) | vendedor                 |
+| `EmTransitoInternacional` | exportação/alfândega BR              | rastreio                 |
+| `Entregue`                | entregue                             | rastreio                 |
+| `Concluido`               | comprador confirmou / prazo          | comprador/sistema        |
+| `Cancelado`               | antes do envio                       | comprador/vendedor/admin |
+| `EmDisputa`               | comprador abriu disputa              | comprador                |
+| `Devolvido`               | produto voltou                       | admin                    |
+| `Reembolsado`             | estorno concluído                    | admin/sistema            |
 
 Constantes exportadas: `ORDER_STATUSES` (todos) e `ORDER_HAPPY_PATH` (caminho feliz, usado pela `OrderTimeline`).
 `timeline[]` registra cada transição; `trackingEvents[]` são eventos brutos da transportadora.
@@ -98,20 +105,20 @@ validação módulo 11 em `lib/validation/documents.ts`).
 
 ## Mapeamento sugerido para PostgreSQL
 
-| Tabela | Colunas principais |
-| --- | --- |
-| `categories` | id uuid, slug unique, name, parent_id |
-| `sellers` | id, slug, name, ruc unique, city, reputation_level smallint, is_official bool |
-| `products` | id, seller_id, category_id, slug unique, name, description, price_amount bigint, price_currency char(3), compare_at_amount, stock int, free_shipping bool, created_at |
-| `product_variants` | id, product_id, sku, attributes jsonb, price_amount, stock |
-| `product_images` | id, product_id, url (R2), sort_order |
-| `reviews`, `questions` | product_id, user_id, rating/answer… |
-| `addresses` | id, user_id, postal_code char(8), … is_default |
-| `exchange_rates` | id, from, to, numerator bigint, denominator bigint, quoted_at, expires_at |
-| `purchases` | id, user_id, payment_id, exchange_rate_id, created_at |
-| `orders` | id, number unique, purchase_id, seller_id, status (enum), address snapshot jsonb, shipping_option jsonb, totals jsonb, tracking_code |
-| `order_items` | id, order_id, product_id, variant_id, name/thumbnail snapshot, quantity, unit_price_amount |
-| `order_events` | order_id, status, occurred_at, description, location |
-| `payments` | id, purchase_id, method, status, amount, pix/boleto/card jsonb |
-| `payouts` | id, seller_id, period, gross/fees/net, status |
-| `webhook_events` | id, type, payload jsonb, processed_at (idempotência) |
+| Tabela                 | Colunas principais                                                                                                                                                    |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `categories`           | id uuid, slug unique, name, parent_id                                                                                                                                 |
+| `sellers`              | id, slug, name, ruc unique, city, reputation_level smallint, is_official bool                                                                                         |
+| `products`             | id, seller_id, category_id, slug unique, name, description, price_amount bigint, price_currency char(3), compare_at_amount, stock int, free_shipping bool, created_at |
+| `product_variants`     | id, product_id, sku, attributes jsonb, price_amount, stock                                                                                                            |
+| `product_images`       | id, product_id, url (R2), sort_order                                                                                                                                  |
+| `reviews`, `questions` | product_id, user_id, rating/answer…                                                                                                                                   |
+| `addresses`            | id, user_id, postal_code char(8), … is_default                                                                                                                        |
+| `exchange_rates`       | id, from, to, numerator bigint, denominator bigint, quoted_at, expires_at                                                                                             |
+| `purchases`            | id, user_id, payment_id, exchange_rate_id, created_at                                                                                                                 |
+| `orders`               | id, number unique, purchase_id, seller_id, status (enum), address snapshot jsonb, shipping_option jsonb, totals jsonb, tracking_code                                  |
+| `order_items`          | id, order_id, product_id, variant_id, name/thumbnail snapshot, quantity, unit_price_amount                                                                            |
+| `order_events`         | order_id, status, occurred_at, description, location                                                                                                                  |
+| `payments`             | id, purchase_id, method, status, amount, pix/boleto/card jsonb                                                                                                        |
+| `payouts`              | id, seller_id, period, gross/fees/net, status                                                                                                                         |
+| `webhook_events`       | id, type, payload jsonb, processed_at (idempotência)                                                                                                                  |

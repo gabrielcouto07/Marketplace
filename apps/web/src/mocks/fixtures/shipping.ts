@@ -1,4 +1,8 @@
-import type { PostalCodeLookupDto, ShippingOptionDto, ShippingQuoteItem } from "@marketplace/contracts";
+import type {
+  PostalCodeLookupDto,
+  ShippingOptionDto,
+  ShippingQuoteItem,
+} from "@marketplace/contracts";
 
 import { guid } from "./base";
 
@@ -24,7 +28,13 @@ const REGIONS: Record<string, Region> = {
   "9": { state: "RS", city: "Porto Alegre", surcharge: 200, extraDays: 0 },
 };
 
-const STREETS = ["Rua das Palmeiras", "Avenida Brasil", "Rua Sete de Setembro", "Alameda dos Ipês", "Rua Paraguai"];
+const STREETS = [
+  "Rua das Palmeiras",
+  "Avenida Brasil",
+  "Rua Sete de Setembro",
+  "Alameda dos Ipês",
+  "Rua Paraguai",
+];
 const NEIGHBORHOODS = ["Centro", "Jardim América", "Vila Nova", "Boa Vista", "Santa Cecília"];
 
 export function lookupPostalCode(cep: string): PostalCodeLookupDto | null {
@@ -43,10 +53,18 @@ export function lookupPostalCode(cep: string): PostalCodeLookupDto | null {
 }
 
 /** Cotação de frete por vendedor: economia (correio internacional) e expresso (courier). */
-export function quoteShipping(cep: string, sellerId: string, items: ShippingQuoteItem[], freeShippingEligible: boolean): ShippingOptionDto[] {
+export function quoteShipping(
+  cep: string,
+  sellerId: string,
+  items: ShippingQuoteItem[],
+  freeShippingEligible: boolean,
+): ShippingOptionDto[] {
   const digits = cep.replace(/\D/g, "");
   const region = REGIONS[digits[0]] ?? REGIONS["0"];
-  const units = Math.max(1, items.reduce((a, i) => a + i.quantity, 0));
+  const units = Math.max(
+    1,
+    items.reduce((a, i) => a + i.quantity, 0),
+  );
   const weightFactor = 1 + (units - 1) * 0.35;
 
   const economy = Math.round((2490 + region.surcharge) * weightFactor);
@@ -59,14 +77,19 @@ export function quoteShipping(cep: string, sellerId: string, items: ShippingQuot
       service: "Internacional Econômico",
       price: { amount: freeShippingEligible ? 0 : economy, currency: "BRL" },
       estimatedDays: { min: 12 + region.extraDays, max: 25 + region.extraDays },
-      description: freeShippingEligible ? "Frete grátis acima de R$ 300 nesta loja" : "Rastreio ponta a ponta",
+      description: freeShippingEligible
+        ? "Frete grátis acima de R$ 300 nesta loja"
+        : "Rastreio ponta a ponta",
     },
     {
       id: guid(`ship:${sellerId}:${digits[0]}:express`),
       carrier: "Courier Internacional",
       service: "Expresso",
       price: { amount: express, currency: "BRL" },
-      estimatedDays: { min: 5 + Math.max(0, region.extraDays), max: 10 + Math.max(0, region.extraDays) },
+      estimatedDays: {
+        min: 5 + Math.max(0, region.extraDays),
+        max: 10 + Math.max(0, region.extraDays),
+      },
       description: "Desembaraço prioritário",
     },
   ];

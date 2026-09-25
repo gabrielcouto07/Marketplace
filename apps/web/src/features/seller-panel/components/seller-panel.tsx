@@ -1,14 +1,22 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Banknote, HelpCircle, LayoutDashboard, Package, Settings, ShoppingBag, type LucideIcon } from "lucide-react";
+import {
+  Banknote,
+  HelpCircle,
+  LayoutDashboard,
+  Package,
+  Settings,
+  ShoppingBag,
+  type LucideIcon,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import { PanelShell, SkeletonNotice } from "@/components/layout/panel-shell";
+import { PanelShell, PanelTitle, SkeletonNotice } from "@/components/layout/panel-shell";
 import { EmptyState } from "@/components/shared/states";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -38,7 +46,11 @@ export function SellerPanelShell({ children }: { children: ReactNode }) {
 export function SellerDashboard() {
   const t = useTranslations("sellerPanel");
   const kpis: Array<{ label: string; value: string; icon: LucideIcon }> = [
-    { label: t("kpiSales"), value: formatMoney({ amount: 1_245_000, currency: "BRL" }), icon: Banknote },
+    {
+      label: t("kpiSales"),
+      value: formatMoney({ amount: 1_245_000, currency: "BRL" }),
+      icon: Banknote,
+    },
     { label: t("kpiOrders"), value: "38", icon: ShoppingBag },
     { label: t("kpiPending"), value: "5", icon: Package },
     { label: t("kpiQuestions"), value: "3", icon: HelpCircle },
@@ -46,15 +58,23 @@ export function SellerDashboard() {
   return (
     <div>
       <SkeletonNotice text={t("placeholder")} />
-      <h1 className="mb-4 text-xl font-bold">{t("dashboard")}</h1>
+      <PanelTitle>{t("dashboard")}</PanelTitle>
       <ul className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {kpis.map(({ label, value, icon: Icon }) => (
-          <li key={label} className="rounded-2xl border border-border bg-card p-4">
-            <span className="mb-2 flex size-9 items-center justify-center rounded-full bg-accent text-accent-foreground">
-              <Icon className="size-4.5" aria-hidden />
+        {kpis.map(({ label, value, icon: Icon }, i) => (
+          <li
+            key={label}
+            className="flex animate-rise flex-col gap-2 rounded-3xl bg-card p-4 shadow-card"
+            style={{ animationDelay: `${i * 40}ms` }}
+          >
+            <span className="flex size-[38px] items-center justify-center rounded-md bg-accent text-accent-foreground">
+              <Icon className="size-[18px]" aria-hidden />
             </span>
-            <p className="text-xs text-muted-foreground">{label}</p>
-            <p className="text-lg font-bold tabular-nums">{value}</p>
+            <div>
+              <p className="text-xl leading-7 font-extrabold tracking-tight tabular-nums">
+                {value}
+              </p>
+              <p className="text-xs font-semibold text-muted-foreground">{label}</p>
+            </div>
           </li>
         ))}
       </ul>
@@ -62,12 +82,16 @@ export function SellerDashboard() {
   );
 }
 
-export function SellerPlaceholder({ titleKey }: { titleKey: "products" | "orders" | "questions" | "payouts" }) {
+export function SellerPlaceholder({
+  titleKey,
+}: {
+  titleKey: "products" | "orders" | "questions" | "payouts";
+}) {
   const t = useTranslations("sellerPanel");
   return (
     <div>
       <SkeletonNotice text={t("placeholder")} />
-      <h1 className="mb-2 text-xl font-bold">{t(titleKey)}</h1>
+      <PanelTitle className="mb-3">{t(titleKey)}</PanelTitle>
       <EmptyState title={t(titleKey)} description={t("placeholder")} />
     </div>
   );
@@ -87,9 +111,17 @@ export function SellerSettings() {
   return (
     <div>
       <SkeletonNotice text={t("placeholder")} />
-      <h1 className="mb-4 text-xl font-bold">{t("settings")}</h1>
-      <form onSubmit={handleSubmit(() => toast.success(tc("save")))} noValidate className="flex max-w-md flex-col gap-4 rounded-2xl border border-border bg-card p-4">
-        <FormField label={t("rucLabel")} error={fieldError(formState.errors, "ruc")} hint="Ex.: 80012345-6">
+      <PanelTitle>{t("settings")}</PanelTitle>
+      <form
+        onSubmit={handleSubmit(() => toast.success(tc("save")))}
+        noValidate
+        className="flex max-w-md flex-col gap-4 rounded-3xl bg-card p-4 shadow-card sm:p-6"
+      >
+        <FormField
+          label={t("rucLabel")}
+          error={fieldError(formState.errors, "ruc")}
+          hint="Ex.: 80012345-6"
+        >
           {(a11y) => (
             <Controller
               control={control}

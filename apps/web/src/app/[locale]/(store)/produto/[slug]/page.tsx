@@ -24,7 +24,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title,
     alternates: { canonical: `/produto/${slug}` },
-    openGraph: { title: `${title} | ${site.name}`, type: "website", images: [{ url: "/og-default.png", width: 1200, height: 630 }] },
+    openGraph: {
+      title: `${title} | ${site.name}`,
+      type: "website",
+      images: [{ url: "/og-default.png", width: 1200, height: 630 }],
+    },
   };
 }
 
@@ -32,7 +36,7 @@ export default async function ProductPage({ params }: PageProps) {
   const { locale, slug } = await params;
   setRequestLocale(locale);
   return (
-    <StoreShell showBack>
+    <StoreShell>
       <ProductView slug={slug} />
     </StoreShell>
   );

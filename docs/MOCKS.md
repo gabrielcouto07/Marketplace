@@ -4,13 +4,13 @@ Ativação: `NEXT_PUBLIC_API_MOCKING=true` (`.env.local`). Com `false`, o app fa
 
 ## Como funciona
 
-| Camada | Arquivo | Descrição |
-| --- | --- | --- |
-| Worker do navegador | `src/mocks/browser.ts` + `public/mockServiceWorker.js` | `setupWorker(...handlers)`; iniciado por `MockProvider` **antes** de renderizar os filhos (evita a primeira query escapar). `onUnhandledRequest: "bypass"`. |
-| Servidor Node | `src/mocks/server.ts` + `src/instrumentation.ts` | `setupServer` no runtime Node do Next para interceptar `fetch` de servidor (metadata/sitemap). Não intercepta requests **de entrada** (`curl /api/...` no dev retorna 404 do Next — esperado). |
-| Handlers | `src/mocks/handlers/*.ts` | um arquivo por domínio (`catalog`, `sellers`, `shipping`, `checkout`, `orders`, `auth`), agregados em `handlers/index.ts`. Rotas usam o prefixo `*/api` para casar `/api/...` (browser) e `http://host/api/...` (Node). |
-| "Banco" | `src/mocks/db.ts` | estado mutável (usuário, endereços, pedidos, pagamentos, perguntas, tokens). No browser é espelhado em `localStorage["mktpy.mockdb.v1"]` para sobreviver a reloads; pedidos seed são sempre reinjetados. `resetDb()` limpa. |
-| Fixtures | `src/mocks/fixtures/*.ts` | dados determinísticos (PRNG `mulberry32` + `guid(key)`), iguais no servidor e no cliente |
+| Camada              | Arquivo                                                | Descrição                                                                                                                                                                                                                   |
+| ------------------- | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Worker do navegador | `src/mocks/browser.ts` + `public/mockServiceWorker.js` | `setupWorker(...handlers)`; iniciado por `MockProvider` **antes** de renderizar os filhos (evita a primeira query escapar). `onUnhandledRequest: "bypass"`.                                                                 |
+| Servidor Node       | `src/mocks/server.ts` + `src/instrumentation.ts`       | `setupServer` no runtime Node do Next para interceptar `fetch` de servidor (metadata/sitemap). Não intercepta requests **de entrada** (`curl /api/...` no dev retorna 404 do Next — esperado).                              |
+| Handlers            | `src/mocks/handlers/*.ts`                              | um arquivo por domínio (`catalog`, `sellers`, `shipping`, `checkout`, `orders`, `auth`), agregados em `handlers/index.ts`. Rotas usam o prefixo `*/api` para casar `/api/...` (browser) e `http://host/api/...` (Node).     |
+| "Banco"             | `src/mocks/db.ts`                                      | estado mutável (usuário, endereços, pedidos, pagamentos, perguntas, tokens). No browser é espelhado em `localStorage["mktpy.mockdb.v1"]` para sobreviver a reloads; pedidos seed são sempre reinjetados. `resetDb()` limpa. |
+| Fixtures            | `src/mocks/fixtures/*.ts`                              | dados determinísticos (PRNG `mulberry32` + `guid(key)`), iguais no servidor e no cliente                                                                                                                                    |
 
 ## Fixtures
 
@@ -38,19 +38,19 @@ servidos por `next/image` com `dangerouslyAllowSVG` + CSP restritiva.
 
 ## Latência, erros e gatilhos de teste
 
-| Comportamento | Onde |
-| --- | --- |
-| Latência aleatória 300–800 ms em todos os handlers | `handlers/utils.ts` (`simulateLatency`) |
-| 3% de erro 500 aleatório em `GET /products` | `NEXT_PUBLIC_MOCK_ERROR_RATE` (padrão 0.03) |
-| `GET /products?q=erro` → 500 sempre | testar `ErrorState` + retry |
-| CEP `00000-000` → 404; `99999-999` → 500 | calculadora de frete |
-| Login com e-mail diferente do demo → 422 `email`; senha ≠ 123456 → 422 `password` | formulário de login |
-| Cadastro com `existe@mktpy.com` → 422 duplicado | formulário de cadastro |
-| Cartão com `last4 = 0000` → pagamento `Recusado` | checkout |
-| Cupom `PARAGUAI10` → 10% de desconto | checkout |
-| Pix/boleto aprovados automaticamente após 20 s (`settlePendingPayments`) ou via `POST /payments/{id}/simulate-approval` | página de pagamento |
-| Cotação de checkout expira em 15 min (`lockedUntil`); `quoteId` inválido → 422 | checkout |
-| Rotas autenticadas (`/orders`, `/me`, `/purchases`) exigem `Authorization: Bearer mock.<uuid>` emitido no login | `db.tokens` |
+| Comportamento                                                                                                           | Onde                                        |
+| ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| Latência aleatória 300–800 ms em todos os handlers                                                                      | `handlers/utils.ts` (`simulateLatency`)     |
+| 3% de erro 500 aleatório em `GET /products`                                                                             | `NEXT_PUBLIC_MOCK_ERROR_RATE` (padrão 0.03) |
+| `GET /products?q=erro` → 500 sempre                                                                                     | testar `ErrorState` + retry                 |
+| CEP `00000-000` → 404; `99999-999` → 500                                                                                | calculadora de frete                        |
+| Login com e-mail diferente do demo → 422 `email`; senha ≠ 123456 → 422 `password`                                       | formulário de login                         |
+| Cadastro com `existe@mktpy.com` → 422 duplicado                                                                         | formulário de cadastro                      |
+| Cartão com `last4 = 0000` → pagamento `Recusado`                                                                        | checkout                                    |
+| Cupom `PARAGUAI10` → 10% de desconto                                                                                    | checkout                                    |
+| Pix/boleto aprovados automaticamente após 20 s (`settlePendingPayments`) ou via `POST /payments/{id}/simulate-approval` | página de pagamento                         |
+| Cotação de checkout expira em 15 min (`lockedUntil`); `quoteId` inválido → 422                                          | checkout                                    |
+| Rotas autenticadas (`/orders`, `/me`, `/purchases`) exigem `Authorization: Bearer mock.<uuid>` emitido no login         | `db.tokens`                                 |
 
 ## Adicionando um endpoint mock
 

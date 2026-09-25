@@ -1,11 +1,12 @@
 "use client";
 
 import { ArrowLeft, type LucideIcon } from "lucide-react";
-import Image from "next/image";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
+import { BrandMark } from "@/components/layout/brand-mark";
 import { TricolorStripe } from "@/components/layout/tricolor-stripe";
+import { Button } from "@/components/ui/button";
 import { Link, usePathname } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
 
@@ -23,35 +24,41 @@ interface PanelShellProps {
 }
 
 /**
- * Casca dos painéis (vendedor/admin): topo com logo, sidebar em desktop e
- * tabs horizontais roláveis no mobile. Sem bottom nav da loja.
+ * Casca dos painéis (vendedor/admin): barra branca com a marca, sidebar em desktop e
+ * pílulas horizontais roláveis no mobile. Sem bottom nav da loja.
  */
 export function PanelShell({ title, subtitle, items, children }: PanelShellProps) {
   const t = useTranslations("sellerPanel");
   const pathname = usePathname();
-  const isActive = (href: string) => (href === items[0]?.href ? pathname === href : pathname.startsWith(href));
+  const isActive = (href: string) =>
+    href === items[0]?.href ? pathname === href : pathname.startsWith(href);
 
   return (
-    <div className="flex min-h-dvh flex-col">
-      <header className="sticky top-0 z-40 bg-header pt-safe text-header-foreground">
-        <div className="mx-auto flex h-header w-full max-w-7xl items-center gap-3 px-4">
-          <Link href="/" className="flex items-center gap-2" aria-label={t("backToStore")}>
-            <Image src="/logo.svg" alt="" width={32} height={32} className="size-8" />
-          </Link>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-base leading-tight font-bold">{title}</p>
-            {subtitle ? <p className="truncate text-[11px] text-white/75">{subtitle}</p> : null}
-          </div>
-          <Link href="/" className="flex h-9 items-center gap-1 rounded-full bg-white/10 px-3 text-xs font-medium hover:bg-white/20">
-            <ArrowLeft className="size-4" aria-hidden /> {t("backToStore")}
-          </Link>
-        </div>
+    <div className="flex min-h-dvh flex-col bg-background">
+      <header className="sticky top-0 z-40 bg-card pt-safe shadow-card">
         <TricolorStripe />
+        <div className="mx-auto flex h-header w-full max-w-7xl items-center gap-3 px-4">
+          <BrandMark tone="light" compact />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-[15px] leading-tight font-extrabold tracking-tight">
+              {title}
+            </p>
+            {subtitle ? (
+              <p className="truncate text-[11px] text-muted-foreground">{subtitle}</p>
+            ) : null}
+          </div>
+          <Button variant="soft" size="sm" render={<Link href="/" />}>
+            <ArrowLeft data-icon="inline-start" /> {t("backToStore")}
+          </Button>
+        </div>
       </header>
 
       <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col md:flex-row">
-        <nav aria-label={title} className="border-b border-border bg-card md:w-60 md:shrink-0 md:border-r md:border-b-0">
-          <ul className="flex overflow-x-auto scrollbar-none md:flex-col md:p-3">
+        <nav
+          aria-label={title}
+          className="border-b border-border bg-card md:w-60 md:shrink-0 md:border-r md:border-b-0"
+        >
+          <ul className="scrollbar-none flex gap-1.5 overflow-x-auto px-4 py-2.5 md:flex-col md:gap-1 md:p-3">
             {items.map(({ href, label, icon: Icon }) => {
               const active = isActive(href);
               return (
@@ -60,10 +67,10 @@ export function PanelShell({ title, subtitle, items, children }: PanelShellProps
                     href={href}
                     aria-current={active ? "page" : undefined}
                     className={cn(
-                      "flex h-12 items-center gap-2 border-b-2 px-4 text-sm font-medium whitespace-nowrap transition-colors md:rounded-lg md:border-b-0 md:px-3",
+                      "flex h-10 pressable items-center gap-2 rounded-full px-3.5 text-[13px] font-bold whitespace-nowrap transition-colors focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:outline-none md:h-11 md:rounded-xl md:px-3 md:text-sm",
                       active
-                        ? "border-primary text-primary md:bg-accent"
-                        : "border-transparent text-muted-foreground hover:text-foreground md:hover:bg-muted",
+                        ? "bg-primary text-primary-foreground md:bg-accent md:text-primary"
+                        : "bg-surface text-muted-foreground hover:bg-surface-strong hover:text-foreground md:bg-transparent md:hover:bg-surface",
                     )}
                   >
                     <Icon className="size-4.5" aria-hidden />
@@ -85,8 +92,18 @@ export function PanelShell({ title, subtitle, items, children }: PanelShellProps
 /** Aviso "esqueleto" exibido no topo das páginas dos painéis. */
 export function SkeletonNotice({ text }: { text: string }) {
   return (
-    <p role="note" className="mb-4 rounded-lg border border-warning/30 bg-warning-soft px-3 py-2 text-xs text-warning">
+    <p
+      role="note"
+      className="mb-4 rounded-xl bg-warning-soft px-3.5 py-2.5 text-xs font-semibold text-warning"
+    >
       {text}
     </p>
+  );
+}
+
+/** Título de página dos painéis (22 px / 800). */
+export function PanelTitle({ children, className }: { children: ReactNode; className?: string }) {
+  return (
+    <h1 className={cn("mb-4 text-[22px] font-extrabold tracking-tight", className)}>{children}</h1>
   );
 }

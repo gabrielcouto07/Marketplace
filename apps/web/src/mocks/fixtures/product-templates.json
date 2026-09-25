@@ -1,82 +1,789 @@
 {
   "eletronicos": [
-    { "name": "Smart TV 55\" 4K UHD com HDR e sistema inteligente", "price": 249900, "compareAt": 319900, "attrs": [["Tela", "55 polegadas"], ["Resolução", "3840 x 2160"], ["HDMI", "3 portas"]], "variants": { "Tamanho": ["50\"", "55\"", "65\""] }, "warranty": 12 },
-    { "name": "Fone de ouvido Bluetooth com cancelamento ativo de ruído", "price": 89900, "compareAt": 129900, "attrs": [["Autonomia", "30 h"], ["Bluetooth", "5.3"], ["Microfones", "4"]], "variants": { "Cor": ["Preto", "Branco", "Azul"] }, "warranty": 12 },
-    { "name": "Caixa de som portátil à prova d'água 40 W", "price": 45900, "compareAt": null, "attrs": [["Potência", "40 W"], ["Proteção", "IP67"], ["Bateria", "20 h"]], "variants": { "Cor": ["Preto", "Vermelho"] }, "warranty": 6 },
-    { "name": "Soundbar 2.1 com subwoofer sem fio 300 W", "price": 129900, "compareAt": 169900, "attrs": [["Canais", "2.1"], ["Potência", "300 W"], ["Conexão", "HDMI ARC, óptica, Bluetooth"] ], "variants": null, "warranty": 12 },
-    { "name": "Câmera de ação 4K 60fps com estabilização", "price": 119900, "compareAt": 149900, "attrs": [["Resolução", "4K 60fps"], ["Prova d'água", "10 m sem case"], ["Tela", "Touch 2.0\""]], "variants": null, "warranty": 12 },
-    { "name": "Projetor portátil Full HD 5000 lumens", "price": 89900, "compareAt": null, "attrs": [["Resolução nativa", "1920 x 1080"], ["Brilho", "5000 lm"], ["Ruído", "< 30 dB"]], "variants": null, "warranty": 6 },
-    { "name": "Smartwatch com GPS e monitor cardíaco", "price": 69900, "compareAt": 99900, "attrs": [["Tela", "AMOLED 1.43\""], ["Bateria", "14 dias"], ["Sensores", "Cardíaco, SpO2, GPS"]], "variants": { "Cor": ["Preto", "Prata", "Rosa"] }, "warranty": 12 },
-    { "name": "Fone intra-auricular TWS com estojo de carga", "price": 19900, "compareAt": 29900, "attrs": [["Bluetooth", "5.3"], ["Autonomia", "6 h + 24 h no estojo"], ["Resistência", "IPX4"]], "variants": { "Cor": ["Preto", "Branco"] }, "warranty": 6 }
+    {
+      "name": "Smart TV 55\" 4K UHD com HDR e sistema inteligente",
+      "price": 249900,
+      "compareAt": 319900,
+      "attrs": [
+        ["Tela", "55 polegadas"],
+        ["Resolução", "3840 x 2160"],
+        ["HDMI", "3 portas"]
+      ],
+      "variants": { "Tamanho": ["50\"", "55\"", "65\""] },
+      "warranty": 12
+    },
+    {
+      "name": "Fone de ouvido Bluetooth com cancelamento ativo de ruído",
+      "price": 89900,
+      "compareAt": 129900,
+      "attrs": [
+        ["Autonomia", "30 h"],
+        ["Bluetooth", "5.3"],
+        ["Microfones", "4"]
+      ],
+      "variants": { "Cor": ["Preto", "Branco", "Azul"] },
+      "warranty": 12
+    },
+    {
+      "name": "Caixa de som portátil à prova d'água 40 W",
+      "price": 45900,
+      "compareAt": null,
+      "attrs": [
+        ["Potência", "40 W"],
+        ["Proteção", "IP67"],
+        ["Bateria", "20 h"]
+      ],
+      "variants": { "Cor": ["Preto", "Vermelho"] },
+      "warranty": 6
+    },
+    {
+      "name": "Soundbar 2.1 com subwoofer sem fio 300 W",
+      "price": 129900,
+      "compareAt": 169900,
+      "attrs": [
+        ["Canais", "2.1"],
+        ["Potência", "300 W"],
+        ["Conexão", "HDMI ARC, óptica, Bluetooth"]
+      ],
+      "variants": null,
+      "warranty": 12
+    },
+    {
+      "name": "Câmera de ação 4K 60fps com estabilização",
+      "price": 119900,
+      "compareAt": 149900,
+      "attrs": [
+        ["Resolução", "4K 60fps"],
+        ["Prova d'água", "10 m sem case"],
+        ["Tela", "Touch 2.0\""]
+      ],
+      "variants": null,
+      "warranty": 12
+    },
+    {
+      "name": "Projetor portátil Full HD 5000 lumens",
+      "price": 89900,
+      "compareAt": null,
+      "attrs": [
+        ["Resolução nativa", "1920 x 1080"],
+        ["Brilho", "5000 lm"],
+        ["Ruído", "< 30 dB"]
+      ],
+      "variants": null,
+      "warranty": 6
+    },
+    {
+      "name": "Smartwatch com GPS e monitor cardíaco",
+      "price": 69900,
+      "compareAt": 99900,
+      "attrs": [
+        ["Tela", "AMOLED 1.43\""],
+        ["Bateria", "14 dias"],
+        ["Sensores", "Cardíaco, SpO2, GPS"]
+      ],
+      "variants": { "Cor": ["Preto", "Prata", "Rosa"] },
+      "warranty": 12
+    },
+    {
+      "name": "Fone intra-auricular TWS com estojo de carga",
+      "price": 19900,
+      "compareAt": 29900,
+      "attrs": [
+        ["Bluetooth", "5.3"],
+        ["Autonomia", "6 h + 24 h no estojo"],
+        ["Resistência", "IPX4"]
+      ],
+      "variants": { "Cor": ["Preto", "Branco"] },
+      "warranty": 6
+    }
   ],
   "perfumes": [
-    { "name": "Eau de Parfum feminino floral amadeirado 100 ml", "price": 32900, "compareAt": 49900, "attrs": [["Família olfativa", "Floral amadeirado"], ["Concentração", "Eau de Parfum"], ["Volume", "100 ml"]], "variants": { "Volume": ["50 ml", "100 ml"] }, "warranty": null },
-    { "name": "Eau de Toilette masculino cítrico aromático 100 ml", "price": 27900, "compareAt": 39900, "attrs": [["Família olfativa", "Cítrico aromático"], ["Concentração", "Eau de Toilette"], ["Volume", "100 ml"]], "variants": { "Volume": ["50 ml", "100 ml", "200 ml"] }, "warranty": null },
-    { "name": "Perfume oriental especiado unissex 75 ml", "price": 41900, "compareAt": null, "attrs": [["Família olfativa", "Oriental especiado"], ["Concentração", "Parfum"], ["Volume", "75 ml"]], "variants": null, "warranty": null },
-    { "name": "Kit perfume + loção corporal + gel de banho", "price": 36900, "compareAt": 52900, "attrs": [["Itens", "3"], ["Volume perfume", "100 ml"], ["Volume loção", "75 ml"]], "variants": null, "warranty": null },
-    { "name": "Perfume infantil colônia suave 200 ml", "price": 9900, "compareAt": 14900, "attrs": [["Família olfativa", "Frutal suave"], ["Volume", "200 ml"], ["Sem álcool", "Sim"]], "variants": null, "warranty": null },
-    { "name": "Body splash frutal 236 ml", "price": 7900, "compareAt": 11900, "attrs": [["Família olfativa", "Frutal"], ["Volume", "236 ml"], ["Fixação", "Média"]], "variants": { "Fragrância": ["Pêssego", "Baunilha", "Frutas vermelhas"] }, "warranty": null },
-    { "name": "Eau de Parfum masculino amadeirado intenso 125 ml", "price": 45900, "compareAt": 62900, "attrs": [["Família olfativa", "Amadeirado intenso"], ["Concentração", "Eau de Parfum"], ["Volume", "125 ml"]], "variants": null, "warranty": null },
-    { "name": "Miniatura decant 10 ml fragrância nicho", "price": 5900, "compareAt": null, "attrs": [["Volume", "10 ml"], ["Concentração", "Extrait"], ["Tipo", "Decant lacrado"]], "variants": null, "warranty": null }
+    {
+      "name": "Eau de Parfum feminino floral amadeirado 100 ml",
+      "price": 32900,
+      "compareAt": 49900,
+      "attrs": [
+        ["Família olfativa", "Floral amadeirado"],
+        ["Concentração", "Eau de Parfum"],
+        ["Volume", "100 ml"]
+      ],
+      "variants": { "Volume": ["50 ml", "100 ml"] },
+      "warranty": null
+    },
+    {
+      "name": "Eau de Toilette masculino cítrico aromático 100 ml",
+      "price": 27900,
+      "compareAt": 39900,
+      "attrs": [
+        ["Família olfativa", "Cítrico aromático"],
+        ["Concentração", "Eau de Toilette"],
+        ["Volume", "100 ml"]
+      ],
+      "variants": { "Volume": ["50 ml", "100 ml", "200 ml"] },
+      "warranty": null
+    },
+    {
+      "name": "Perfume oriental especiado unissex 75 ml",
+      "price": 41900,
+      "compareAt": null,
+      "attrs": [
+        ["Família olfativa", "Oriental especiado"],
+        ["Concentração", "Parfum"],
+        ["Volume", "75 ml"]
+      ],
+      "variants": null,
+      "warranty": null
+    },
+    {
+      "name": "Kit perfume + loção corporal + gel de banho",
+      "price": 36900,
+      "compareAt": 52900,
+      "attrs": [
+        ["Itens", "3"],
+        ["Volume perfume", "100 ml"],
+        ["Volume loção", "75 ml"]
+      ],
+      "variants": null,
+      "warranty": null
+    },
+    {
+      "name": "Perfume infantil colônia suave 200 ml",
+      "price": 9900,
+      "compareAt": 14900,
+      "attrs": [
+        ["Família olfativa", "Frutal suave"],
+        ["Volume", "200 ml"],
+        ["Sem álcool", "Sim"]
+      ],
+      "variants": null,
+      "warranty": null
+    },
+    {
+      "name": "Body splash frutal 236 ml",
+      "price": 7900,
+      "compareAt": 11900,
+      "attrs": [
+        ["Família olfativa", "Frutal"],
+        ["Volume", "236 ml"],
+        ["Fixação", "Média"]
+      ],
+      "variants": { "Fragrância": ["Pêssego", "Baunilha", "Frutas vermelhas"] },
+      "warranty": null
+    },
+    {
+      "name": "Eau de Parfum masculino amadeirado intenso 125 ml",
+      "price": 45900,
+      "compareAt": 62900,
+      "attrs": [
+        ["Família olfativa", "Amadeirado intenso"],
+        ["Concentração", "Eau de Parfum"],
+        ["Volume", "125 ml"]
+      ],
+      "variants": null,
+      "warranty": null
+    },
+    {
+      "name": "Miniatura decant 10 ml fragrância nicho",
+      "price": 5900,
+      "compareAt": null,
+      "attrs": [
+        ["Volume", "10 ml"],
+        ["Concentração", "Extrait"],
+        ["Tipo", "Decant lacrado"]
+      ],
+      "variants": null,
+      "warranty": null
+    }
   ],
   "informatica": [
-    { "name": "Notebook 15.6\" Core i5 16 GB RAM SSD 512 GB", "price": 329900, "compareAt": 419900, "attrs": [["Processador", "Core i5 12ª geração"], ["Memória", "16 GB DDR4"], ["Armazenamento", "SSD 512 GB NVMe"]], "variants": { "Memória": ["8 GB", "16 GB"] }, "warranty": 12 },
-    { "name": "Monitor gamer 27\" 165 Hz IPS 1 ms", "price": 129900, "compareAt": 159900, "attrs": [["Tamanho", "27 polegadas"], ["Taxa", "165 Hz"], ["Painel", "IPS"]], "variants": null, "warranty": 12 },
-    { "name": "SSD NVMe 1 TB PCIe 4.0 7000 MB/s", "price": 39900, "compareAt": 54900, "attrs": [["Capacidade", "1 TB"], ["Interface", "PCIe 4.0 x4"], ["Leitura", "7000 MB/s"]], "variants": { "Capacidade": ["500 GB", "1 TB", "2 TB"] }, "warranty": 36 },
-    { "name": "Teclado mecânico sem fio switch tátil RGB", "price": 34900, "compareAt": null, "attrs": [["Switch", "Tátil"], ["Layout", "ABNT2"], ["Conexão", "2.4 GHz + Bluetooth"]], "variants": { "Cor": ["Preto", "Branco"] }, "warranty": 12 },
-    { "name": "Mouse gamer sem fio 26.000 DPI 60 g", "price": 24900, "compareAt": 32900, "attrs": [["Sensor", "26.000 DPI"], ["Peso", "60 g"], ["Bateria", "70 h"]], "variants": { "Cor": ["Preto", "Branco"] }, "warranty": 12 },
-    { "name": "Placa de vídeo 8 GB GDDR6 ray tracing", "price": 199900, "compareAt": 249900, "attrs": [["Memória", "8 GB GDDR6"], ["Interface", "PCIe 4.0"], ["Saídas", "3x DP, 1x HDMI"]], "variants": null, "warranty": 12 },
-    { "name": "Roteador Wi-Fi 6 mesh dual band AX3000", "price": 44900, "compareAt": 59900, "attrs": [["Padrão", "Wi-Fi 6 (802.11ax)"], ["Velocidade", "AX3000"], ["Cobertura", "até 200 m²"]], "variants": { "Kit": ["1 unidade", "2 unidades"] }, "warranty": 12 },
-    { "name": "Webcam 4K com microfone e correção de luz", "price": 29900, "compareAt": null, "attrs": [["Resolução", "4K 30fps"], ["Campo de visão", "90°"], ["Conexão", "USB-C"]], "variants": null, "warranty": 12 }
+    {
+      "name": "Notebook 15.6\" Core i5 16 GB RAM SSD 512 GB",
+      "price": 329900,
+      "compareAt": 419900,
+      "attrs": [
+        ["Processador", "Core i5 12ª geração"],
+        ["Memória", "16 GB DDR4"],
+        ["Armazenamento", "SSD 512 GB NVMe"]
+      ],
+      "variants": { "Memória": ["8 GB", "16 GB"] },
+      "warranty": 12
+    },
+    {
+      "name": "Monitor gamer 27\" 165 Hz IPS 1 ms",
+      "price": 129900,
+      "compareAt": 159900,
+      "attrs": [
+        ["Tamanho", "27 polegadas"],
+        ["Taxa", "165 Hz"],
+        ["Painel", "IPS"]
+      ],
+      "variants": null,
+      "warranty": 12
+    },
+    {
+      "name": "SSD NVMe 1 TB PCIe 4.0 7000 MB/s",
+      "price": 39900,
+      "compareAt": 54900,
+      "attrs": [
+        ["Capacidade", "1 TB"],
+        ["Interface", "PCIe 4.0 x4"],
+        ["Leitura", "7000 MB/s"]
+      ],
+      "variants": { "Capacidade": ["500 GB", "1 TB", "2 TB"] },
+      "warranty": 36
+    },
+    {
+      "name": "Teclado mecânico sem fio switch tátil RGB",
+      "price": 34900,
+      "compareAt": null,
+      "attrs": [
+        ["Switch", "Tátil"],
+        ["Layout", "ABNT2"],
+        ["Conexão", "2.4 GHz + Bluetooth"]
+      ],
+      "variants": { "Cor": ["Preto", "Branco"] },
+      "warranty": 12
+    },
+    {
+      "name": "Mouse gamer sem fio 26.000 DPI 60 g",
+      "price": 24900,
+      "compareAt": 32900,
+      "attrs": [
+        ["Sensor", "26.000 DPI"],
+        ["Peso", "60 g"],
+        ["Bateria", "70 h"]
+      ],
+      "variants": { "Cor": ["Preto", "Branco"] },
+      "warranty": 12
+    },
+    {
+      "name": "Placa de vídeo 8 GB GDDR6 ray tracing",
+      "price": 199900,
+      "compareAt": 249900,
+      "attrs": [
+        ["Memória", "8 GB GDDR6"],
+        ["Interface", "PCIe 4.0"],
+        ["Saídas", "3x DP, 1x HDMI"]
+      ],
+      "variants": null,
+      "warranty": 12
+    },
+    {
+      "name": "Roteador Wi-Fi 6 mesh dual band AX3000",
+      "price": 44900,
+      "compareAt": 59900,
+      "attrs": [
+        ["Padrão", "Wi-Fi 6 (802.11ax)"],
+        ["Velocidade", "AX3000"],
+        ["Cobertura", "até 200 m²"]
+      ],
+      "variants": { "Kit": ["1 unidade", "2 unidades"] },
+      "warranty": 12
+    },
+    {
+      "name": "Webcam 4K com microfone e correção de luz",
+      "price": 29900,
+      "compareAt": null,
+      "attrs": [
+        ["Resolução", "4K 30fps"],
+        ["Campo de visão", "90°"],
+        ["Conexão", "USB-C"]
+      ],
+      "variants": null,
+      "warranty": 12
+    }
   ],
   "celulares": [
-    { "name": "Smartphone 6.7\" 256 GB 5G câmera tripla 50 MP", "price": 279900, "compareAt": 349900, "attrs": [["Tela", "6.7\" AMOLED 120 Hz"], ["Câmera", "50 + 12 + 8 MP"], ["Bateria", "5000 mAh"]], "variants": { "Armazenamento": ["128 GB", "256 GB", "512 GB"], "Cor": ["Preto", "Azul", "Verde"] }, "warranty": 12 },
-    { "name": "Smartphone 6.1\" 128 GB dual chip 4G", "price": 99900, "compareAt": 129900, "attrs": [["Tela", "6.1\" LCD 90 Hz"], ["Câmera", "48 + 2 MP"], ["Bateria", "4500 mAh"]], "variants": { "Cor": ["Preto", "Branco"] }, "warranty": 12 },
-    { "name": "Smartphone premium 6.8\" 512 GB titânio", "price": 599900, "compareAt": 749900, "attrs": [["Tela", "6.8\" LTPO 120 Hz"], ["Câmera", "200 MP periscópio"], ["Material", "Titânio"]], "variants": { "Cor": ["Titânio cinza", "Titânio preto"] }, "warranty": 12 },
-    { "name": "Capa protetora antichoque transparente", "price": 3900, "compareAt": 6900, "attrs": [["Material", "TPU + policarbonato"], ["Proteção", "Militar 2 m"], ["Compatibilidade", "Modelos 6.7\""]], "variants": null, "warranty": null },
-    { "name": "Carregador rápido 65 W GaN USB-C 3 portas", "price": 12900, "compareAt": 17900, "attrs": [["Potência", "65 W"], ["Portas", "2x USB-C, 1x USB-A"], ["Tecnologia", "GaN"]], "variants": null, "warranty": 12 },
-    { "name": "Power bank 20.000 mAh 22.5 W com cabo integrado", "price": 14900, "compareAt": null, "attrs": [["Capacidade", "20.000 mAh"], ["Potência", "22,5 W"], ["Portas", "USB-C + USB-A"]], "variants": { "Cor": ["Preto", "Azul"] }, "warranty": 6 },
-    { "name": "Tablet 11\" 128 GB Wi-Fi com caneta", "price": 189900, "compareAt": 239900, "attrs": [["Tela", "11\" 2K 120 Hz"], ["Armazenamento", "128 GB"], ["Acessório", "Caneta inclusa"]], "variants": { "Armazenamento": ["128 GB", "256 GB"] }, "warranty": 12 },
-    { "name": "Película de vidro 9H com aplicador", "price": 2900, "compareAt": null, "attrs": [["Dureza", "9H"], ["Bordas", "2.5D"], ["Kit", "2 unidades + aplicador"]], "variants": null, "warranty": null }
+    {
+      "name": "Smartphone 6.7\" 256 GB 5G câmera tripla 50 MP",
+      "price": 279900,
+      "compareAt": 349900,
+      "attrs": [
+        ["Tela", "6.7\" AMOLED 120 Hz"],
+        ["Câmera", "50 + 12 + 8 MP"],
+        ["Bateria", "5000 mAh"]
+      ],
+      "variants": {
+        "Armazenamento": ["128 GB", "256 GB", "512 GB"],
+        "Cor": ["Preto", "Azul", "Verde"]
+      },
+      "warranty": 12
+    },
+    {
+      "name": "Smartphone 6.1\" 128 GB dual chip 4G",
+      "price": 99900,
+      "compareAt": 129900,
+      "attrs": [
+        ["Tela", "6.1\" LCD 90 Hz"],
+        ["Câmera", "48 + 2 MP"],
+        ["Bateria", "4500 mAh"]
+      ],
+      "variants": { "Cor": ["Preto", "Branco"] },
+      "warranty": 12
+    },
+    {
+      "name": "Smartphone premium 6.8\" 512 GB titânio",
+      "price": 599900,
+      "compareAt": 749900,
+      "attrs": [
+        ["Tela", "6.8\" LTPO 120 Hz"],
+        ["Câmera", "200 MP periscópio"],
+        ["Material", "Titânio"]
+      ],
+      "variants": { "Cor": ["Titânio cinza", "Titânio preto"] },
+      "warranty": 12
+    },
+    {
+      "name": "Capa protetora antichoque transparente",
+      "price": 3900,
+      "compareAt": 6900,
+      "attrs": [
+        ["Material", "TPU + policarbonato"],
+        ["Proteção", "Militar 2 m"],
+        ["Compatibilidade", "Modelos 6.7\""]
+      ],
+      "variants": null,
+      "warranty": null
+    },
+    {
+      "name": "Carregador rápido 65 W GaN USB-C 3 portas",
+      "price": 12900,
+      "compareAt": 17900,
+      "attrs": [
+        ["Potência", "65 W"],
+        ["Portas", "2x USB-C, 1x USB-A"],
+        ["Tecnologia", "GaN"]
+      ],
+      "variants": null,
+      "warranty": 12
+    },
+    {
+      "name": "Power bank 20.000 mAh 22.5 W com cabo integrado",
+      "price": 14900,
+      "compareAt": null,
+      "attrs": [
+        ["Capacidade", "20.000 mAh"],
+        ["Potência", "22,5 W"],
+        ["Portas", "USB-C + USB-A"]
+      ],
+      "variants": { "Cor": ["Preto", "Azul"] },
+      "warranty": 6
+    },
+    {
+      "name": "Tablet 11\" 128 GB Wi-Fi com caneta",
+      "price": 189900,
+      "compareAt": 239900,
+      "attrs": [
+        ["Tela", "11\" 2K 120 Hz"],
+        ["Armazenamento", "128 GB"],
+        ["Acessório", "Caneta inclusa"]
+      ],
+      "variants": { "Armazenamento": ["128 GB", "256 GB"] },
+      "warranty": 12
+    },
+    {
+      "name": "Película de vidro 9H com aplicador",
+      "price": 2900,
+      "compareAt": null,
+      "attrs": [
+        ["Dureza", "9H"],
+        ["Bordas", "2.5D"],
+        ["Kit", "2 unidades + aplicador"]
+      ],
+      "variants": null,
+      "warranty": null
+    }
   ],
   "bebidas": [
-    { "name": "Whisky escocês blended 12 anos 1 L", "price": 18900, "compareAt": 24900, "attrs": [["Origem", "Escócia"], ["Idade", "12 anos"], ["Volume", "1 L"]], "variants": null, "warranty": null },
-    { "name": "Vodka premium destilada 5x 1 L", "price": 9900, "compareAt": 13900, "attrs": [["Origem", "França"], ["Teor", "40%"], ["Volume", "1 L"]], "variants": null, "warranty": null },
-    { "name": "Gin london dry artesanal 750 ml", "price": 12900, "compareAt": null, "attrs": [["Origem", "Inglaterra"], ["Botânicos", "10"], ["Volume", "750 ml"]], "variants": null, "warranty": null },
-    { "name": "Vinho tinto malbec reserva 750 ml", "price": 6900, "compareAt": 9900, "attrs": [["Origem", "Mendoza, Argentina"], ["Uva", "Malbec"], ["Safra", "2021"]], "variants": { "Quantidade": ["1 garrafa", "Caixa 6"] }, "warranty": null },
-    { "name": "Espumante brut rosé 750 ml", "price": 5900, "compareAt": null, "attrs": [["Método", "Charmat"], ["Tipo", "Brut rosé"], ["Volume", "750 ml"]], "variants": null, "warranty": null },
-    { "name": "Licor de creme irlandês 750 ml", "price": 8900, "compareAt": 11900, "attrs": [["Origem", "Irlanda"], ["Teor", "17%"], ["Volume", "750 ml"]], "variants": null, "warranty": null },
-    { "name": "Tequila reposado 100% agave 750 ml", "price": 15900, "compareAt": 19900, "attrs": [["Origem", "Jalisco, México"], ["Tipo", "Reposado"], ["Volume", "750 ml"]], "variants": null, "warranty": null },
-    { "name": "Energético lata 250 ml caixa com 24", "price": 11900, "compareAt": 14900, "attrs": [["Unidades", "24"], ["Volume", "250 ml"], ["Sabor", "Tradicional"]], "variants": { "Sabor": ["Tradicional", "Tropical", "Zero açúcar"] }, "warranty": null }
+    {
+      "name": "Whisky escocês blended 12 anos 1 L",
+      "price": 18900,
+      "compareAt": 24900,
+      "attrs": [
+        ["Origem", "Escócia"],
+        ["Idade", "12 anos"],
+        ["Volume", "1 L"]
+      ],
+      "variants": null,
+      "warranty": null
+    },
+    {
+      "name": "Vodka premium destilada 5x 1 L",
+      "price": 9900,
+      "compareAt": 13900,
+      "attrs": [
+        ["Origem", "França"],
+        ["Teor", "40%"],
+        ["Volume", "1 L"]
+      ],
+      "variants": null,
+      "warranty": null
+    },
+    {
+      "name": "Gin london dry artesanal 750 ml",
+      "price": 12900,
+      "compareAt": null,
+      "attrs": [
+        ["Origem", "Inglaterra"],
+        ["Botânicos", "10"],
+        ["Volume", "750 ml"]
+      ],
+      "variants": null,
+      "warranty": null
+    },
+    {
+      "name": "Vinho tinto malbec reserva 750 ml",
+      "price": 6900,
+      "compareAt": 9900,
+      "attrs": [
+        ["Origem", "Mendoza, Argentina"],
+        ["Uva", "Malbec"],
+        ["Safra", "2021"]
+      ],
+      "variants": { "Quantidade": ["1 garrafa", "Caixa 6"] },
+      "warranty": null
+    },
+    {
+      "name": "Espumante brut rosé 750 ml",
+      "price": 5900,
+      "compareAt": null,
+      "attrs": [
+        ["Método", "Charmat"],
+        ["Tipo", "Brut rosé"],
+        ["Volume", "750 ml"]
+      ],
+      "variants": null,
+      "warranty": null
+    },
+    {
+      "name": "Licor de creme irlandês 750 ml",
+      "price": 8900,
+      "compareAt": 11900,
+      "attrs": [
+        ["Origem", "Irlanda"],
+        ["Teor", "17%"],
+        ["Volume", "750 ml"]
+      ],
+      "variants": null,
+      "warranty": null
+    },
+    {
+      "name": "Tequila reposado 100% agave 750 ml",
+      "price": 15900,
+      "compareAt": 19900,
+      "attrs": [
+        ["Origem", "Jalisco, México"],
+        ["Tipo", "Reposado"],
+        ["Volume", "750 ml"]
+      ],
+      "variants": null,
+      "warranty": null
+    },
+    {
+      "name": "Energético lata 250 ml caixa com 24",
+      "price": 11900,
+      "compareAt": 14900,
+      "attrs": [
+        ["Unidades", "24"],
+        ["Volume", "250 ml"],
+        ["Sabor", "Tradicional"]
+      ],
+      "variants": { "Sabor": ["Tradicional", "Tropical", "Zero açúcar"] },
+      "warranty": null
+    }
   ],
   "casa": [
-    { "name": "Robô aspirador com mapeamento e mop 4000 Pa", "price": 149900, "compareAt": 199900, "attrs": [["Sucção", "4000 Pa"], ["Navegação", "LiDAR"], ["Autonomia", "180 min"]], "variants": null, "warranty": 12 },
-    { "name": "Fritadeira elétrica sem óleo 6 L digital", "price": 39900, "compareAt": 54900, "attrs": [["Capacidade", "6 L"], ["Potência", "1700 W"], ["Programas", "8"]], "variants": { "Cor": ["Preto", "Branco"] }, "warranty": 12 },
-    { "name": "Cafeteira espresso automática com moedor", "price": 219900, "compareAt": 279900, "attrs": [["Pressão", "19 bar"], ["Moedor", "Cônico integrado"], ["Reservatório", "1,8 L"]], "variants": null, "warranty": 12 },
-    { "name": "Jogo de panelas antiaderente 10 peças", "price": 29900, "compareAt": 39900, "attrs": [["Peças", "10"], ["Revestimento", "Cerâmico"], ["Indução", "Compatível"]], "variants": null, "warranty": 12 },
-    { "name": "Purificador de ar HEPA para 40 m²", "price": 59900, "compareAt": null, "attrs": [["Filtro", "HEPA H13"], ["Área", "até 40 m²"], ["Ruído", "24 dB"]], "variants": null, "warranty": 12 },
-    { "name": "Luminária inteligente RGB Wi-Fi com app", "price": 9900, "compareAt": 14900, "attrs": [["Conexão", "Wi-Fi 2.4 GHz"], ["Cores", "16 milhões"], ["Assistentes", "Compatível"]], "variants": null, "warranty": 12 },
-    { "name": "Liquidificador de alta potência 1400 W", "price": 24900, "compareAt": 32900, "attrs": [["Potência", "1400 W"], ["Copo", "2 L tritan"], ["Velocidades", "12"]], "variants": null, "warranty": 12 },
-    { "name": "Jogo de cama 400 fios 4 peças", "price": 19900, "compareAt": null, "attrs": [["Fios", "400"], ["Material", "Algodão egípcio"], ["Peças", "4"]], "variants": { "Tamanho": ["Casal", "Queen", "King"], "Cor": ["Branco", "Cinza"] }, "warranty": null }
+    {
+      "name": "Robô aspirador com mapeamento e mop 4000 Pa",
+      "price": 149900,
+      "compareAt": 199900,
+      "attrs": [
+        ["Sucção", "4000 Pa"],
+        ["Navegação", "LiDAR"],
+        ["Autonomia", "180 min"]
+      ],
+      "variants": null,
+      "warranty": 12
+    },
+    {
+      "name": "Fritadeira elétrica sem óleo 6 L digital",
+      "price": 39900,
+      "compareAt": 54900,
+      "attrs": [
+        ["Capacidade", "6 L"],
+        ["Potência", "1700 W"],
+        ["Programas", "8"]
+      ],
+      "variants": { "Cor": ["Preto", "Branco"] },
+      "warranty": 12
+    },
+    {
+      "name": "Cafeteira espresso automática com moedor",
+      "price": 219900,
+      "compareAt": 279900,
+      "attrs": [
+        ["Pressão", "19 bar"],
+        ["Moedor", "Cônico integrado"],
+        ["Reservatório", "1,8 L"]
+      ],
+      "variants": null,
+      "warranty": 12
+    },
+    {
+      "name": "Jogo de panelas antiaderente 10 peças",
+      "price": 29900,
+      "compareAt": 39900,
+      "attrs": [
+        ["Peças", "10"],
+        ["Revestimento", "Cerâmico"],
+        ["Indução", "Compatível"]
+      ],
+      "variants": null,
+      "warranty": 12
+    },
+    {
+      "name": "Purificador de ar HEPA para 40 m²",
+      "price": 59900,
+      "compareAt": null,
+      "attrs": [
+        ["Filtro", "HEPA H13"],
+        ["Área", "até 40 m²"],
+        ["Ruído", "24 dB"]
+      ],
+      "variants": null,
+      "warranty": 12
+    },
+    {
+      "name": "Luminária inteligente RGB Wi-Fi com app",
+      "price": 9900,
+      "compareAt": 14900,
+      "attrs": [
+        ["Conexão", "Wi-Fi 2.4 GHz"],
+        ["Cores", "16 milhões"],
+        ["Assistentes", "Compatível"]
+      ],
+      "variants": null,
+      "warranty": 12
+    },
+    {
+      "name": "Liquidificador de alta potência 1400 W",
+      "price": 24900,
+      "compareAt": 32900,
+      "attrs": [
+        ["Potência", "1400 W"],
+        ["Copo", "2 L tritan"],
+        ["Velocidades", "12"]
+      ],
+      "variants": null,
+      "warranty": 12
+    },
+    {
+      "name": "Jogo de cama 400 fios 4 peças",
+      "price": 19900,
+      "compareAt": null,
+      "attrs": [
+        ["Fios", "400"],
+        ["Material", "Algodão egípcio"],
+        ["Peças", "4"]
+      ],
+      "variants": { "Tamanho": ["Casal", "Queen", "King"], "Cor": ["Branco", "Cinza"] },
+      "warranty": null
+    }
   ],
   "esportes": [
-    { "name": "Bicicleta ergométrica magnética dobrável", "price": 89900, "compareAt": 119900, "attrs": [["Resistência", "Magnética 8 níveis"], ["Peso máx.", "120 kg"], ["Dobrável", "Sim"]], "variants": null, "warranty": 12 },
-    { "name": "Tênis de corrida com placa de carbono", "price": 79900, "compareAt": 99900, "attrs": [["Drop", "8 mm"], ["Peso", "215 g"], ["Uso", "Asfalto"]], "variants": { "Tamanho": ["39", "40", "41", "42", "43"], "Cor": ["Preto", "Azul"] }, "warranty": null },
-    { "name": "Kit halteres ajustáveis 2 x 24 kg", "price": 119900, "compareAt": 149900, "attrs": [["Faixa", "2 a 24 kg"], ["Ajuste", "Seletor rápido"], ["Unidades", "2"]], "variants": null, "warranty": 12 },
-    { "name": "Relógio GPS multiesporte com mapas", "price": 199900, "compareAt": 259900, "attrs": [["Bateria GPS", "40 h"], ["Mapas", "Offline"], ["Prova d'água", "10 ATM"]], "variants": null, "warranty": 12 },
-    { "name": "Mochila de hidratação trail 12 L", "price": 24900, "compareAt": null, "attrs": [["Capacidade", "12 L"], ["Reservatório", "2 L"], ["Peso", "380 g"]], "variants": null, "warranty": null },
-    { "name": "Barraca de camping 4 pessoas impermeável", "price": 34900, "compareAt": 44900, "attrs": [["Capacidade", "4 pessoas"], ["Coluna d'água", "3000 mm"], ["Peso", "4,2 kg"]], "variants": null, "warranty": null },
-    { "name": "Prancha de stand up paddle inflável 10'6", "price": 129900, "compareAt": 169900, "attrs": [["Comprimento", "10'6\""], ["Carga máx.", "150 kg"], ["Inclui", "Remo, bomba e mochila"]], "variants": null, "warranty": 6 },
-    { "name": "Bola de futebol oficial termocolada", "price": 12900, "compareAt": 16900, "attrs": [["Tamanho", "5"], ["Construção", "Termocolada"], ["Uso", "Campo"]], "variants": null, "warranty": null }
+    {
+      "name": "Bicicleta ergométrica magnética dobrável",
+      "price": 89900,
+      "compareAt": 119900,
+      "attrs": [
+        ["Resistência", "Magnética 8 níveis"],
+        ["Peso máx.", "120 kg"],
+        ["Dobrável", "Sim"]
+      ],
+      "variants": null,
+      "warranty": 12
+    },
+    {
+      "name": "Tênis de corrida com placa de carbono",
+      "price": 79900,
+      "compareAt": 99900,
+      "attrs": [
+        ["Drop", "8 mm"],
+        ["Peso", "215 g"],
+        ["Uso", "Asfalto"]
+      ],
+      "variants": { "Tamanho": ["39", "40", "41", "42", "43"], "Cor": ["Preto", "Azul"] },
+      "warranty": null
+    },
+    {
+      "name": "Kit halteres ajustáveis 2 x 24 kg",
+      "price": 119900,
+      "compareAt": 149900,
+      "attrs": [
+        ["Faixa", "2 a 24 kg"],
+        ["Ajuste", "Seletor rápido"],
+        ["Unidades", "2"]
+      ],
+      "variants": null,
+      "warranty": 12
+    },
+    {
+      "name": "Relógio GPS multiesporte com mapas",
+      "price": 199900,
+      "compareAt": 259900,
+      "attrs": [
+        ["Bateria GPS", "40 h"],
+        ["Mapas", "Offline"],
+        ["Prova d'água", "10 ATM"]
+      ],
+      "variants": null,
+      "warranty": 12
+    },
+    {
+      "name": "Mochila de hidratação trail 12 L",
+      "price": 24900,
+      "compareAt": null,
+      "attrs": [
+        ["Capacidade", "12 L"],
+        ["Reservatório", "2 L"],
+        ["Peso", "380 g"]
+      ],
+      "variants": null,
+      "warranty": null
+    },
+    {
+      "name": "Barraca de camping 4 pessoas impermeável",
+      "price": 34900,
+      "compareAt": 44900,
+      "attrs": [
+        ["Capacidade", "4 pessoas"],
+        ["Coluna d'água", "3000 mm"],
+        ["Peso", "4,2 kg"]
+      ],
+      "variants": null,
+      "warranty": null
+    },
+    {
+      "name": "Prancha de stand up paddle inflável 10'6",
+      "price": 129900,
+      "compareAt": 169900,
+      "attrs": [
+        ["Comprimento", "10'6\""],
+        ["Carga máx.", "150 kg"],
+        ["Inclui", "Remo, bomba e mochila"]
+      ],
+      "variants": null,
+      "warranty": 6
+    },
+    {
+      "name": "Bola de futebol oficial termocolada",
+      "price": 12900,
+      "compareAt": 16900,
+      "attrs": [
+        ["Tamanho", "5"],
+        ["Construção", "Termocolada"],
+        ["Uso", "Campo"]
+      ],
+      "variants": null,
+      "warranty": null
+    }
   ],
   "moda": [
-    { "name": "Óculos de sol polarizado armação acetato", "price": 39900, "compareAt": 59900, "attrs": [["Lente", "Polarizada UV400"], ["Armação", "Acetato"], ["Inclui", "Estojo rígido"]], "variants": { "Cor": ["Preto", "Tartaruga"] }, "warranty": 12 },
-    { "name": "Relógio analógico aço inoxidável 42 mm", "price": 49900, "compareAt": 69900, "attrs": [["Caixa", "42 mm aço"], ["Movimento", "Quartzo"], ["Resistência", "5 ATM"]], "variants": { "Cor": ["Prata", "Dourado", "Preto"] }, "warranty": 24 },
-    { "name": "Bolsa transversal couro legítimo", "price": 29900, "compareAt": null, "attrs": [["Material", "Couro legítimo"], ["Dimensões", "22 x 15 x 7 cm"], ["Alça", "Ajustável"]], "variants": { "Cor": ["Preto", "Caramelo", "Vermelho"] }, "warranty": null },
-    { "name": "Jaqueta corta-vento impermeável unissex", "price": 24900, "compareAt": 34900, "attrs": [["Material", "Nylon ripstop"], ["Impermeável", "Sim"], ["Capuz", "Retrátil"]], "variants": { "Tamanho": ["P", "M", "G", "GG"], "Cor": ["Preto", "Azul marinho"] }, "warranty": null },
-    { "name": "Tênis casual couro branco", "price": 34900, "compareAt": 44900, "attrs": [["Material", "Couro"], ["Solado", "Borracha"], ["Estilo", "Casual"]], "variants": { "Tamanho": ["37", "38", "39", "40", "41", "42", "43"] }, "warranty": null },
-    { "name": "Carteira slim RFID couro", "price": 8900, "compareAt": 12900, "attrs": [["Material", "Couro"], ["Proteção", "RFID"], ["Compartimentos", "8 cartões"]], "variants": { "Cor": ["Preto", "Marrom"] }, "warranty": null },
-    { "name": "Cinto de couro reversível com fivela automática", "price": 6900, "compareAt": null, "attrs": [["Material", "Couro"], ["Reversível", "Preto / marrom"], ["Largura", "3,5 cm"]], "variants": null, "warranty": null },
-    { "name": "Boné aba curva algodão bordado", "price": 4900, "compareAt": 7900, "attrs": [["Material", "Algodão"], ["Ajuste", "Fivela"], ["Tamanho", "Único"]], "variants": { "Cor": ["Preto", "Bege", "Azul"] }, "warranty": null }
+    {
+      "name": "Óculos de sol polarizado armação acetato",
+      "price": 39900,
+      "compareAt": 59900,
+      "attrs": [
+        ["Lente", "Polarizada UV400"],
+        ["Armação", "Acetato"],
+        ["Inclui", "Estojo rígido"]
+      ],
+      "variants": { "Cor": ["Preto", "Tartaruga"] },
+      "warranty": 12
+    },
+    {
+      "name": "Relógio analógico aço inoxidável 42 mm",
+      "price": 49900,
+      "compareAt": 69900,
+      "attrs": [
+        ["Caixa", "42 mm aço"],
+        ["Movimento", "Quartzo"],
+        ["Resistência", "5 ATM"]
+      ],
+      "variants": { "Cor": ["Prata", "Dourado", "Preto"] },
+      "warranty": 24
+    },
+    {
+      "name": "Bolsa transversal couro legítimo",
+      "price": 29900,
+      "compareAt": null,
+      "attrs": [
+        ["Material", "Couro legítimo"],
+        ["Dimensões", "22 x 15 x 7 cm"],
+        ["Alça", "Ajustável"]
+      ],
+      "variants": { "Cor": ["Preto", "Caramelo", "Vermelho"] },
+      "warranty": null
+    },
+    {
+      "name": "Jaqueta corta-vento impermeável unissex",
+      "price": 24900,
+      "compareAt": 34900,
+      "attrs": [
+        ["Material", "Nylon ripstop"],
+        ["Impermeável", "Sim"],
+        ["Capuz", "Retrátil"]
+      ],
+      "variants": { "Tamanho": ["P", "M", "G", "GG"], "Cor": ["Preto", "Azul marinho"] },
+      "warranty": null
+    },
+    {
+      "name": "Tênis casual couro branco",
+      "price": 34900,
+      "compareAt": 44900,
+      "attrs": [
+        ["Material", "Couro"],
+        ["Solado", "Borracha"],
+        ["Estilo", "Casual"]
+      ],
+      "variants": { "Tamanho": ["37", "38", "39", "40", "41", "42", "43"] },
+      "warranty": null
+    },
+    {
+      "name": "Carteira slim RFID couro",
+      "price": 8900,
+      "compareAt": 12900,
+      "attrs": [
+        ["Material", "Couro"],
+        ["Proteção", "RFID"],
+        ["Compartimentos", "8 cartões"]
+      ],
+      "variants": { "Cor": ["Preto", "Marrom"] },
+      "warranty": null
+    },
+    {
+      "name": "Cinto de couro reversível com fivela automática",
+      "price": 6900,
+      "compareAt": null,
+      "attrs": [
+        ["Material", "Couro"],
+        ["Reversível", "Preto / marrom"],
+        ["Largura", "3,5 cm"]
+      ],
+      "variants": null,
+      "warranty": null
+    },
+    {
+      "name": "Boné aba curva algodão bordado",
+      "price": 4900,
+      "compareAt": 7900,
+      "attrs": [
+        ["Material", "Algodão"],
+        ["Ajuste", "Fivela"],
+        ["Tamanho", "Único"]
+      ],
+      "variants": { "Cor": ["Preto", "Bege", "Azul"] },
+      "warranty": null
+    }
   ]
 }

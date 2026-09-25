@@ -6,13 +6,21 @@ import { StoreShell } from "@/components/layout/store-shell";
 import { ConfirmationView } from "@/features/orders/components/confirmation-view";
 import type { AppLocale } from "@/i18n/routing";
 
-export async function generateMetadata({ params }: { params: Promise<{ locale: AppLocale }> }): Promise<Metadata> {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: AppLocale }>;
+}): Promise<Metadata> {
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "orders" });
   return { title: t("confirmationTitle"), robots: { index: false } };
 }
 
-export default async function OrderConfirmationPage({ params }: { params: Promise<{ locale: AppLocale }> }) {
+export default async function OrderConfirmationPage({
+  params,
+}: {
+  params: Promise<{ locale: AppLocale }>;
+}) {
   const { locale } = await params;
   setRequestLocale(locale);
   return (

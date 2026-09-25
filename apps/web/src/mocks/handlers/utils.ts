@@ -20,13 +20,22 @@ export function shouldFailRandomly(): boolean {
   return Math.random() < ERROR_RATE;
 }
 
-export function problem(status: number, code: string, message: string, errors?: Record<string, string[]>) {
+export function problem(
+  status: number,
+  code: string,
+  message: string,
+  errors?: Record<string, string[]>,
+) {
   const body: ApiErrorDto = { status, code, message, errors, traceId: crypto.randomUUID() };
-  return HttpResponse.json(body, { status, headers: { "Content-Type": "application/problem+json" } });
+  return HttpResponse.json(body, {
+    status,
+    headers: { "Content-Type": "application/problem+json" },
+  });
 }
 
 export const notFound = (what = "Recurso") => problem(404, "NOT_FOUND", `${what} não encontrado.`);
-export const serverError = () => problem(500, "INTERNAL_ERROR", "Erro interno simulado. Tente novamente.");
+export const serverError = () =>
+  problem(500, "INTERNAL_ERROR", "Erro interno simulado. Tente novamente.");
 export const unauthorized = () => problem(401, "UNAUTHORIZED", "Sessão inválida ou expirada.");
 export const validation = (errors: Record<string, string[]>) =>
   problem(422, "VALIDATION_ERROR", "Um ou mais campos são inválidos.", errors);

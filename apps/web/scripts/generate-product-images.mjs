@@ -5,7 +5,9 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const templates = JSON.parse(readFileSync(join(root, "src/mocks/fixtures/product-templates.json"), "utf8"));
+const templates = JSON.parse(
+  readFileSync(join(root, "src/mocks/fixtures/product-templates.json"), "utf8"),
+);
 
 const CATEGORY = {
   eletronicos: { label: "Eletrônicos", hue: 222, icon: "tv" },
@@ -30,7 +32,11 @@ const ICONS = {
 };
 
 function esc(s) {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
 }
 
 function wrap(text, max = 26) {
@@ -60,8 +66,8 @@ function productSvg(catKey, name, index, variant) {
 <rect width="600" height="600" fill="url(#g)"/>
 <circle cx="${variant * 150}" cy="80" r="140" fill="${fg}" opacity=".07"/>
 <g transform="translate(0 -40) rotate(${rotate} 300 300)" fill="${fg}" stroke="${fg}" stroke-linecap="round" stroke-linejoin="round" opacity=".9">${ICONS[c.icon]}</g>
-<text x="300" y="520" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="600" fill="${fg}">${lines.map((l, i) => `<tspan x="300" dy="${i === 0 ? 0 : 26}">${esc(l)}</tspan>`).join("")}</text>
-<text x="560" y="580" text-anchor="end" font-family="Inter, Arial, sans-serif" font-size="16" fill="${fg}" opacity=".7">${index}/${variant}</text>
+<text x="300" y="520" text-anchor="middle" font-family="Plus Jakarta Sans, Inter, Arial, sans-serif" font-size="22" font-weight="600" fill="${fg}">${lines.map((l, i) => `<tspan x="300" dy="${i === 0 ? 0 : 26}">${esc(l)}</tspan>`).join("")}</text>
+<text x="560" y="580" text-anchor="end" font-family="Plus Jakarta Sans, Inter, Arial, sans-serif" font-size="16" fill="${fg}" opacity=".7">${index}/${variant}</text>
 </svg>`;
 }
 
@@ -87,8 +93,8 @@ function bannerSvg(key, title, subtitle, tone) {
 <circle cx="1000" cy="240" r="260" fill="${palette[2]}" opacity=".08"/>
 <circle cx="1100" cy="120" r="140" fill="${palette[2]}" opacity=".08"/>
 <rect x="0" y="464" width="400" height="16" fill="#D52B1E"/><rect x="400" y="464" width="400" height="16" fill="#FFFFFF"/><rect x="800" y="464" width="400" height="16" fill="#0038A8"/>
-<text x="72" y="220" font-family="Inter, Arial, sans-serif" font-size="64" font-weight="800" fill="${palette[2]}">${esc(title)}</text>
-<text x="72" y="290" font-family="Inter, Arial, sans-serif" font-size="30" fill="${palette[2]}" opacity=".85">${esc(subtitle)}</text>
+<text x="72" y="220" font-family="Plus Jakarta Sans, Inter, Arial, sans-serif" font-size="64" font-weight="800" fill="${palette[2]}">${esc(title)}</text>
+<text x="72" y="290" font-family="Plus Jakarta Sans, Inter, Arial, sans-serif" font-size="30" fill="${palette[2]}" opacity=".85">${esc(subtitle)}</text>
 </svg>`;
 }
 
@@ -101,7 +107,7 @@ function sellerLogoSvg(slug, name, hue) {
     .join("");
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200" role="img" aria-label="${esc(name)}">
 <rect width="200" height="200" rx="48" fill="hsl(${hue} 60% 40%)"/>
-<text x="100" y="122" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="72" font-weight="800" fill="#fff">${esc(initials)}</text>
+<text x="100" y="122" text-anchor="middle" font-family="Plus Jakarta Sans, Inter, Arial, sans-serif" font-size="72" font-weight="800" fill="#fff">${esc(initials)}</text>
 </svg>`;
 }
 
@@ -115,13 +121,17 @@ function sellerBannerSvg(slug, name, hue) {
 }
 
 const out = (rel) => join(root, "public", rel);
-for (const dir of ["images/products", "images/categories", "images/banners", "images/sellers"]) mkdirSync(out(dir), { recursive: true });
+for (const dir of ["images/products", "images/categories", "images/banners", "images/sellers"])
+  mkdirSync(out(dir), { recursive: true });
 
 let count = 0;
 for (const [catKey, list] of Object.entries(templates)) {
   list.forEach((t, i) => {
     for (const v of [1, 2, 3]) {
-      writeFileSync(out(`images/products/${catKey}-${i + 1}-${v}.svg`), productSvg(catKey, t.name, i + 1, v));
+      writeFileSync(
+        out(`images/products/${catKey}-${i + 1}-${v}.svg`),
+        productSvg(catKey, t.name, i + 1, v),
+      );
       count++;
     }
   });
@@ -132,7 +142,12 @@ for (const [catKey, list] of Object.entries(templates)) {
 const banners = [
   ["tech", "Semana da Tecnologia", "Até 40% off em smartphones e notebooks", "blue"],
   ["perfumes", "Perfumes originais", "Importadora oficial com lote verificável", "red"],
-  ["frete", "Frete grátis acima de R$ 300", "Nas lojas participantes, com rastreio ponta a ponta", "neutral"],
+  [
+    "frete",
+    "Frete grátis acima de R$ 300",
+    "Nas lojas participantes, com rastreio ponta a ponta",
+    "neutral",
+  ],
 ];
 for (const [key, title, subtitle, tone] of banners) {
   writeFileSync(out(`images/banners/${key}.svg`), bannerSvg(key, title, subtitle, tone));

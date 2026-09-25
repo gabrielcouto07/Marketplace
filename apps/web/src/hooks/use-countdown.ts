@@ -17,7 +17,10 @@ export function useCountdown(untilIso: string | null | undefined): number {
 
   useEffect(() => {
     if (!untilIso) return;
-    const timer = window.setInterval(() => setState({ untilIso, remaining: secondsUntil(untilIso) }), 1000);
+    const timer = window.setInterval(
+      () => setState({ untilIso, remaining: secondsUntil(untilIso) }),
+      1000,
+    );
     return () => window.clearInterval(timer);
   }, [untilIso]);
 

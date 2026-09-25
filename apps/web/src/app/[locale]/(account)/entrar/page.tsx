@@ -14,7 +14,9 @@ export default async function Page() {
   const t = await getTranslations("auth");
   return (
     <StoreShell title={t("loginTitle")} showBack hideSearch>
-      <Suspense fallback={null}><LoginView /></Suspense>
+      <Suspense fallback={null}>
+        <LoginView />
+      </Suspense>
     </StoreShell>
   );
 }

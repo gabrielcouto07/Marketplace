@@ -1,20 +1,24 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-labelledby="t">
-  <title id="t">Marketplace Paraguai — sacola tricolor</title>
+  <title id="t">Marketplace Paraguai — sacola sobre azul com faixa tricolor</title>
   <defs>
-    <clipPath id="bag">
-      <path d="M118 176 h276 a24 24 0 0 1 24 24.6 l-14 232 a40 40 0 0 1 -40 37.4 H144 a40 40 0 0 1 -40 -37.4 l-14 -232 A24 24 0 0 1 118 176 Z"/>
+    <clipPath id="tile">
+      <rect width="512" height="512" rx="166"/>
     </clipPath>
   </defs>
-  <!-- alça -->
-  <path d="M176 200 V140 a80 80 0 0 1 160 0 v60" fill="none" stroke="#0038A8" stroke-width="28" stroke-linecap="round"/>
-  <!-- corpo com listras da bandeira -->
-  <g clip-path="url(#bag)">
-    <rect x="90" y="176" width="332" height="98" fill="#D52B1E"/>
-    <rect x="90" y="274" width="332" height="98" fill="#FFFFFF"/>
-    <rect x="90" y="372" width="332" height="98" fill="#0038A8"/>
+  <g clip-path="url(#tile)">
+    <!-- quadrado azul da marca -->
+    <rect width="512" height="512" fill="#0038A8"/>
+    <!-- círculo decorativo, como no hero do app -->
+    <circle cx="420" cy="80" r="160" fill="#FFFFFF" opacity="0.08"/>
+    <!-- sacola (traço branco) -->
+    <g transform="translate(96 82) scale(13.333)" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/>
+      <path d="M3 6h18"/>
+      <path d="M16 10a4 4 0 0 1-8 0"/>
+    </g>
+    <!-- faixa tricolor no pé -->
+    <rect x="0" y="460" width="170.67" height="52" fill="#D52B1E"/>
+    <rect x="170.67" y="460" width="170.67" height="52" fill="#FFFFFF"/>
+    <rect x="341.33" y="460" width="170.67" height="52" fill="#4E7BD9"/>
   </g>
-  <!-- contorno -->
-  <path d="M118 176 h276 a24 24 0 0 1 24 24.6 l-14 232 a40 40 0 0 1 -40 37.4 H144 a40 40 0 0 1 -40 -37.4 l-14 -232 A24 24 0 0 1 118 176 Z" fill="none" stroke="#0F172A" stroke-width="14" stroke-linejoin="round"/>
-  <!-- estrela (referência ao brasão) -->
-  <path d="M256 296 l9.5 19.3 21.3 3.1 -15.4 15 3.6 21.2 -19 -10 -19 10 3.6 -21.2 -15.4 -15 21.3 -3.1z" fill="#0038A8" opacity="0.9"/>
 </svg>

@@ -57,7 +57,10 @@ export function setAccessTokenProvider(provider: () => string | null): void {
  * Fetch wrapper tipado. Componentes NUNCA chamam isto diretamente — use os hooks em features/<dominio>/api.
  * Lança ApiError (resposta HTTP com erro) ou NetworkError (falha de rede/offline).
  */
-export async function http<TResponse>(path: string, options: RequestOptions = {}): Promise<TResponse> {
+export async function http<TResponse>(
+  path: string,
+  options: RequestOptions = {},
+): Promise<TResponse> {
   const { method = "GET", body, query, signal, headers = {}, accessToken } = options;
   const url = `${getApiBaseUrl()}${path.startsWith("/") ? path : `/${path}`}${buildQueryString(query)}`;
 
@@ -86,8 +89,11 @@ export async function http<TResponse>(path: string, options: RequestOptions = {}
   if (response.status === 204) return undefined as TResponse;
 
   const contentType = response.headers.get("content-type") ?? "";
-  const isJson = contentType.includes("application/json") || contentType.includes("application/problem+json");
-  const payload: unknown = isJson ? await response.json().catch(() => null) : await response.text().catch(() => null);
+  const isJson =
+    contentType.includes("application/json") || contentType.includes("application/problem+json");
+  const payload: unknown = isJson
+    ? await response.json().catch(() => null)
+    : await response.text().catch(() => null);
 
   if (!response.ok) {
     const problem = (isJson ? payload : null) as Partial<ApiErrorDto> | null;
