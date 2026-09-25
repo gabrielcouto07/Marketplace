@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 480" width="1200" height="480" role="img" aria-label="Frete grátis acima de R$ 300">
+<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#F1F5F9"/><stop offset="1" stop-color="#E2E8F0"/></linearGradient></defs>
+<rect width="1200" height="480" fill="url(#g)"/>
+<circle cx="1000" cy="240" r="260" fill="#0F172A" opacity=".08"/>
+<circle cx="1100" cy="120" r="140" fill="#0F172A" opacity=".08"/>
+<rect x="0" y="464" width="400" height="16" fill="#D52B1E"/><rect x="400" y="464" width="400" height="16" fill="#FFFFFF"/><rect x="800" y="464" width="400" height="16" fill="#0038A8"/>
+<text x="72" y="220" font-family="Inter, Arial, sans-serif" font-size="64" font-weight="800" fill="#0F172A">Frete grátis acima de R$ 300</text>
+<text x="72" y="290" font-family="Inter, Arial, sans-serif" font-size="30" fill="#0F172A" opacity=".85">Nas lojas participantes, com rastreio ponta a ponta</text>
+</svg>

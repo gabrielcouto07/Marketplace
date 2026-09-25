@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" width="600" height="600" role="img" aria-label="Esportes">
+<rect width="600" height="600" rx="80" fill="hsl(100 70% 94%)"/>
+<g transform="translate(0 0)" fill="hsl(100 55% 42%)" stroke="hsl(100 55% 42%)" stroke-linecap="round" stroke-linejoin="round"><circle cx="300" cy="300" r="150"/><path d="M300 150v300M150 300h300" stroke="#fff" stroke-width="16" opacity=".5"/></g>
+</svg>

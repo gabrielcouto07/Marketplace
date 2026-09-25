@@ -1,0 +1,301 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+/* Variantes/keyframes do estilo shadcn "base-nova" (copiado de shadcn/dist/tailwind.css) */
+@import "./shadcn-base.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ------------------------------------------------------------------ */
+/* Design tokens — Marketplace de Produtos Paraguaios                  */
+/* Paleta baseada na bandeira do Paraguai: azul #0038A8, vermelho     */
+/* #D52B1E e branco. Escalas 50–900 geradas a partir das cores-base.  */
+/* Documentação: docs/DESIGN_SYSTEM.md                                 */
+/* ------------------------------------------------------------------ */
+
+:root {
+  /* Azul Paraguai (primária) */
+  --py-blue-50: #eef3fc;
+  --py-blue-100: #d9e4f9;
+  --py-blue-200: #b3c8f2;
+  --py-blue-300: #85a5e8;
+  --py-blue-400: #4e7bd9;
+  --py-blue-500: #2456c4;
+  --py-blue-600: #0038a8;
+  --py-blue-700: #002e8a;
+  --py-blue-800: #00246b;
+  --py-blue-900: #001a4d;
+
+  /* Vermelho Paraguai (CTA / ofertas) */
+  --py-red-50: #fdf0ee;
+  --py-red-100: #fbdbd7;
+  --py-red-200: #f6b5ae;
+  --py-red-300: #ef8a7f;
+  --py-red-400: #e55a4b;
+  --py-red-500: #d52b1e;
+  --py-red-600: #b72316;
+  --py-red-700: #941c12;
+  --py-red-800: #70150d;
+  --py-red-900: #4d0e09;
+
+  /* Neutros frios */
+  --py-neutral-0: #ffffff;
+  --py-neutral-50: #f8fafc;
+  --py-neutral-100: #f1f5f9;
+  --py-neutral-200: #e2e8f0;
+  --py-neutral-300: #cbd5e1;
+  --py-neutral-400: #94a3b8;
+  --py-neutral-500: #64748b;
+  --py-neutral-600: #475569;
+  --py-neutral-700: #334155;
+  --py-neutral-800: #1e293b;
+  --py-neutral-900: #0f172a;
+
+  /* Semânticas */
+  --py-success-50: #f0fdf4;
+  --py-success-100: #dcfce7;
+  --py-success-600: #16a34a;
+  --py-success-700: #15803d;
+  --py-warning-50: #fffbeb;
+  --py-warning-100: #fef3c7;
+  --py-warning-600: #d97706;
+  --py-warning-700: #b45309;
+
+  /* Tokens shadcn (mapeados para a paleta) */
+  --background: var(--py-neutral-0);
+  --foreground: var(--py-neutral-900);
+  --card: var(--py-neutral-0);
+  --card-foreground: var(--py-neutral-900);
+  --popover: var(--py-neutral-0);
+  --popover-foreground: var(--py-neutral-900);
+  --primary: var(--py-blue-600);
+  --primary-foreground: var(--py-neutral-0);
+  --secondary: var(--py-neutral-100);
+  --secondary-foreground: var(--py-neutral-800);
+  --muted: var(--py-neutral-100);
+  --muted-foreground: var(--py-neutral-600);
+  --accent: var(--py-blue-50);
+  --accent-foreground: var(--py-blue-700);
+  --destructive: var(--py-red-600);
+  --destructive-foreground: var(--py-neutral-0);
+  --border: var(--py-neutral-200);
+  --input: var(--py-neutral-300);
+  --ring: var(--py-blue-500);
+  --cta: var(--py-red-500);
+  --cta-foreground: var(--py-neutral-0);
+  --cta-hover: var(--py-red-600);
+  --success: var(--py-success-700);
+  --success-foreground: var(--py-neutral-0);
+  --success-soft: var(--py-success-50);
+  --warning: var(--py-warning-700);
+  --warning-soft: var(--py-warning-50);
+  --surface: var(--py-neutral-50);
+  --header: var(--py-blue-600);
+  --header-foreground: var(--py-neutral-0);
+  --chart-1: var(--py-blue-600);
+  --chart-2: var(--py-red-500);
+  --chart-3: var(--py-blue-300);
+  --chart-4: var(--py-neutral-400);
+  --chart-5: var(--py-success-600);
+  --radius: 0.75rem;
+  --sidebar: var(--py-neutral-50);
+  --sidebar-foreground: var(--py-neutral-900);
+  --sidebar-primary: var(--py-blue-600);
+  --sidebar-primary-foreground: var(--py-neutral-0);
+  --sidebar-accent: var(--py-blue-50);
+  --sidebar-accent-foreground: var(--py-blue-700);
+  --sidebar-border: var(--py-neutral-200);
+  --sidebar-ring: var(--py-blue-500);
+
+  /* Layout */
+  --header-height: 3.5rem;
+  --bottom-nav-height: 3.75rem;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.dark {
+  --background: #0b1220;
+  --foreground: var(--py-neutral-50);
+  --card: #131c2e;
+  --card-foreground: var(--py-neutral-50);
+  --popover: #131c2e;
+  --popover-foreground: var(--py-neutral-50);
+  --primary: var(--py-blue-400);
+  --primary-foreground: var(--py-neutral-0);
+  --secondary: var(--py-neutral-800);
+  --secondary-foreground: var(--py-neutral-100);
+  --muted: var(--py-neutral-800);
+  --muted-foreground: var(--py-neutral-400);
+  --accent: #172a52;
+  --accent-foreground: var(--py-blue-200);
+  --destructive: var(--py-red-400);
+  --destructive-foreground: var(--py-neutral-0);
+  --border: rgb(255 255 255 / 10%);
+  --input: rgb(255 255 255 / 15%);
+  --ring: var(--py-blue-400);
+  --cta: var(--py-red-500);
+  --cta-foreground: var(--py-neutral-0);
+  --cta-hover: var(--py-red-400);
+  --success: #4ade80;
+  --success-foreground: #052e16;
+  --success-soft: #052e16;
+  --warning: #fbbf24;
+  --warning-soft: #422006;
+  --surface: #0f172a;
+  --header: var(--py-blue-700);
+  --header-foreground: var(--py-neutral-0);
+  --sidebar: #131c2e;
+  --sidebar-foreground: var(--py-neutral-50);
+  --sidebar-primary: var(--py-blue-400);
+  --sidebar-primary-foreground: var(--py-neutral-0);
+  --sidebar-accent: #172a52;
+  --sidebar-accent-foreground: var(--py-blue-200);
+  --sidebar-border: rgb(255 255 255 / 10%);
+  --sidebar-ring: var(--py-blue-400);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-heading: var(--font-sans);
+
+  /* Escalas da marca: bg-brand-blue-600, text-brand-red-500, border-neutral-200 ... */
+  --color-brand-blue-50: var(--py-blue-50);
+  --color-brand-blue-100: var(--py-blue-100);
+  --color-brand-blue-200: var(--py-blue-200);
+  --color-brand-blue-300: var(--py-blue-300);
+  --color-brand-blue-400: var(--py-blue-400);
+  --color-brand-blue-500: var(--py-blue-500);
+  --color-brand-blue-600: var(--py-blue-600);
+  --color-brand-blue-700: var(--py-blue-700);
+  --color-brand-blue-800: var(--py-blue-800);
+  --color-brand-blue-900: var(--py-blue-900);
+  --color-brand-red-50: var(--py-red-50);
+  --color-brand-red-100: var(--py-red-100);
+  --color-brand-red-200: var(--py-red-200);
+  --color-brand-red-300: var(--py-red-300);
+  --color-brand-red-400: var(--py-red-400);
+  --color-brand-red-500: var(--py-red-500);
+  --color-brand-red-600: var(--py-red-600);
+  --color-brand-red-700: var(--py-red-700);
+  --color-brand-red-800: var(--py-red-800);
+  --color-brand-red-900: var(--py-red-900);
+  --color-neutral-50: var(--py-neutral-50);
+  --color-neutral-100: var(--py-neutral-100);
+  --color-neutral-200: var(--py-neutral-200);
+  --color-neutral-300: var(--py-neutral-300);
+  --color-neutral-400: var(--py-neutral-400);
+  --color-neutral-500: var(--py-neutral-500);
+  --color-neutral-600: var(--py-neutral-600);
+  --color-neutral-700: var(--py-neutral-700);
+  --color-neutral-800: var(--py-neutral-800);
+  --color-neutral-900: var(--py-neutral-900);
+
+  /* Semânticos */
+  --color-cta: var(--cta);
+  --color-cta-foreground: var(--cta-foreground);
+  --color-cta-hover: var(--cta-hover);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-surface: var(--surface);
+  --color-header: var(--header);
+  --color-header-foreground: var(--header-foreground);
+
+  /* shadcn */
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+
+  --spacing-header: var(--header-height);
+  --spacing-bottom-nav: var(--bottom-nav-height);
+  --spacing-safe-top: var(--safe-top);
+  --spacing-safe-bottom: var(--safe-bottom);
+}
+
+/* Utilitários de safe-area e faixa tricolor */
+@utility pb-safe {
+  padding-bottom: var(--safe-bottom);
+}
+@utility pt-safe {
+  padding-top: var(--safe-top);
+}
+@utility tricolor-stripe {
+  height: 4px;
+  background: linear-gradient(
+    to right,
+    var(--py-red-500) 0 33.333%,
+    var(--py-neutral-0) 33.333% 66.666%,
+    var(--py-blue-600) 66.666% 100%
+  );
+}
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+@utility touch-target {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    @apply font-sans antialiased;
+    -webkit-tap-highlight-color: transparent;
+    color-scheme: light;
+  }
+  html.dark {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-background text-foreground;
+    text-rendering: optimizeLegibility;
+  }
+  ::selection {
+    background: var(--py-blue-100);
+    color: var(--py-blue-900);
+  }
+}

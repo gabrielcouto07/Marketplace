@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" width="600" height="600" role="img" aria-label="Teclado mecânico sem fio switch tátil RGB">
+<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="hsl(228 70% 96%)"/><stop offset="1" stop-color="hsl(228 60% 88%)"/></linearGradient></defs>
+<rect width="600" height="600" fill="url(#g)"/>
+<circle cx="300" cy="80" r="140" fill="hsl(228 55% 42%)" opacity=".07"/>
+<g transform="translate(0 -40) rotate(-8 300 300)" fill="hsl(228 55% 42%)" stroke="hsl(228 55% 42%)" stroke-linecap="round" stroke-linejoin="round" opacity=".9"><rect x="140" y="170" width="320" height="200" rx="14"/><path d="M100 400h400l-20 40H120z"/></g>
+<text x="300" y="520" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="600" fill="hsl(228 55% 42%)"><tspan x="300" dy="0">Teclado mecânico sem fio</tspan><tspan x="300" dy="26">switch tátil RGB</tspan></text>
+<text x="560" y="580" text-anchor="end" font-family="Inter, Arial, sans-serif" font-size="16" fill="hsl(228 55% 42%)" opacity=".7">4/2</text>
+</svg>

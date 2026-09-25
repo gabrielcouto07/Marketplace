@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 600" width="600" height="600" role="img" aria-label="Casa">
+<rect width="600" height="600" rx="80" fill="hsl(160 70% 94%)"/>
+<g transform="translate(0 0)" fill="hsl(160 55% 42%)" stroke="hsl(160 55% 42%)" stroke-linecap="round" stroke-linejoin="round"><path d="M300 130 130 290h50v170h120v-110h60v110h120V290h50z"/></g>
+</svg>
