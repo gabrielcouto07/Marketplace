@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { useUpdateProfile } from "@/features/auth/api";
 import { FormField, applyApiErrors, fieldError } from "@/features/auth/components/form-field";
 import { useAuthStore, useCurrentUser } from "@/features/auth/store";
+import { useStoreHydrated } from "@/hooks/use-store-hydrated";
 import { Link } from "@/i18n/navigation";
 import { initials } from "@/lib/palette";
 import { formatCpf, formatPhoneBr } from "@/lib/validation/documents";
@@ -23,7 +24,7 @@ export function ProfileView() {
   const tCommon = useTranslations("common");
   const tErrors = useTranslations("errors");
   const user = useCurrentUser();
-  const hydrated = useAuthStore.persist.hasHydrated();
+  const hydrated = useStoreHydrated(useAuthStore);
   const update = useUpdateProfile();
 
   const { register, handleSubmit, control, reset, setError, formState } =

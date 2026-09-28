@@ -14,13 +14,24 @@ Design: `DESIGN.md` (raiz) é a fonte de verdade visual; o styleguide vivo fica 
 
 ## Como rodar
 
-Pré-requisitos: Node ≥ 20 (testado com 24) e pnpm 12 (`npm i -g pnpm` ou `corepack enable pnpm`).
+Pré-requisitos: Node ≥ 20 (testado com 24) e pnpm 12 (`npm i -g pnpm` ou `corepack enable pnpm`). Para o backend,
+.NET SDK 10.
 
 ```bash
 pnpm install                      # na raiz (monorepo)
 cp apps/web/.env.example apps/web/.env.local   # já vem com mock ativado
 pnpm dev                          # http://localhost:3210
 ```
+
+Com o backend real (`apps/api`, ASP.NET Core + PostgreSQL/SQLite):
+
+```bash
+pnpm api                          # http://localhost:5210 (SQLite local, seed e usuário demo automáticos)
+# em apps/web/.env.local: NEXT_PUBLIC_API_MOCKING=false e API_PROXY_URL=http://localhost:5210
+pnpm dev
+```
+
+Ver [apps/api/README.md](apps/api/README.md) e [docs/BACKEND_INTEGRATION.md](docs/BACKEND_INTEGRATION.md).
 
 Outros comandos (raiz ou `apps/web`):
 
@@ -71,7 +82,7 @@ e `NEXT_PUBLIC_API_URL` quando a API .NET existir. Usuário demo: `demo@mktpy.co
 
 ```
 apps/web            Next.js (src/app, features, lib, mocks, components, i18n)  → docs/ARCHITECTURE.md
-apps/api            reservado ao ASP.NET Core Web API + PostgreSQL
+apps/api            ASP.NET Core Web API (.NET 10) + EF Core (PostgreSQL / SQLite) → apps/api/README.md
 packages/contracts  DTOs TypeScript que espelham a API REST (@marketplace/contracts)
 docs/               documentação técnica (abaixo)
 ```
@@ -90,7 +101,8 @@ docs/               documentação técnica (abaixo)
 | [docs/PWA.md](docs/PWA.md)                                 | manifest, service worker (Serwist + Turbopack), estratégias de cache, instalação                                                       |
 | [docs/I18N.md](docs/I18N.md)                               | next-intl, namespaces, sintaxe ICU                                                                                                     |
 | [docs/CONVENTIONS.md](docs/CONVENTIONS.md)                 | lint/format, padrões de código, Base UI vs Radix                                                                                       |
-| [docs/BACKEND_INTEGRATION.md](docs/BACKEND_INTEGRATION.md) | passo a passo para plugar o .NET (auth, pagamentos, R2, CDN)                                                                           |
+| [docs/BACKEND_INTEGRATION.md](docs/BACKEND_INTEGRATION.md) | como ligar o front ao backend .NET (proxy, auth, pagamentos, rastreio, R2, LGPD, checklist de produção)                                |
+| [apps/api/README.md](apps/api/README.md)                   | backend: como rodar, configuração, estrutura, regras de negócio implementadas                                                          |
 
 ## Decisões de arquitetura (resumo)
 

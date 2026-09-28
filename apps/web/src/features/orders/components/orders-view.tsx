@@ -14,6 +14,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { LoginRequired } from "@/features/account/components/profile-view";
 import { useAuthStore, useCurrentUser } from "@/features/auth/store";
 import { useOrders } from "@/features/orders/api";
+import { useStoreHydrated } from "@/hooks/use-store-hydrated";
 import { Link } from "@/i18n/navigation";
 import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
@@ -146,7 +147,7 @@ export function OrdersView() {
   const t = useTranslations("orders");
   const tc = useTranslations("common");
   const user = useCurrentUser();
-  const hydrated = useAuthStore.persist.hasHydrated();
+  const hydrated = useStoreHydrated(useAuthStore);
   const [filter, setFilter] = useState<OrderFilter>("all");
   const orders = useOrders();
 

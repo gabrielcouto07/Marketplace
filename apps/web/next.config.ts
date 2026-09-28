@@ -17,6 +17,12 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "cdn.marketplacepy.com" },
     ],
   },
+  // Com API_PROXY_URL definido (ex.: http://localhost:5210), /api/* é encaminhado para o backend .NET pela
+  // mesma origem: sem CORS, e o cookie httpOnly do refresh token funciona no PWA.
+  rewrites: async () => {
+    const target = process.env.API_PROXY_URL?.replace(/\/$/, "");
+    return target ? [{ source: "/api/:path*", destination: `${target}/api/:path*` }] : [];
+  },
   headers: async () => [
     {
       // O service worker precisa de escopo raiz e não pode ser cacheado agressivamente.

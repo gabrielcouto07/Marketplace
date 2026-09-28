@@ -4,6 +4,7 @@ import type { Money, ProductSummaryDto, SellerSummaryDto } from "@marketplace/co
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
+import { useStoreHydrated } from "@/hooks/use-store-hydrated";
 import { sum } from "@/lib/money";
 
 /**
@@ -183,7 +184,7 @@ export function groupBySeller(lines: CartLine[]): CartSellerGroup[] {
   return [...groups.values()];
 }
 
-/** Hook seguro para hidratação: retorna 0 no servidor e o valor real após montar. */
+/** Hook seguro para hidratação: `false` no servidor e na primeira renderização; `true` após reidratar. */
 export function useCartHydrated(): boolean {
-  return useCartStore.persist.hasHydrated();
+  return useStoreHydrated(useCartStore);
 }

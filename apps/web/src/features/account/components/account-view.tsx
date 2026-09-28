@@ -31,6 +31,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { useLogout } from "@/features/auth/api";
 import { useAuthStore, useCurrentUser } from "@/features/auth/store";
+import { useStoreHydrated } from "@/hooks/use-store-hydrated";
 import { Link, usePathname, useRouter } from "@/i18n/navigation";
 import { locales, type AppLocale } from "@/i18n/routing";
 import { initials } from "@/lib/palette";
@@ -39,7 +40,7 @@ const APP_VERSION = "0.1.0";
 
 export function AccountView() {
   const user = useCurrentUser();
-  const hydrated = useAuthStore.persist.hasHydrated();
+  const hydrated = useStoreHydrated(useAuthStore);
 
   if (!hydrated) {
     return (

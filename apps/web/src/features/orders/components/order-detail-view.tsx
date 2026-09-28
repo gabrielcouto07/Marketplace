@@ -25,6 +25,7 @@ import { LoginRequired } from "@/features/account/components/profile-view";
 import { useAuthStore, useCurrentUser } from "@/features/auth/store";
 import { useCartStore } from "@/features/cart/store";
 import { useCancelOrder, useOpenDispute, useOrder } from "@/features/orders/api";
+import { useStoreHydrated } from "@/hooks/use-store-hydrated";
 import { Link, useRouter } from "@/i18n/navigation";
 import { convert, formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
@@ -37,7 +38,7 @@ const DISPUTABLE: OrderStatus[] = ["Enviado", "EmTransitoInternacional", "Entreg
 
 export function OrderDetailView({ orderId }: { orderId: string }) {
   const user = useCurrentUser();
-  const hydrated = useAuthStore.persist.hasHydrated();
+  const hydrated = useStoreHydrated(useAuthStore);
   const order = useOrder(orderId);
 
   if (!hydrated) return null;

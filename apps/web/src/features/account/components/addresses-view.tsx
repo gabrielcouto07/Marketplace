@@ -33,6 +33,7 @@ import {
   useUpdateAddress,
 } from "@/features/account/api";
 import { useAuthStore, useCurrentUser } from "@/features/auth/store";
+import { useStoreHydrated } from "@/hooks/use-store-hydrated";
 import { isApiError } from "@/lib/api/errors";
 import { formatCep } from "@/lib/validation/documents";
 
@@ -44,7 +45,7 @@ export function AddressesView() {
   const tc = useTranslations("common");
   const tErrors = useTranslations("errors");
   const user = useCurrentUser();
-  const hydrated = useAuthStore.persist.hasHydrated();
+  const hydrated = useStoreHydrated(useAuthStore);
   const addresses = useAddresses();
   const create = useCreateAddress();
   const update = useUpdateAddress();
