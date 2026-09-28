@@ -9,10 +9,18 @@ using Microsoft.Extensions.Options;
 
 namespace Marketplace.Infrastructure.Persistence;
 
+public sealed class AdminOptions
+{
+    public string Email { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+    public string FullName { get; set; } = "Administrador";
+}
+
 public sealed class DatabaseInitializer(
     AppDbContext db,
     IPasswordService passwords,
     IOptions<DatabaseOptions> options,
+    IOptions<AdminOptions> adminOptions,
     TimeProvider clock,
     ILogger<DatabaseInitializer> logger)
 {
@@ -57,7 +65,32 @@ public sealed class DatabaseInitializer(
         }
         await db.SaveChangesAsync(ct);
 
+        await SeedAdminAsync(ct);
         if (options.Value.SeedDemoData) await SeedDemoAsync(ct);
+    }
+
+    /// <summary>Cria o administrador único a partir de Admin:Email/Admin:Password (se ainda não existir).</summary>
+    private async Task SeedAdminAsync(CancellationToken ct)
+    {
+        var admin = adminOptions.Value;
+        if (string.IsNullOrWhiteSpace(admin.Email) || string.IsNullOrWhiteSpace(admin.Password)) return;
+        var email = admin.Email.Trim().ToLowerInvariant();
+        var existing = await db.Users.FirstOrDefaultAsync(u => u.Email == email, ct);
+        var now = clock.GetUtcNow().UtcDateTime;
+        if (existing is null)
+        {
+            db.Users.Add(new User
+            {
+                Id = Guid.NewGuid(), FullName = admin.FullName, Email = email, PasswordHash = passwords.Hash(admin.Password),
+                Roles = [Domain.UserRole.Comprador, Domain.UserRole.Admin], EmailVerified = true, CreatedAt = now, UpdatedAt = now,
+            });
+            logger.LogInformation("Administrador criado: {Email}", email);
+        }
+        else if (!existing.Roles.Contains(Domain.UserRole.Admin))
+        {
+            existing.Roles = [.. existing.Roles, Domain.UserRole.Admin];
+        }
+        await db.SaveChangesAsync(ct);
     }
 
     private async Task SeedDemoAsync(CancellationToken ct)
@@ -66,6 +99,13 @@ public sealed class DatabaseInitializer(
 
         var user = SeedDemo.User(passwords);
         var addresses = SeedDemo.Addresses();
+        // Demo: o usuário é dono da MegaStore Paraguay para o painel do vendedor já nascer com dados.
+        var demoStore = await db.Sellers.FirstOrDefaultAsync(s => s.Slug == "megastore-paraguay", ct);
+        if (demoStore is not null)
+        {
+            demoStore.OwnerUserId = user.Id;
+            user.Roles = [Domain.UserRole.Comprador, Domain.UserRole.Vendedor];
+        }
         db.Users.Add(user);
         db.Addresses.AddRange(addresses);
         var settings = await db.PlatformSettings.FirstAsync(ct);

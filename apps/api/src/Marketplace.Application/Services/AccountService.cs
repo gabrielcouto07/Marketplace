@@ -20,8 +20,10 @@ public sealed class AccountService(IAppDbContext db, ICurrentUser currentUser, T
     public async Task<User> RequireUserAsync(CancellationToken ct)
     {
         var userId = currentUser.RequireUserId();
-        return await db.Users.FirstOrDefaultAsync(u => u.Id == userId && u.AnonymizedAt == null, ct)
-               ?? throw AppException.Unauthorized();
+        var user = await db.Users.FirstOrDefaultAsync(u => u.Id == userId && u.AnonymizedAt == null, ct)
+                   ?? throw AppException.Unauthorized();
+        AuthService.EnsureNotBlocked(user);
+        return user;
     }
 
     public async Task<UserProfileDto> MeAsync(CancellationToken ct) => (await RequireUserAsync(ct)).ToDto();

@@ -45,6 +45,7 @@ public sealed class AuthService(
         // Mensagem única para não revelar se o e-mail existe.
         if (user?.PasswordHash is null || !passwords.Verify(user.PasswordHash, request.Password!))
             throw AppException.Validation("password", "E-mail ou senha incorretos.");
+        EnsureNotBlocked(user);
 
         await AuditAsync(user.Id, "auth.login", ct);
         return await IssueSessionAsync(user, ct);
@@ -115,6 +116,7 @@ public sealed class AuthService(
         else
         {
             if (user.AnonymizedAt is not null) throw AppException.Validation("idToken", "Esta conta foi encerrada.");
+            EnsureNotBlocked(user);
             user.GoogleSubject ??= identity.Subject;
             user.AvatarUrl ??= identity.Picture;
             user.EmailVerified |= identity.EmailVerified;
@@ -173,7 +175,7 @@ public sealed class AuthService(
         var hash = Sha256(refreshToken);
         var now = Now;
         var token = await db.RefreshTokens.Include(t => t.User).FirstOrDefaultAsync(t => t.TokenHash == hash, ct);
-        if (token is null || !token.IsActive(now) || token.User.AnonymizedAt is not null)
+        if (token is null || !token.IsActive(now) || !token.User.IsActive)
         {
             // Reuso de token rotacionado: possível roubo → revoga a família inteira.
             if (token is { RevokedAt: not null }) await RevokeAllAsync(token.UserId, ct);
@@ -200,6 +202,9 @@ public sealed class AuthService(
         }
         await db.SaveChangesAsync(ct);
     }
+
+    /// <summary>Reemite a sessão (ex.: após ganhar o papel Vendedor, para o JWT refletir as novas permissões).</summary>
+    public Task<AuthResponseDto> ReissueSessionAsync(User user, CancellationToken ct) => IssueSessionAsync(user, ct);
 
     private async Task<AuthResponseDto> IssueSessionAsync(User user, CancellationToken ct, RefreshToken? replacing = null)
     {
@@ -241,6 +246,12 @@ public sealed class AuthService(
     {
         db.AuditLogs.Add(new AuditLog { UserId = userId, Action = action, OccurredAt = Now, IpAddress = Truncate(currentUser.IpAddress, 64) });
         return Task.CompletedTask;
+    }
+
+    public static void EnsureNotBlocked(User user)
+    {
+        if (user.BlockedAt is not null)
+            throw new AppException(403, "ACCOUNT_BLOCKED", "Esta conta está bloqueada. Fale com o suporte.");
     }
 
     public static string NormalizeEmail(string? email) => (email ?? string.Empty).Trim().ToLowerInvariant();

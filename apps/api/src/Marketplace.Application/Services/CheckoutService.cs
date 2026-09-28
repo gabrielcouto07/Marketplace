@@ -134,6 +134,7 @@ public sealed class CheckoutService(
         errors.ThrowIfAny();
 
         var user = await db.Users.AsNoTracking().FirstAsync(u => u.Id == userId, ct);
+        AuthService.EnsureNotBlocked(user);
         var settings = await settingsProvider.GetAsync(ct);
         var rate = await db.ExchangeRates.AsNoTracking().FirstAsync(r => r.Id == quoteRow.ExchangeRateId, ct);
 

@@ -119,7 +119,11 @@ function SignedInAccount() {
         <MenuLink href="/conta/enderecos" icon={MapPin} label={t("menuAddresses")} />
         <MenuLink href="/favoritos" icon={Heart} label={t("menuFavorites")} />
         <MenuLink href="/instalar" icon={Download} label={t("menuInstall")} />
-        {isSeller ? <MenuLink href="/vendedor" icon={Store} label={t("menuSeller")} /> : null}
+        {isSeller ? (
+          <MenuLink href="/vendedor" icon={Store} label={t("menuSeller")} />
+        ) : (
+          <MenuLink href="/vendedor/cadastro" icon={Store} label={t("menuBecomeSeller")} />
+        )}
         {isAdmin ? <MenuLink href="/admin" icon={Shield} label={t("menuAdmin")} /> : null}
         <HelpRow />
       </MenuCard>

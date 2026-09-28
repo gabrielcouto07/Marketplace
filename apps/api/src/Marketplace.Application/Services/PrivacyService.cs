@@ -109,9 +109,20 @@ public sealed class PrivacyService(
             throw AppException.Validation("confirmation", $"Digite \"{options.Value.AccountDeletionConfirmation}\" para confirmar.");
         }
 
-        var openOrders = await db.Orders.CountAsync(o => o.UserId == user.Id && o.Status != OrderStatus.Concluido && o.Status != OrderStatus.Cancelado && o.Status != OrderStatus.Reembolsado, ct);
-        if (openOrders > 0)
-            throw AppException.Conflict("ACCOUNT_HAS_OPEN_ORDERS", "Há pedidos em andamento. Aguarde a conclusão para encerrar a conta.");
+        await AnonymizeAsync(user, requireNoOpenOrders: true, ct);
+        db.AuditLogs.Add(new AuditLog { UserId = user.Id, Action = "privacy.delete_account", OccurredAt = Now, IpAddress = currentUser.IpAddress });
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>Anonimização propriamente dita (usada pelo titular e pelo admin). Não salva.</summary>
+    public async Task AnonymizeAsync(User user, bool requireNoOpenOrders, CancellationToken ct)
+    {
+        if (requireNoOpenOrders)
+        {
+            var openOrders = await db.Orders.CountAsync(o => o.UserId == user.Id && o.Status != OrderStatus.Concluido && o.Status != OrderStatus.Cancelado && o.Status != OrderStatus.Reembolsado, ct);
+            if (openOrders > 0)
+                throw AppException.Conflict("ACCOUNT_HAS_OPEN_ORDERS", "Há pedidos em andamento. Aguarde a conclusão para encerrar a conta.");
+        }
 
         var now = Now;
         var tombstone = $"removido+{user.Id:N}@anonimizado.local";
@@ -142,8 +153,5 @@ public sealed class PrivacyService(
             o.ShippingAddress = o.ShippingAddress with { RecipientName = "Destinatário removido", Phone = null, Complement = null, Street = "—", Number = "—" };
         var payments = await db.Payments.Where(p => p.UserId == user.Id).ToListAsync(ct);
         foreach (var p in payments) p.PayerDocument = null;
-
-        db.AuditLogs.Add(new AuditLog { UserId = user.Id, Action = "privacy.delete_account", OccurredAt = now, IpAddress = currentUser.IpAddress });
-        await db.SaveChangesAsync(ct);
     }
 }

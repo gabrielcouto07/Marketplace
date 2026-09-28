@@ -1695,6 +1695,14 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("avatar_url");
 
+                    b.Property<DateTime?>("BlockedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("blocked_at");
+
+                    b.Property<string>("BlockedReason")
+                        .HasColumnType("text")
+                        .HasColumnName("blocked_reason");
+
                     b.Property<string>("Cpf")
                         .HasMaxLength(512)
                         .HasColumnType("character varying(512)")

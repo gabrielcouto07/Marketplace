@@ -18,11 +18,14 @@ public class User
     public DateTime UpdatedAt { get; set; }
     /// <summary>LGPD: conta encerrada e dados pessoais anonimizados.</summary>
     public DateTime? AnonymizedAt { get; set; }
+    /// <summary>Bloqueada pelo admin: não loga, não renova sessão, não compra.</summary>
+    public DateTime? BlockedAt { get; set; }
+    public string? BlockedReason { get; set; }
 
     public List<Address> Addresses { get; set; } = [];
     public List<RefreshToken> RefreshTokens { get; set; } = [];
 
-    public bool IsActive => AnonymizedAt is null;
+    public bool IsActive => AnonymizedAt is null && BlockedAt is null;
     public bool HasRole(UserRole role) => Roles.Contains(role);
 }
 

@@ -94,6 +94,69 @@ export const cardSchema = z.object({
 });
 export type CardFormValues = z.input<typeof cardSchema>;
 
+export const storeSchema = z.object({
+  name: z.string().trim().min(3, "storeNameMin").max(80, "storeNameMax"),
+  ruc: rucSchema,
+  city: z.string().trim().min(2, "required"),
+  description: z.string().trim().min(20, "descriptionMin").max(1000, "descriptionMax"),
+  logoUrl: z.string().nullable().default(null),
+  bannerUrl: z.string().nullable().default(null),
+  exchangePolicy: z.string().trim().max(1000, "descriptionMax").optional().default(""),
+  categoryIds: z.array(z.string()).min(1, "categoryRequired"),
+});
+export type StoreFormValues = z.input<typeof storeSchema>;
+export type StoreFormOutput = z.output<typeof storeSchema>;
+
+export const productSchema = z
+  .object({
+    name: z.string().trim().min(5, "productNameMin").max(200, "productNameMax"),
+    description: z.string().trim().min(20, "descriptionMin").max(4000, "descriptionMax"),
+    categoryId: z.string().min(1, "categoryRequired"),
+    /** Centavos (inteiro). */
+    priceAmount: z.number().int().min(100, "priceMin"),
+    compareAtAmount: z.number().int().nullable().default(null),
+    stock: z.number().int().min(0, "stockMin"),
+    freeShipping: z.boolean().default(false),
+    warrantyMonths: z.number().int().min(0).max(120).nullable().default(null),
+    handlingDaysMin: z.number().int().min(0).max(30).default(1),
+    handlingDaysMax: z.number().int().min(0).max(30).default(3),
+    attributes: z
+      .array(z.object({ name: z.string().trim(), value: z.string().trim() }))
+      .default([]),
+    images: z
+      .array(
+        z.object({
+          url: z.string().min(1),
+          alt: z.string().nullable().optional(),
+          storageKey: z.string().nullable().optional(),
+        }),
+      )
+      .min(1, "imagesMin")
+      .max(8, "imagesMax"),
+    status: z.enum(["Ativo", "Rascunho"]).default("Ativo"),
+  })
+  .refine((v) => v.compareAtAmount === null || v.compareAtAmount > v.priceAmount, {
+    path: ["compareAtAmount"],
+    message: "compareAtGreater",
+  })
+  .refine((v) => v.handlingDaysMax >= v.handlingDaysMin, {
+    path: ["handlingDaysMax"],
+    message: "handlingRange",
+  });
+export type ProductFormValues = z.input<typeof productSchema>;
+export type ProductFormOutput = z.output<typeof productSchema>;
+
+export const shipOrderSchema = z.object({
+  carrier: z.string().trim().min(2, "required"),
+  trackingCode: z
+    .string()
+    .trim()
+    .min(8, "trackingCodeLength")
+    .max(40, "trackingCodeLength")
+    .transform((v) => v.toUpperCase()),
+});
+export type ShipOrderFormValues = z.input<typeof shipOrderSchema>;
+
 export const questionSchema = z.object({
   question: z.string().trim().min(10, "questionMin").max(500, "questionMax"),
 });

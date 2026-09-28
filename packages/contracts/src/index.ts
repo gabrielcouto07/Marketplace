@@ -653,6 +653,9 @@ export type PayoutStatus = "Agendado" | "Processando" | "Pago" | "Falhou";
 export interface PayoutDto {
   id: string;
   sellerId: string;
+  sellerName: string;
+  orderId: string;
+  orderNumber: string;
   period: DateRange;
   gross: Money;
   platformFee: Money;
@@ -661,6 +664,7 @@ export interface PayoutDto {
   status: PayoutStatus;
   scheduledFor: string;
   paidAt: string | null;
+  failureReason: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -681,4 +685,443 @@ export interface WebhookEventDto<TPayload = unknown> {
   type: WebhookEventType;
   occurredAt: string;
   payload: TPayload;
+}
+
+// ---------------------------------------------------------------------------
+// Painel do vendedor (/seller/*)
+// ---------------------------------------------------------------------------
+
+export type SellerStatus = "Pendente" | "Aprovado" | "Suspenso";
+
+export type ProductStatus = "Rascunho" | "Ativo" | "Arquivado";
+
+export interface SellerProfileDto {
+  id: string;
+  slug: string;
+  name: string;
+  logoUrl: string | null;
+  bannerUrl: string | null;
+  city: string;
+  description: string;
+  ruc: string;
+  exchangePolicy: string;
+  status: SellerStatus;
+  reputationLevel: SellerSummaryDto["reputationLevel"];
+  isOfficialStore: boolean;
+  rating: number;
+  reviewCount: number;
+  productCount: number;
+  memberSince: string;
+  categories: Array<Pick<CategoryDto, "id" | "slug" | "name">>;
+}
+
+export interface SellerProfileInput {
+  name: string;
+  ruc: string;
+  city: string;
+  description: string;
+  logoUrl: string | null;
+  bannerUrl: string | null;
+  exchangePolicy: string | null;
+  categoryIds: string[];
+}
+
+export interface SellerRegisterRequest extends SellerProfileInput {
+  acceptTerms: boolean;
+}
+
+export interface SellerRegisterResponseDto {
+  seller: SellerProfileDto;
+  session: AuthResponseDto;
+}
+
+export interface SellerDashboardDto {
+  sellerId: string;
+  period: DateRange;
+  grossSales: Money;
+  ordersCount: number;
+  pendingShipments: number;
+  openQuestions: number;
+  activeProducts: number;
+  reputationLevel: SellerSummaryDto["reputationLevel"];
+}
+
+export interface SellerProductImageDto {
+  id: string;
+  url: string;
+  alt: string;
+  sortOrder: number;
+  storageKey: string | null;
+}
+
+export interface SellerProductImageInput {
+  url: string;
+  alt?: string | null;
+  storageKey?: string | null;
+}
+
+export interface SellerProductListItemDto {
+  id: string;
+  slug: string;
+  name: string;
+  thumbnailUrl: string;
+  price: Money;
+  compareAtPrice: Money | null;
+  stock: number;
+  status: ProductStatus;
+  soldCount: number;
+  updatedAt: string;
+}
+
+export interface SellerProductDto {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  categoryId: string;
+  price: Money;
+  compareAtPrice: Money | null;
+  stock: number;
+  freeShipping: boolean;
+  warrantyMonths: number | null;
+  handlingDays: DayRange;
+  attributes: ProductAttributeDto[];
+  images: SellerProductImageDto[];
+  status: ProductStatus;
+  soldCount: number;
+  rating: number;
+  reviewCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SellerProductInput {
+  name: string;
+  description: string;
+  categoryId: string;
+  priceAmount: number;
+  compareAtAmount: number | null;
+  stock: number;
+  freeShipping: boolean;
+  warrantyMonths: number | null;
+  handlingDaysMin: number;
+  handlingDaysMax: number;
+  attributes: ProductAttributeDto[];
+  images: SellerProductImageInput[];
+  status: Exclude<ProductStatus, "Arquivado">;
+}
+
+export interface SellerProductListQuery extends PagedQuery {
+  status?: ProductStatus;
+  q?: string;
+}
+
+export interface UploadRequest {
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+}
+
+export interface PresignedUploadDto {
+  uploadUrl: string;
+  publicUrl: string;
+  storageKey: string;
+  headers: Record<string, string>;
+}
+
+export interface ShipOrderRequest {
+  carrier: string;
+  trackingCode: string;
+}
+
+// ---------------------------------------------------------------------------
+// Painel administrativo (/admin/*) — papel Admin
+// ---------------------------------------------------------------------------
+
+export interface AdminSalesPointDto {
+  date: string;
+  amount: Money;
+  orders: number;
+}
+
+export interface AdminStatusCountDto {
+  status: OrderStatus;
+  count: number;
+}
+
+export interface AdminOrderListItemDto {
+  id: string;
+  number: string;
+  status: OrderStatus;
+  createdAt: string;
+  updatedAt: string;
+  buyerId: string;
+  buyerName: string;
+  buyerEmail: string;
+  sellerId: string;
+  sellerName: string;
+  total: Money;
+  paymentId: string;
+  paymentMethod: PaymentMethod;
+  paymentStatus: PaymentStatus;
+  trackingCode: string | null;
+  itemsCount: number;
+}
+
+export interface AdminOverviewDto {
+  period: DateRange;
+  totalUsers: number;
+  newUsers30d: number;
+  blockedUsers: number;
+  totalSellers: number;
+  pendingSellers: number;
+  suspendedSellers: number;
+  activeProducts: number;
+  draftProducts: number;
+  totalOrders: number;
+  orders30d: number;
+  ordersInTransit: number;
+  ordersAwaitingShipment: number;
+  openDisputes: number;
+  gmv30d: Money;
+  gmvTotal: Money;
+  importTaxCollected30d: Money;
+  platformFees30d: Money;
+  pendingPayouts: Money;
+  pendingPayoutsCount: number;
+  ordersByStatus: AdminStatusCountDto[];
+  salesByDay: AdminSalesPointDto[];
+  recentOrders: AdminOrderListItemDto[];
+}
+
+export interface AdminUserListItemDto {
+  id: string;
+  fullName: string;
+  email: string;
+  phone: string | null;
+  roles: UserRole[];
+  createdAt: string;
+  blockedAt: string | null;
+  anonymizedAt: string | null;
+  ordersCount: number;
+  totalSpent: Money;
+  sellerName: string | null;
+}
+
+export interface AdminAuditLogDto {
+  id: number;
+  userId: string | null;
+  userEmail: string | null;
+  action: string;
+  target: string | null;
+  occurredAt: string;
+  ipAddress: string | null;
+}
+
+export interface AdminUserDetailDto {
+  summary: AdminUserListItemDto;
+  cpf: string | null;
+  emailVerified: boolean;
+  hasPassword: boolean;
+  hasGoogle: boolean;
+  blockedReason: string | null;
+  addresses: AddressDto[];
+  recentOrders: AdminOrderListItemDto[];
+  consents: ConsentDto[];
+  recentActivity: AdminAuditLogDto[];
+}
+
+export interface ConsentDto {
+  type: "TermosDeUso" | "PoliticaDePrivacidade" | "Marketing";
+  version: string;
+  acceptedAt: string;
+  revokedAt: string | null;
+}
+
+export interface AdminUserUpdateRequest {
+  fullName?: string;
+  phone?: string;
+  roles?: UserRole[];
+}
+
+export interface AdminSellerListItemDto {
+  id: string;
+  slug: string;
+  name: string;
+  ruc: string;
+  city: string;
+  status: SellerStatus;
+  reputationLevel: SellerSummaryDto["reputationLevel"];
+  isOfficialStore: boolean;
+  logoUrl: string | null;
+  ownerUserId: string | null;
+  ownerEmail: string | null;
+  memberSince: string;
+  productCount: number;
+  ordersCount: number;
+  gross30d: Money;
+  openDisputes: number;
+}
+
+export interface AdminSellerDetailDto {
+  summary: AdminSellerListItemDto;
+  description: string;
+  exchangePolicy: string;
+  bannerUrl: string | null;
+  rating: number;
+  reviewCount: number;
+  categories: Array<Pick<CategoryDto, "id" | "slug" | "name">>;
+  recentOrders: AdminOrderListItemDto[];
+  recentPayouts: PayoutDto[];
+}
+
+export interface AdminSellerUpdateRequest {
+  name?: string;
+  city?: string;
+  description?: string;
+  status?: SellerStatus;
+  reputationLevel?: number;
+  isOfficialStore?: boolean;
+}
+
+export interface AdminProductListItemDto {
+  id: string;
+  slug: string;
+  name: string;
+  thumbnailUrl: string;
+  price: Money;
+  stock: number;
+  status: ProductStatus;
+  sellerId: string;
+  sellerName: string;
+  categoryName: string;
+  soldCount: number;
+  updatedAt: string;
+}
+
+export interface AdminProductUpdateRequest {
+  status?: ProductStatus;
+  priceAmount?: number;
+  stock?: number;
+  name?: string;
+}
+
+export interface AdminOrderDetailDto {
+  order: OrderDto;
+  buyer: AdminUserListItemDto;
+  payment: PaymentDto;
+  payout: PayoutDto | null;
+}
+
+export interface AdminOrderTransitionRequest {
+  status: OrderStatus;
+  note?: string;
+  trackingCode?: string;
+  carrier?: string;
+}
+
+export interface AdminDisputeResolveRequest {
+  outcome: "Devolvido" | "Reembolsado" | "Concluido";
+  note?: string;
+}
+
+export interface AdminPaymentListItemDto {
+  id: string;
+  purchaseId: string;
+  method: PaymentMethod;
+  status: PaymentStatus;
+  amount: Money;
+  createdAt: string;
+  paidAt: string | null;
+  gateway: string;
+  gatewayPaymentId: string | null;
+  buyerEmail: string;
+  orderNumbers: string[];
+  failureReason: string | null;
+}
+
+export interface CouponDto {
+  id: string;
+  code: string;
+  discountBasisPoints: number;
+  minSubtotalAmount: number | null;
+  expiresAt: string | null;
+  maxUses: number | null;
+  usedCount: number;
+  active: boolean;
+}
+
+export interface CouponInput {
+  code: string;
+  discountBasisPoints: number;
+  minSubtotalAmount: number | null;
+  expiresAt: string | null;
+  maxUses: number | null;
+  active: boolean;
+}
+
+export interface ExchangeRateInput {
+  from: CurrencyCode;
+  to: CurrencyCode;
+  numerator: number;
+  denominator: number;
+  expiresAt?: string | null;
+}
+
+export type ImportTaxMode = "Flat" | "RemessaConforme";
+
+export interface PlatformSettingsDto {
+  importTaxMode: ImportTaxMode;
+  importTaxBasisPoints: number;
+  icmsBasisPoints: number;
+  platformFeeBasisPoints: number;
+  paymentFeeBasisPoints: number;
+  freeShippingThresholdAmount: number;
+  quoteLockMinutes: number;
+  pixExpirationMinutes: number;
+  boletoDueDays: number;
+  payoutHoldDays: number;
+  autoCompleteDays: number;
+  termsVersion: string;
+  privacyPolicyVersion: string;
+  updatedAt: string;
+}
+
+export interface AdminOrderListQuery extends PagedQuery {
+  status?: OrderStatus;
+  q?: string;
+  sellerId?: string;
+  userId?: string;
+  inTransit?: boolean;
+}
+
+export interface AdminUserListQuery extends PagedQuery {
+  q?: string;
+  role?: UserRole;
+  blocked?: boolean;
+}
+
+export interface AdminSellerListQuery extends PagedQuery {
+  q?: string;
+  status?: SellerStatus;
+}
+
+export interface AdminProductListQuery extends PagedQuery {
+  q?: string;
+  status?: ProductStatus;
+  sellerId?: string;
+}
+
+export interface AdminPaymentListQuery extends PagedQuery {
+  status?: PaymentStatus;
+  q?: string;
+}
+
+export interface AdminPayoutListQuery extends PagedQuery {
+  status?: PayoutStatus;
+  sellerId?: string;
+}
+
+export interface AdminAuditListQuery extends PagedQuery {
+  q?: string;
 }

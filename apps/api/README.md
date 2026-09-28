@@ -93,6 +93,14 @@ tests/Marketplace.Tests/         xUnit: domínio + fluxo completo do comprador v
   erros sempre em `application/problem+json` (`{ status, code, message, errors, traceId }`), textos da timeline
   em pt-BR/es-PY por `Accept-Language`.
 
+## Painéis
+
+- **Vendedor** (`/seller/*`, papel Vendedor): cadastro da loja, perfil, produtos (CRUD + fotos), pedidos (preparar/enviar), dashboard.
+- **Admin** (`/admin/*`, papel Admin): visão geral (totais, vendas por dia, produtos a caminho), usuários (editar/bloquear/anonimizar),
+  vendedores (aprovar/suspender/reputação), produtos, pedidos (transição forçada, disputas), pagamentos (estorno), repasses,
+  cupons, câmbio, banners/categorias, configurações da plataforma e auditoria. Admin único criado do `Admin:Email/Password`
+  (dev: `admin@mktpy.com` / `admin123`); login alternativo no front em `/admin/entrar`. Detalhes em `GUIA_BACKEND.txt` (raiz).
+
 ## Endpoints além do contrato ✅
 
 `POST /products/{id}/reviews`, `POST /orders/{id}/confirm-receipt`, `GET /payments/{id}/boleto.pdf`,

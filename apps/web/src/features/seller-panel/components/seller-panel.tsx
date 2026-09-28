@@ -1,29 +1,43 @@
 "use client";
 
-import { zodResolver } from "@hookform/resolvers/zod";
-import type { OrderStatus } from "@marketplace/contracts";
+import type {
+  OrderDto,
+  OrderStatus,
+  ProductStatus,
+  SellerProductListItemDto,
+} from "@marketplace/contracts";
 import {
   Banknote,
   HelpCircle,
   LayoutDashboard,
   Package,
+  PackageCheck,
+  Pencil,
   Plus,
   Settings,
   ShoppingBag,
+  Store,
+  Truck,
 } from "lucide-react";
+import Image from "next/image";
 import { useFormatter, useTranslations } from "next-intl";
 import { useState, type ReactNode } from "react";
-import { Controller, useForm } from "react-hook-form";
 import { toast } from "sonner";
-import { z } from "zod";
 
 import { PanelShell, PanelTitle, SkeletonNotice } from "@/components/layout/panel-shell";
-import { FormField } from "@/components/shared/form-field";
 import { OrderStatusBadge } from "@/components/shared/order-status";
-import { EmptyState, SectionHeader } from "@/components/shared/states";
+import { EmptyState, ErrorState, SectionHeader } from "@/components/shared/states";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -33,20 +47,34 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Link } from "@/i18n/navigation";
+import { isApiError } from "@/lib/api/errors";
+import { BLUR_DATA_URL } from "@/lib/images";
 import { formatMoney } from "@/lib/money";
-import { formatRuc } from "@/lib/validation/documents";
-import { rucSchema } from "@/lib/validation/schemas";
 
 import {
   FilterSelect,
   KpiCard,
   KpiGrid,
-  matchesQuery,
   PanelCard,
   PanelToolbar,
   SearchInput,
-  type KpiDelta,
 } from "@/components/shared/panel-widgets";
+import { useDebouncedValue } from "@/hooks/use-debounce";
+
+import {
+  useArchiveProduct,
+  usePrepareOrder,
+  useSellerDashboard,
+  useSellerOrders,
+  useSellerProducts,
+  useSellerProfile,
+  useUpdateSellerProfile,
+} from "../api";
+import { SellerGate } from "./seller-gate";
+import { ShipOrderSheet } from "./ship-order-sheet";
+import { StoreForm } from "./store-form";
+
+const brl = (amount: number) => formatMoney({ amount, currency: "BRL" });
 
 /* ------------------------------------------------------------------ */
 /* Casca                                                                */
@@ -54,6 +82,7 @@ import {
 
 export function SellerPanelShell({ children }: { children: ReactNode }) {
   const t = useTranslations("sellerPanel");
+  const profile = useSellerProfile();
   const items = [
     { href: "/vendedor", label: t("dashboard"), icon: LayoutDashboard },
     { href: "/vendedor/produtos", label: t("products"), icon: Package },
@@ -63,173 +92,11 @@ export function SellerPanelShell({ children }: { children: ReactNode }) {
     { href: "/vendedor/configuracoes", label: t("settings"), icon: Settings },
   ];
   return (
-    <PanelShell title={t("title")} subtitle={t("subtitle")} items={items}>
-      {children}
+    <PanelShell title={t("title")} subtitle={profile.data?.name ?? t("subtitle")} items={items}>
+      <SellerGate>{children}</SellerGate>
     </PanelShell>
   );
 }
-
-/* ------------------------------------------------------------------ */
-/* Dados fixos (mock) — serão ligados a GET /seller/*                   */
-/* ------------------------------------------------------------------ */
-
-interface SellerOrder {
-  id: string;
-  buyer: string;
-  date: string;
-  total: number;
-  status: OrderStatus;
-}
-
-const ORDERS: SellerOrder[] = [
-  {
-    id: "MP-10482",
-    buyer: "Ana Souza",
-    date: "2026-09-24T14:12:00Z",
-    total: 189_900,
-    status: "Pago",
-  },
-  {
-    id: "MP-10481",
-    buyer: "Carlos Lima",
-    date: "2026-09-24T09:40:00Z",
-    total: 429_000,
-    status: "EmPreparacao",
-  },
-  {
-    id: "MP-10477",
-    buyer: "Beatriz Rocha",
-    date: "2026-09-23T18:05:00Z",
-    total: 99_900,
-    status: "Enviado",
-  },
-  {
-    id: "MP-10470",
-    buyer: "João Pereira",
-    date: "2026-09-22T11:30:00Z",
-    total: 1_299_000,
-    status: "EmTransitoInternacional",
-  },
-  {
-    id: "MP-10466",
-    buyer: "Marina Alves",
-    date: "2026-09-21T16:22:00Z",
-    total: 74_900,
-    status: "Entregue",
-  },
-  {
-    id: "MP-10459",
-    buyer: "Rafael Costa",
-    date: "2026-09-20T08:15:00Z",
-    total: 259_900,
-    status: "AguardandoPagamento",
-  },
-  {
-    id: "MP-10452",
-    buyer: "Luana Martins",
-    date: "2026-09-19T13:48:00Z",
-    total: 359_000,
-    status: "Concluido",
-  },
-  {
-    id: "MP-10448",
-    buyer: "Pedro Nunes",
-    date: "2026-09-18T10:02:00Z",
-    total: 149_900,
-    status: "EmDisputa",
-  },
-];
-
-type ProductState = "active" | "paused" | "outOfStock";
-
-interface SellerProduct {
-  id: string;
-  name: string;
-  price: number;
-  stock: number;
-  state: ProductState;
-}
-
-const PRODUCTS: SellerProduct[] = [
-  {
-    id: "p1",
-    name: "Perfume Carolina Herrera Good Girl 80 ml",
-    price: 389_00,
-    stock: 12,
-    state: "active",
-  },
-  { id: "p2", name: "Fone JBL Tune 520BT", price: 199_00, stock: 0, state: "outOfStock" },
-  { id: "p3", name: "Smartwatch Amazfit GTS 4", price: 799_00, stock: 5, state: "active" },
-  { id: "p4", name: "Câmera GoPro Hero 12 Black", price: 2_199_00, stock: 3, state: "paused" },
-  { id: "p5", name: "Caixa de som JBL Flip 6", price: 549_00, stock: 8, state: "active" },
-  { id: "p6", name: "Lego Technic Ford GT", price: 459_00, stock: 2, state: "active" },
-];
-
-interface SellerQuestion {
-  id: string;
-  product: string;
-  text: string;
-  askedAt: string;
-  answered: boolean;
-}
-
-const QUESTIONS: SellerQuestion[] = [
-  {
-    id: "q1",
-    product: "Smartwatch Amazfit GTS 4",
-    text: "Vem com carregador original e manual em português?",
-    askedAt: "2026-09-24T15:20:00Z",
-    answered: false,
-  },
-  {
-    id: "q2",
-    product: "Câmera GoPro Hero 12 Black",
-    text: "O produto tem nota fiscal? Qual o prazo para Curitiba?",
-    askedAt: "2026-09-24T11:05:00Z",
-    answered: false,
-  },
-  {
-    id: "q3",
-    product: "Perfume Carolina Herrera Good Girl 80 ml",
-    text: "É lacrado? Tem garantia de originalidade?",
-    askedAt: "2026-09-23T19:41:00Z",
-    answered: false,
-  },
-  {
-    id: "q4",
-    product: "Fone JBL Tune 520BT",
-    text: "Quando volta ao estoque?",
-    askedAt: "2026-09-22T08:12:00Z",
-    answered: true,
-  },
-  {
-    id: "q5",
-    product: "Caixa de som JBL Flip 6",
-    text: "Aceita PIX com desconto?",
-    askedAt: "2026-09-21T17:30:00Z",
-    answered: true,
-  },
-];
-
-type PayoutState = "paid" | "processing" | "scheduled";
-
-interface SellerPayout {
-  id: string;
-  period: string;
-  orders: number;
-  amount: number;
-  state: PayoutState;
-}
-
-const PAYOUTS: SellerPayout[] = [
-  { id: "r5", period: "16–30 set 2026", orders: 14, amount: 4_120_000, state: "scheduled" },
-  { id: "r4", period: "01–15 set 2026", orders: 11, amount: 3_385_000, state: "processing" },
-  { id: "r3", period: "16–31 ago 2026", orders: 9, amount: 2_940_000, state: "paid" },
-  { id: "r2", period: "01–15 ago 2026", orders: 13, amount: 3_710_000, state: "paid" },
-  { id: "r1", period: "16–31 jul 2026", orders: 7, amount: 1_985_000, state: "paid" },
-];
-
-const brl = (amount: number) => formatMoney({ amount, currency: "BRL" });
 
 /* ------------------------------------------------------------------ */
 /* Dashboard                                                            */
@@ -239,48 +106,45 @@ export function SellerDashboard() {
   const t = useTranslations("sellerPanel");
   const tc = useTranslations("common");
   const format = useFormatter();
+  const dashboard = useSellerDashboard();
+  const recent = useSellerOrders({ pageSize: 5 });
 
-  const kpis: Array<{ label: string; value: string; delta: KpiDelta }> = [
-    {
-      label: t("kpiSales"),
-      value: brl(1_245_000),
-      delta: { value: "+12 %", tone: "success", direction: "up" },
-    },
-    {
-      label: t("kpiOrders"),
-      value: format.number(38),
-      delta: { value: "+8 %", tone: "success", direction: "up" },
-    },
-    {
-      label: t("kpiPending"),
-      value: format.number(5),
-      delta: { value: "−2", tone: "success", direction: "down" },
-    },
-    {
-      label: t("kpiQuestions"),
-      value: format.number(3),
-      delta: { value: "+1", tone: "danger", direction: "up" },
-    },
-  ];
-  const recent = ORDERS.slice(0, 5);
-  const unanswered = QUESTIONS.filter((q) => !q.answered);
+  if (dashboard.isError)
+    return <ErrorState error={dashboard.error} onRetry={() => dashboard.refetch()} />;
+
+  const d = dashboard.data;
+  const kpis = d
+    ? [
+        { label: t("kpiSales"), value: brl(d.grossSales.amount), icon: Banknote },
+        { label: t("kpiOrders"), value: format.number(d.ordersCount), icon: ShoppingBag },
+        { label: t("kpiPending"), value: format.number(d.pendingShipments), icon: Truck },
+        { label: t("kpiProducts"), value: format.number(d.activeProducts), icon: Package },
+      ]
+    : [];
 
   return (
     <div>
-      <SkeletonNotice text={t("placeholder")} />
       <PanelTitle>{t("dashboard")}</PanelTitle>
 
-      <KpiGrid>
-        {kpis.map((k) => (
-          <KpiCard
-            key={k.label}
-            label={k.label}
-            value={k.value}
-            delta={k.delta}
-            compare={t("kpiCompare")}
-          />
-        ))}
-      </KpiGrid>
+      {d ? (
+        <KpiGrid>
+          {kpis.map((k) => (
+            <KpiCard
+              key={k.label}
+              label={k.label}
+              value={k.value}
+              icon={k.icon}
+              compare={t("kpiPeriod")}
+            />
+          ))}
+        </KpiGrid>
+      ) : (
+        <KpiGrid>
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-28 rounded-lg" />
+          ))}
+        </KpiGrid>
+      )}
 
       <div className="mt-8 flex flex-col gap-8">
         <section>
@@ -292,23 +156,7 @@ export function SellerDashboard() {
               </Button>
             }
           />
-          <PanelCard>
-            <OrdersTable orders={recent} />
-          </PanelCard>
-        </section>
-
-        <section>
-          <SectionHeader
-            title={t("unansweredQuestions")}
-            action={
-              <Button variant="link" size="sm" render={<Link href="/vendedor/perguntas" />}>
-                {tc("seeAll")}
-              </Button>
-            }
-          />
-          <PanelCard>
-            <QuestionList questions={unanswered} />
-          </PanelCard>
+          <OrdersSection orders={recent} />
         </section>
       </div>
     </div>
@@ -319,9 +167,56 @@ export function SellerDashboard() {
 /* Pedidos                                                              */
 /* ------------------------------------------------------------------ */
 
-function OrdersTable({ orders }: { orders: SellerOrder[] }) {
+function OrdersSection({
+  orders,
+  onPrepare,
+  onShip,
+  preparingId,
+}: {
+  orders: ReturnType<typeof useSellerOrders>;
+  onPrepare?: (order: OrderDto) => void;
+  onShip?: (order: OrderDto) => void;
+  preparingId?: string | null;
+}) {
+  const t = useTranslations("sellerPanel");
+  if (orders.isPending) return <Skeleton className="h-64 rounded-lg" />;
+  if (orders.isError)
+    return <ErrorState error={orders.error} onRetry={() => orders.refetch()} compact />;
+  if (!orders.data.items.length) {
+    return (
+      <EmptyState
+        illustration="box"
+        title={t("ordersEmptyTitle")}
+        description={t("ordersEmptyDescription")}
+      />
+    );
+  }
+  return (
+    <PanelCard>
+      <OrdersTable
+        orders={orders.data.items}
+        onPrepare={onPrepare}
+        onShip={onShip}
+        preparingId={preparingId}
+      />
+    </PanelCard>
+  );
+}
+
+function OrdersTable({
+  orders,
+  onPrepare,
+  onShip,
+  preparingId,
+}: {
+  orders: OrderDto[];
+  onPrepare?: (order: OrderDto) => void;
+  onShip?: (order: OrderDto) => void;
+  preparingId?: string | null;
+}) {
   const t = useTranslations("sellerPanel");
   const format = useFormatter();
+  const withActions = Boolean(onPrepare || onShip);
   return (
     <Table>
       <TableHeader>
@@ -331,20 +226,55 @@ function OrdersTable({ orders }: { orders: SellerOrder[] }) {
           <TableHead className="hidden sm:table-cell">{t("colDate")}</TableHead>
           <TableHead className="text-right">{t("colTotal")}</TableHead>
           <TableHead>{t("colStatus")}</TableHead>
+          {withActions ? <TableHead className="text-right">{t("colActions")}</TableHead> : null}
         </TableRow>
       </TableHeader>
       <TableBody>
         {orders.map((o) => (
           <TableRow key={o.id}>
-            <TableCell className="font-medium tabular-nums">#{o.id}</TableCell>
-            <TableCell>{o.buyer}</TableCell>
-            <TableCell className="hidden text-foreground-secondary tabular-nums sm:table-cell">
-              {format.dateTime(new Date(o.date), "short")}
+            <TableCell className="font-medium tabular-nums">{o.number}</TableCell>
+            <TableCell>
+              <span className="block max-w-[160px] truncate">
+                {o.shippingAddress.recipientName}
+              </span>
+              <span className="block text-caption text-foreground-secondary">
+                {o.shippingAddress.city}/{o.shippingAddress.state}
+              </span>
             </TableCell>
-            <TableCell className="text-right font-medium tabular-nums">{brl(o.total)}</TableCell>
+            <TableCell className="hidden text-foreground-secondary tabular-nums sm:table-cell">
+              {format.dateTime(new Date(o.createdAt), "short")}
+            </TableCell>
+            <TableCell className="text-right font-medium tabular-nums">
+              {brl(o.totals.subtotal.amount + o.totals.shipping.amount - o.totals.discount.amount)}
+            </TableCell>
             <TableCell>
               <OrderStatusBadge status={o.status} />
             </TableCell>
+            {withActions ? (
+              <TableCell className="text-right">
+                {o.status === "Pago" && onPrepare ? (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    loading={preparingId === o.id}
+                    onClick={() => onPrepare(o)}
+                  >
+                    <PackageCheck data-icon="inline-start" strokeWidth={1.75} />{" "}
+                    {t("actionPrepare")}
+                  </Button>
+                ) : null}
+                {(o.status === "Pago" || o.status === "EmPreparacao") && onShip ? (
+                  <Button variant="primary" size="sm" className="ml-2" onClick={() => onShip(o)}>
+                    <Truck data-icon="inline-start" strokeWidth={1.75} /> {t("actionShip")}
+                  </Button>
+                ) : null}
+                {o.trackingCode ? (
+                  <span className="block text-caption text-foreground-secondary tabular-nums">
+                    {o.trackingCode}
+                  </span>
+                ) : null}
+              </TableCell>
+            ) : null}
           </TableRow>
         ))}
       </TableBody>
@@ -369,29 +299,23 @@ type OrderFilter = (typeof ORDER_FILTERS)[number];
 export function SellerOrders() {
   const t = useTranslations("sellerPanel");
   const ts = useTranslations("orders.status");
-  const [query, setQuery] = useState("");
+  const tErrors = useTranslations("errors");
   const [status, setStatus] = useState<OrderFilter>("all");
+  const [shipping, setShipping] = useState<OrderDto | null>(null);
+  const orders = useSellerOrders({
+    status: status === "all" ? undefined : (status as OrderStatus),
+    pageSize: 50,
+  });
+  const prepare = usePrepareOrder();
 
   const items = Object.fromEntries(
     ORDER_FILTERS.map((s) => [s, s === "all" ? t("filterAllStatus") : ts(s)]),
   ) as Record<OrderFilter, string>;
 
-  const rows = ORDERS.filter(
-    (o) => (status === "all" || o.status === status) && matchesQuery(query, o.id, o.buyer),
-  );
-
   return (
     <div>
-      <SkeletonNotice text={t("placeholder")} />
       <PanelTitle>{t("orders")}</PanelTitle>
       <PanelToolbar>
-        <SearchInput
-          id="seller-orders-search"
-          label={t("searchOrders")}
-          value={query}
-          onChange={setQuery}
-          className="sm:w-80"
-        />
         <FilterSelect
           id="seller-orders-status"
           label={t("filterStatus")}
@@ -401,18 +325,18 @@ export function SellerOrders() {
           className="sm:w-64"
         />
       </PanelToolbar>
-      {rows.length ? (
-        <PanelCard>
-          <OrdersTable orders={rows} />
-        </PanelCard>
-      ) : (
-        <NoResults
-          onClear={() => {
-            setQuery("");
-            setStatus("all");
-          }}
-        />
-      )}
+      <OrdersSection
+        orders={orders}
+        preparingId={prepare.isPending ? prepare.variables : null}
+        onPrepare={(o) =>
+          prepare.mutate(o.id, {
+            onSuccess: () => toast.success(t("prepareSuccess", { number: o.number })),
+            onError: (e) => toast.error(isApiError(e) ? e.message : tErrors("genericTitle")),
+          })
+        }
+        onShip={setShipping}
+      />
+      <ShipOrderSheet order={shipping} onClose={() => setShipping(null)} />
     </div>
   );
 }
@@ -421,37 +345,42 @@ export function SellerOrders() {
 /* Produtos                                                             */
 /* ------------------------------------------------------------------ */
 
-type ProductFilter = "all" | ProductState;
+type ProductFilter = "all" | ProductStatus;
 
-const PRODUCT_BADGE: Record<ProductState, "success" | "neutral" | "warning"> = {
-  active: "success",
-  paused: "neutral",
-  outOfStock: "warning",
+const PRODUCT_BADGE: Record<ProductStatus, "success" | "neutral" | "warning"> = {
+  Ativo: "success",
+  Rascunho: "neutral",
+  Arquivado: "warning",
 };
 
 export function SellerProducts() {
   const t = useTranslations("sellerPanel");
+  const tc = useTranslations("common");
+  const tErrors = useTranslations("errors");
   const [query, setQuery] = useState("");
   const [state, setState] = useState<ProductFilter>("all");
+  const [archiving, setArchiving] = useState<SellerProductListItemDto | null>(null);
+  const debounced = useDebouncedValue(query, 300);
+  const products = useSellerProducts({
+    q: debounced || undefined,
+    status: state === "all" ? undefined : state,
+    pageSize: 60,
+  });
+  const archive = useArchiveProduct();
 
-  const stateLabel: Record<ProductState, string> = {
-    active: t("productActive"),
-    paused: t("productPaused"),
-    outOfStock: t("productOutOfStock"),
+  const stateLabel: Record<ProductStatus, string> = {
+    Ativo: t("productActive"),
+    Rascunho: t("productDraft"),
+    Arquivado: t("productArchived"),
   };
   const items: Record<ProductFilter, string> = { all: t("filterAllStatus"), ...stateLabel };
 
-  const rows = PRODUCTS.filter(
-    (p) => (state === "all" || p.state === state) && matchesQuery(query, p.name),
-  );
-
   return (
     <div>
-      <SkeletonNotice text={t("placeholder")} />
       <PanelTitle>{t("products")}</PanelTitle>
       <PanelToolbar
         action={
-          <Button variant="primary" onClick={() => toast.info(t("placeholder"))}>
+          <Button variant="primary" render={<Link href="/vendedor/produtos/novo" />}>
             <Plus data-icon="inline-start" strokeWidth={1.75} /> {t("newProduct")}
           </Button>
         }
@@ -472,7 +401,37 @@ export function SellerProducts() {
           className="sm:w-56"
         />
       </PanelToolbar>
-      {rows.length ? (
+
+      {products.isPending ? (
+        <Skeleton className="h-64 rounded-lg" />
+      ) : products.isError ? (
+        <ErrorState error={products.error} onRetry={() => products.refetch()} />
+      ) : products.data.items.length === 0 ? (
+        <EmptyState
+          illustration="box"
+          title={query || state !== "all" ? t("emptyTitle") : t("productsEmptyTitle")}
+          description={
+            query || state !== "all" ? t("emptyDescription") : t("productsEmptyDescription")
+          }
+          action={
+            query || state !== "all" ? (
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setQuery("");
+                  setState("all");
+                }}
+              >
+                {t("clearFilters")}
+              </Button>
+            ) : (
+              <Button variant="primary" render={<Link href="/vendedor/produtos/novo" />}>
+                <Plus data-icon="inline-start" strokeWidth={1.75} /> {t("newProduct")}
+              </Button>
+            )
+          }
+        />
+      ) : (
         <PanelCard>
           <Table>
             <TableHeader>
@@ -481,213 +440,137 @@ export function SellerProducts() {
                 <TableHead className="text-right">{t("colPrice")}</TableHead>
                 <TableHead className="text-right">{t("colStock")}</TableHead>
                 <TableHead>{t("colStatus")}</TableHead>
+                <TableHead className="text-right">{t("colActions")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((p) => (
+              {products.data.items.map((p) => (
                 <TableRow key={p.id}>
-                  <TableCell className="max-w-[240px] truncate font-medium sm:max-w-none">
-                    {p.name}
+                  <TableCell>
+                    <Link
+                      href={`/vendedor/produtos/${p.id}`}
+                      className="flex items-center gap-3 rounded-sm focus-ring"
+                    >
+                      <span className="relative size-12 shrink-0 overflow-hidden rounded-sm bg-surface-muted">
+                        <Image
+                          src={p.thumbnailUrl}
+                          alt=""
+                          fill
+                          sizes="48px"
+                          className="object-contain"
+                          placeholder="blur"
+                          blurDataURL={BLUR_DATA_URL}
+                          unoptimized={p.thumbnailUrl.startsWith("/api/")}
+                        />
+                      </span>
+                      <span className="line-clamp-2 max-w-[220px] font-medium sm:max-w-none">
+                        {p.name}
+                      </span>
+                    </Link>
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">{brl(p.price)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{brl(p.price.amount)}</TableCell>
                   <TableCell className="text-right text-foreground-secondary tabular-nums">
-                    {t("stockUnits", { count: p.stock })}
+                    {p.stock === 0 ? (
+                      <span className="text-warning">{t("productOutOfStock")}</span>
+                    ) : (
+                      t("stockUnits", { count: p.stock })
+                    )}
                   </TableCell>
                   <TableCell>
-                    <Badge variant={PRODUCT_BADGE[p.state]}>{stateLabel[p.state]}</Badge>
+                    <Badge variant={PRODUCT_BADGE[p.status]}>{stateLabel[p.status]}</Badge>
+                  </TableCell>
+                  <TableCell className="text-right whitespace-nowrap">
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label={tc("edit")}
+                      render={<Link href={`/vendedor/produtos/${p.id}`} />}
+                    >
+                      <Pencil strokeWidth={1.75} />
+                    </Button>
+                    {p.status !== "Arquivado" ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-danger"
+                        onClick={() => setArchiving(p)}
+                      >
+                        {t("productArchive")}
+                      </Button>
+                    ) : null}
                   </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </PanelCard>
-      ) : (
-        <NoResults
-          onClear={() => {
-            setQuery("");
-            setState("all");
-          }}
-        />
       )}
+
+      <Dialog open={Boolean(archiving)} onOpenChange={(open) => !open && setArchiving(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("productArchive")}</DialogTitle>
+            <DialogDescription>
+              {archiving ? t("productArchiveConfirm", { name: archiving.name }) : null}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setArchiving(null)}>
+              {tc("cancel")}
+            </Button>
+            <Button
+              variant="destructive"
+              loading={archive.isPending}
+              onClick={() => {
+                if (!archiving) return;
+                archive.mutate(archiving.id, {
+                  onSuccess: () => {
+                    toast.success(t("productArchived"));
+                    setArchiving(null);
+                  },
+                  onError: (e) => toast.error(isApiError(e) ? e.message : tErrors("genericTitle")),
+                });
+              }}
+            >
+              {t("productArchive")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
 /* ------------------------------------------------------------------ */
-/* Perguntas                                                            */
+/* Perguntas e repasses (ainda sem endpoint)                            */
 /* ------------------------------------------------------------------ */
 
-function QuestionList({ questions }: { questions: SellerQuestion[] }) {
+export function SellerQuestions() {
   const t = useTranslations("sellerPanel");
-  const format = useFormatter();
-  if (!questions.length) {
-    return (
+  return (
+    <div>
+      <SkeletonNotice text={t("placeholder")} />
+      <PanelTitle>{t("questions")}</PanelTitle>
       <EmptyState
         illustration="check"
         title={t("questionsEmptyTitle")}
         description={t("questionsEmptyDescription")}
       />
-    );
-  }
-  return (
-    <ul className="divide-y divide-border">
-      {questions.map((q) => (
-        <li key={q.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-4">
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-caption text-foreground-secondary">{q.product}</p>
-            <p className="mt-1 line-clamp-2 text-body-sm text-foreground">{q.text}</p>
-            <p className="mt-1 text-caption text-foreground-muted tabular-nums">
-              {format.dateTime(new Date(q.askedAt), "dateTime")}
-            </p>
-          </div>
-          {q.answered ? (
-            <Badge variant="success" className="shrink-0 self-start sm:self-center">
-              {t("questionAnswered")}
-            </Badge>
-          ) : (
-            <Button
-              variant="secondary"
-              size="sm"
-              className="shrink-0 self-start sm:self-center"
-              onClick={() => toast.info(t("placeholder"))}
-            >
-              {t("answer")}
-            </Button>
-          )}
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-type QuestionFilter = "all" | "unanswered" | "answered";
-
-export function SellerQuestions() {
-  const t = useTranslations("sellerPanel");
-  const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<QuestionFilter>("unanswered");
-  const items: Record<QuestionFilter, string> = {
-    all: t("filterAllQuestions"),
-    unanswered: t("filterUnanswered"),
-    answered: t("filterAnswered"),
-  };
-  const rows = QUESTIONS.filter(
-    (q) =>
-      (filter === "all" || (filter === "answered") === q.answered) &&
-      matchesQuery(query, q.product, q.text),
-  );
-  return (
-    <div>
-      <SkeletonNotice text={t("placeholder")} />
-      <PanelTitle>{t("questions")}</PanelTitle>
-      <PanelToolbar>
-        <SearchInput
-          id="seller-questions-search"
-          label={t("searchQuestions")}
-          value={query}
-          onChange={setQuery}
-          className="sm:w-80"
-        />
-        <FilterSelect
-          id="seller-questions-filter"
-          label={t("filterStatus")}
-          value={filter}
-          onChange={setFilter}
-          items={items}
-          className="sm:w-56"
-        />
-      </PanelToolbar>
-      {rows.length ? (
-        <PanelCard>
-          <QuestionList questions={rows} />
-        </PanelCard>
-      ) : (
-        <NoResults
-          onClear={() => {
-            setQuery("");
-            setFilter("all");
-          }}
-        />
-      )}
     </div>
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Repasses                                                             */
-/* ------------------------------------------------------------------ */
-
-type PayoutFilter = "all" | PayoutState;
-
-const PAYOUT_BADGE: Record<PayoutState, "success" | "soft" | "neutral"> = {
-  paid: "success",
-  processing: "soft",
-  scheduled: "neutral",
-};
-
 export function SellerPayouts() {
   const t = useTranslations("sellerPanel");
-  const format = useFormatter();
-  const [filter, setFilter] = useState<PayoutFilter>("all");
-  const stateLabel: Record<PayoutState, string> = {
-    paid: t("payoutPaid"),
-    processing: t("payoutProcessing"),
-    scheduled: t("payoutScheduled"),
-  };
-  const items: Record<PayoutFilter, string> = { all: t("filterAllStatus"), ...stateLabel };
-  const rows = PAYOUTS.filter((p) => filter === "all" || p.state === filter);
-  const total = rows.reduce((sum, p) => sum + p.amount, 0);
-
   return (
     <div>
       <SkeletonNotice text={t("placeholder")} />
       <PanelTitle>{t("payouts")}</PanelTitle>
-      <PanelToolbar>
-        <FilterSelect
-          id="seller-payouts-state"
-          label={t("filterStatus")}
-          value={filter}
-          onChange={setFilter}
-          items={items}
-          className="sm:w-56"
-        />
-        <p className="text-body-sm text-foreground-secondary sm:ml-auto">
-          {t("payoutTotal")}{" "}
-          <span className="font-semibold text-foreground tabular-nums">{brl(total)}</span>
-        </p>
-      </PanelToolbar>
-      {rows.length ? (
-        <PanelCard>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t("colPeriod")}</TableHead>
-                <TableHead className="text-right">{t("colOrders")}</TableHead>
-                <TableHead className="text-right">{t("colAmount")}</TableHead>
-                <TableHead>{t("colStatus")}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((p) => (
-                <TableRow key={p.id}>
-                  <TableCell className="font-medium">{p.period}</TableCell>
-                  <TableCell className="text-right text-foreground-secondary tabular-nums">
-                    {format.number(p.orders)}
-                  </TableCell>
-                  <TableCell className="text-right font-medium tabular-nums">
-                    {brl(p.amount)}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={PAYOUT_BADGE[p.state]}>{stateLabel[p.state]}</Badge>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </PanelCard>
-      ) : (
-        <NoResults onClear={() => setFilter("all")} />
-      )}
+      <EmptyState
+        illustration="box"
+        title={t("payoutsEmptyTitle")}
+        description={t("payoutsEmptyDescription")}
+      />
     </div>
   );
 }
@@ -696,77 +579,58 @@ export function SellerPayouts() {
 /* Configurações                                                        */
 /* ------------------------------------------------------------------ */
 
-const settingsSchema = z.object({ ruc: rucSchema });
-type SettingsValues = z.infer<typeof settingsSchema>;
-
-/** Validação de RUC (vendedor paraguaio), formato 80012345-6. */
 export function SellerSettings() {
   const t = useTranslations("sellerPanel");
   const tc = useTranslations("common");
-  const { control, handleSubmit, formState } = useForm<SettingsValues>({
-    resolver: zodResolver(settingsSchema),
-    defaultValues: { ruc: "" },
-  });
-  const rucError = formState.errors.ruc?.message;
-  const rucId = "seller-ruc";
+  const tErrors = useTranslations("errors");
+  const profile = useSellerProfile();
+  const update = useUpdateSellerProfile();
+  const [serverErrors, setServerErrors] = useState<Record<string, string[]>>();
+
+  if (profile.isPending) return <Skeleton className="h-96 max-w-3xl rounded-lg" />;
+  if (profile.isError)
+    return <ErrorState error={profile.error} onRetry={() => profile.refetch()} />;
+  const p = profile.data;
 
   return (
-    <div>
-      <SkeletonNotice text={t("placeholder")} />
-      <PanelTitle>{t("settings")}</PanelTitle>
-      <form
-        onSubmit={handleSubmit(() => toast.success(t("settingsSaved")))}
-        noValidate
-        className="flex max-w-md flex-col gap-6 rounded-lg border border-border bg-surface p-4 shadow-xs sm:p-6"
-      >
-        <div className="flex flex-col gap-1">
-          <h2 className="text-title-3 text-foreground">{t("settingsStore")}</h2>
-          <p className="text-body-sm text-foreground-secondary">{t("settingsStoreHint")}</p>
-        </div>
-        <FormField id={rucId} label={t("rucLabel")} error={rucError} hint={t("rucHint")}>
-          <Controller
-            control={control}
-            name="ruc"
-            render={({ field }) => (
-              <Input
-                id={rucId}
-                inputMode="numeric"
-                placeholder="80012345-6"
-                aria-invalid={Boolean(rucError)}
-                aria-describedby={rucError ? `${rucId}-error` : `${rucId}-hint`}
-                value={field.value}
-                onChange={(e) => field.onChange(formatRuc(e.target.value))}
-                onBlur={field.onBlur}
-                name={field.name}
-                ref={field.ref}
-              />
-            )}
-          />
-        </FormField>
-        <Button type="submit" variant="primary" className="w-full sm:w-auto sm:self-start">
-          {tc("save")}
+    <div className="mx-auto flex w-full max-w-3xl flex-col">
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <PanelTitle className="mb-0">{t("settings")}</PanelTitle>
+        <Button
+          variant="ghost"
+          size="sm"
+          render={<Link href={`/loja/${p.slug}`} target="_blank" />}
+        >
+          <Store data-icon="inline-start" strokeWidth={1.75} /> {t("viewStore")}
         </Button>
-      </form>
+      </div>
+      <StoreForm
+        key={p.id}
+        rucEditable={false}
+        defaultValues={{
+          name: p.name,
+          ruc: p.ruc,
+          city: p.city,
+          description: p.description,
+          logoUrl: p.logoUrl,
+          bannerUrl: p.bannerUrl,
+          exchangePolicy: p.exchangePolicy,
+          categoryIds: p.categories.map((c) => c.id),
+        }}
+        submitLabel={tc("save")}
+        submitting={update.isPending}
+        serverErrors={serverErrors}
+        onSubmit={(values) => {
+          setServerErrors(undefined);
+          update.mutate(values, {
+            onSuccess: () => toast.success(t("settingsSaved")),
+            onError: (error) => {
+              if (isApiError(error) && error.errors) setServerErrors(error.errors);
+              else toast.error(isApiError(error) ? error.message : tErrors("genericTitle"));
+            },
+          });
+        }}
+      />
     </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Utilitários                                                          */
-/* ------------------------------------------------------------------ */
-
-function NoResults({ onClear }: { onClear: () => void }) {
-  const t = useTranslations("sellerPanel");
-  return (
-    <EmptyState
-      illustration="box"
-      title={t("emptyTitle")}
-      description={t("emptyDescription")}
-      action={
-        <Button variant="secondary" onClick={onClear}>
-          {t("clearFilters")}
-        </Button>
-      }
-    />
   );
 }

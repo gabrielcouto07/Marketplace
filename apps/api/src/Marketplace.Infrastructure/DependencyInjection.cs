@@ -29,6 +29,7 @@ public static class DependencyInjection
                 o.PostgresConnectionString = postgres;
             }
         });
+        services.Configure<AdminOptions>(config.GetSection("Admin"));
         services.Configure<JwtOptions>(config.GetSection("Auth:Jwt"));
         services.Configure<AuthOptions>(config.GetSection("Auth"));
         services.Configure<GoogleOptions>(config.GetSection("Auth:Google"));

@@ -130,7 +130,26 @@ public static class AccountEndpoints
                     .ThrowIfAny();
                 return storage.CreateUploadAsync(body.FileName!, body.ContentType!, body.SizeBytes, ct);
             })
-            .RequireAuthorization(p => p.RequireRole(nameof(UserRole.Vendedor), nameof(UserRole.Admin)));
+            // Logo/banner são enviados durante o cadastro da loja, antes do papel Vendedor existir: basta estar logado.
+            .RequireAuthorization();
+
+        // Provider Local: as imagens enviadas são servidas daqui (um middleware de arquivos estáticos perderia
+        // para a rota PUT abaixo no roteamento e responderia 405 ao GET).
+        g.MapGet("/media/{**key}", (string key, IServiceProvider sp) =>
+        {
+            var local = sp.GetService<LocalImageStorage>() ?? throw AppException.NotFound("Imagem");
+            var path = local.ResolvePath(key) ?? throw AppException.NotFound("Imagem");
+            if (!File.Exists(path)) throw AppException.NotFound("Imagem");
+            var contentType = Path.GetExtension(path).ToLowerInvariant() switch
+            {
+                ".jpg" or ".jpeg" => "image/jpeg",
+                ".png" => "image/png",
+                ".webp" => "image/webp",
+                ".avif" => "image/avif",
+                _ => "application/octet-stream",
+            };
+            return Results.File(path, contentType, lastModified: File.GetLastWriteTimeUtc(path), enableRangeProcessing: true);
+        }).AllowAnonymous().WithMetadata(new Microsoft.AspNetCore.OutputCaching.OutputCacheAttribute { Duration = 31536000 });
 
         // Upload direto (provider Local): PUT com o token assinado emitido em /seller/uploads.
         g.MapPut("/media/{**key}", async (string key, string token, HttpRequest request, IServiceProvider sp, CancellationToken ct) =>

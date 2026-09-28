@@ -11,6 +11,11 @@ public sealed class StorageOptions
     /// <summary>"Local" (disco, servido em /media) ou "R2" (Cloudflare R2 / S3 compatível).</summary>
     public string Provider { get; set; } = "Local";
     public string LocalPath { get; set; } = Path.Combine(".data", "media");
+    /// <summary>
+    /// Base das URLs no provider Local. Relativa ("/api") por padrão: passa pelo proxy do Next (mesma origem, sem
+    /// CORS, funciona no celular via LAN). Use a URL absoluta da API quando o front não usar o proxy.
+    /// </summary>
+    public string LocalPublicBase { get; set; } = "/api";
     public long MaxUploadBytes { get; set; } = 8 * 1024 * 1024;
     public string[] AllowedContentTypes { get; set; } = ["image/jpeg", "image/png", "image/webp", "image/avif"];
     public R2Options R2 { get; set; } = new();
@@ -48,7 +53,7 @@ public static class StorageKeys
 }
 
 /// <summary>Disco local: a URL de upload aponta para `PUT /api/media/{key}` protegido por token assinado.</summary>
-public sealed class LocalImageStorage(IOptions<StorageOptions> options, ILinkBuilder links, IDataProtectionProvider protection) : IImageStorage
+public sealed class LocalImageStorage(IOptions<StorageOptions> options, IDataProtectionProvider protection) : IImageStorage
 {
     private readonly IDataProtector _protector = protection.CreateProtector("Marketplace.Uploads");
 
@@ -59,8 +64,9 @@ public sealed class LocalImageStorage(IOptions<StorageOptions> options, ILinkBui
         StorageKeys.Validate(options.Value, contentType, sizeBytes);
         var key = StorageKeys.NewKey(fileName);
         var token = _protector.ToTimeLimitedDataProtector().Protect($"{key}|{contentType}|{sizeBytes}", TimeSpan.FromMinutes(15));
-        var uploadUrl = $"{links.ApiUrl}/media/{key}?token={Uri.EscapeDataString(token)}";
-        return Task.FromResult(new PresignedUpload(uploadUrl, $"{links.ApiUrl}/media/{key}", key,
+        var baseUrl = options.Value.LocalPublicBase.TrimEnd('/');
+        var uploadUrl = $"{baseUrl}/media/{key}?token={Uri.EscapeDataString(token)}";
+        return Task.FromResult(new PresignedUpload(uploadUrl, $"{baseUrl}/media/{key}", key,
             new Dictionary<string, string> { ["Content-Type"] = contentType }));
     }
 
@@ -77,10 +83,16 @@ public sealed class LocalImageStorage(IOptions<StorageOptions> options, ILinkBui
         }
     }
 
+    /// <summary>Caminho físico da chave, ou null se sair da pasta de mídia (path traversal).</summary>
+    public string? ResolvePath(string key)
+    {
+        var path = Path.GetFullPath(Path.Combine(RootPath, key.Replace('/', Path.DirectorySeparatorChar)));
+        return path.StartsWith(RootPath + Path.DirectorySeparatorChar, StringComparison.Ordinal) ? path : null;
+    }
+
     public async Task SaveAsync(string key, Stream content, CancellationToken ct)
     {
-        var path = Path.Combine(RootPath, key.Replace('/', Path.DirectorySeparatorChar));
-        if (!path.StartsWith(RootPath, StringComparison.Ordinal)) throw new UnauthorizedAccessException();
+        var path = ResolvePath(key) ?? throw new UnauthorizedAccessException();
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
         await using var file = File.Create(path);
         await content.CopyToAsync(file, ct);

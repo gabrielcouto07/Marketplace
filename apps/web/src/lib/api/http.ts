@@ -109,6 +109,30 @@ export async function http<TResponse>(
   return payload as TResponse;
 }
 
+/**
+ * Envia um arquivo binário para uma URL de upload (pré-assinada pela API). Não passa por `http()` porque
+ * o corpo não é JSON e a URL pode ser de outro host (R2). Lança ApiError em falha.
+ */
+export async function uploadFile(
+  url: string,
+  file: Blob,
+  headers: Record<string, string> = {},
+): Promise<void> {
+  let response: Response;
+  try {
+    response = await fetch(url, { method: "PUT", body: file, headers });
+  } catch (error) {
+    throw new NetworkError(url, error);
+  }
+  if (!response.ok) {
+    throw new ApiError({
+      status: response.status,
+      code: `UPLOAD_${response.status}`,
+      message: "Não foi possível enviar a imagem.",
+    });
+  }
+}
+
 export const api = {
   get: <T>(path: string, options?: Omit<RequestOptions, "method" | "body">) =>
     http<T>(path, { ...options, method: "GET" }),

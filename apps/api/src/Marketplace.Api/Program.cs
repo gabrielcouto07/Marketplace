@@ -7,10 +7,8 @@ using Marketplace.Application.Abstractions;
 using Marketplace.Infrastructure;
 using Marketplace.Infrastructure.Auth;
 using Marketplace.Infrastructure.Persistence;
-using Marketplace.Infrastructure.Storage;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
-using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
@@ -117,19 +115,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.UseOutputCache();
 
-// Imagens enviadas (provider Local) servidas em /api/media/*
-if ((config["Storage:Provider"] ?? "Local").Equals("Local", StringComparison.OrdinalIgnoreCase))
-{
-    var local = app.Services.GetRequiredService<LocalImageStorage>();
-    Directory.CreateDirectory(local.RootPath);
-    app.UseStaticFiles(new StaticFileOptions
-    {
-        FileProvider = new PhysicalFileProvider(local.RootPath),
-        RequestPath = "/api/media",
-        OnPrepareResponse = ctx => ctx.Context.Response.Headers.CacheControl = "public, max-age=31536000, immutable",
-    });
-}
-
 app.MapOpenApi();
 app.MapScalarApiReference(o => o.WithTitle("Marketplace PY API"));
 app.MapHealthChecks("/health");
@@ -145,6 +130,8 @@ api.MapAuth();
 api.MapAccount();
 api.MapPrivacy();
 api.MapMedia();
+api.MapSellerPanel();
+api.MapAdmin();
 
 app.Run();
 
