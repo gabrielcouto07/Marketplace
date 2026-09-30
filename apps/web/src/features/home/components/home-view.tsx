@@ -14,13 +14,14 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useHome } from "@/features/catalog/api";
 import { formatCountdown, useCountdown } from "@/hooks/use-countdown";
 import { Link } from "@/i18n/navigation";
+import { cn } from "@/lib/utils";
 
 import { HomeHero } from "./home-hero";
 import { PromoCarousel, PromoCarouselSkeleton } from "./promo-carousel";
 
 /**
- * Home: faixa de saudação sobre brand-deep, banners, chips de confiança, categorias tintadas,
- * rails de ofertas/novidades/lojas e grade de mais vendidos. Seções a 32 px uma da outra.
+ * Home: cartão Céu de saudação, banners, chips de confiança nas quatro cores da marca, categorias
+ * tintadas, rails de ofertas/novidades/lojas e grade de mais vendidos. Seções a 32 px uma da outra.
  */
 export function HomeView() {
   const t = useTranslations("home");
@@ -111,23 +112,31 @@ function SeeAllLink({ href }: { href: string }) {
 
 /* ------------------------------ Confiança ----------------------------- */
 
-/** Linha rolável de chips com os diferenciais de confiança (rastreio, impostos, lojas, pagamento). */
+/**
+ * Linha rolável de chips com os diferenciais de confiança (rastreio, impostos, lojas, pagamento).
+ * Cada ícone vive num círculo pastel de uma das cores da marca, como os atalhos do header.
+ */
 function TrustChips() {
   const t = useTranslations("home");
   const items = [
-    { icon: Package, label: t("trustShipping") },
-    { icon: ShieldCheck, label: t("trustTax") },
-    { icon: Store, label: t("trustSellers") },
-    { icon: CreditCard, label: t("trustPayment") },
+    { icon: Package, label: t("trustShipping"), tone: "bg-brand-menta-soft" },
+    { icon: ShieldCheck, label: t("trustTax"), tone: "bg-brand-lilas" },
+    { icon: Store, label: t("trustSellers"), tone: "bg-brand-coral-soft" },
+    { icon: CreditCard, label: t("trustPayment"), tone: "bg-brand-manteiga-soft" },
   ];
   return (
     <ul className="mx-auto scrollbar-none flex w-full max-w-6xl gap-2 overflow-x-auto px-4">
-      {items.map(({ icon: Icon, label }) => (
+      {items.map(({ icon: Icon, label, tone }) => (
         <li
           key={label}
-          className="flex h-9 flex-none items-center gap-2 rounded-full border border-border bg-surface px-3 text-caption font-medium whitespace-nowrap text-foreground"
+          className="flex h-10 flex-none items-center gap-2 rounded-full border border-border bg-surface pr-4 pl-1.5 text-caption font-semibold whitespace-nowrap text-foreground"
         >
-          <Icon className="size-4 shrink-0 text-primary" strokeWidth={1.75} aria-hidden />
+          <span
+            aria-hidden
+            className={cn("flex size-7 shrink-0 items-center justify-center rounded-full", tone)}
+          >
+            <Icon className="size-4" strokeWidth={2} />
+          </span>
           {label}
         </li>
       ))}
@@ -181,7 +190,7 @@ function DealsCountdown() {
   const time = `${String(hours).padStart(2, "0")}:${formatCountdown(seconds % 3600)}`;
   return (
     <span
-      className="inline-flex h-6 shrink-0 items-center rounded-sm bg-surface-muted px-2 text-caption text-foreground tabular-nums"
+      className="inline-flex h-6 shrink-0 items-center rounded-sm bg-brand-manteiga-soft px-2 text-caption font-semibold text-foreground tabular-nums"
       aria-label={t("dealsEndIn", { time })}
       role="timer"
     >

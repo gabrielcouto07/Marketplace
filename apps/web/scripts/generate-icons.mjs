@@ -1,5 +1,5 @@
-// Gera os ícones PNG do manifest, favicon, apple-touch-icon e a imagem OG a partir de
-// public/logo.svg (versão vetorial do ícone principal, ver DESIGN.md › Apêndice A).
+// Gera os ícones PNG do manifest, favicons, apple-touch-icon, o PNG mestre e a imagem OG a partir
+// de public/logo.svg (logo A "Etiqueta", ver DESIGN.md › Apêndice A).
 // Uso: pnpm icons
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -11,31 +11,33 @@ const logo = readFileSync(join(root, "public/logo.svg"), "utf8");
 const outDir = join(root, "public/icons");
 mkdirSync(outDir, { recursive: true });
 
-/** Cores da marca (DESIGN.md): navy do ícone, azul-marinho profundo e faixa tricolor. */
-const TILE = "#0E1B3D";
-const BLUE_950 = "#061333";
-const FLAG_RED = "#D52B1E";
-const FLAG_BLUE = "#0038A8";
+/** Cores da identidade (DESIGN.md): tile Manteiga, Papel, Tinta e as quatro cores da marca. */
+const TILE = "#FFF1C9";
+const PAPEL = "#F7F6F2";
+const TINTA = "#26253A";
+const TINTA_600 = "#5E5C72";
+const QUARTET = ["#FF8B7B", "#7F9BFF", "#5DCB94", "#FFD15C"];
 
 /** Mesmo desenho, sem os cantos arredondados: iOS e ícones maskable aplicam a própria máscara. */
-const fullBleed = Buffer.from(logo.replace('rx="228"', 'rx="0"'));
+const fullBleed = Buffer.from(logo.replace('rx="30"', 'rx="0"'));
 const tile = Buffer.from(logo);
 
-/** Ícone "any": o tile com cantos arredondados e fundo transparente fora dele. */
-async function plain(size) {
-  const buf = await sharp(tile, { density: 300 })
+const render = (svg, size) =>
+  sharp(svg, { density: 600 })
     .resize(size, size, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
     .png()
     .toBuffer();
-  writeFileSync(join(outDir, `icon-${size}.png`), buf);
+
+/** Ícone "any": o tile com cantos arredondados e fundo transparente fora dele. */
+async function plain(size) {
+  writeFileSync(join(outDir, `icon-${size}.png`), await render(tile, size));
 }
 
-/** Maskable: navy até a borda e a sacola dentro da zona segura (80 % central). */
+/** Maskable: Manteiga até a borda e o desenho dentro da zona segura (80 % central). */
 async function maskable(size) {
-  const inner = Math.round(size * 0.8);
-  const bag = await sharp(fullBleed, { density: 300 }).resize(inner, inner).png().toBuffer();
+  const inner = await render(fullBleed, Math.round(size * 0.8));
   const buf = await sharp({ create: { width: size, height: size, channels: 4, background: TILE } })
-    .composite([{ input: bag, gravity: "center" }])
+    .composite([{ input: inner, gravity: "center" }])
     .png()
     .toBuffer();
   writeFileSync(join(outDir, `icon-maskable-${size}.png`), buf);
@@ -43,36 +45,69 @@ async function maskable(size) {
 
 /** Apple touch icon: full-bleed (o iOS arredonda os cantos). */
 async function apple(size) {
-  const buf = await sharp(fullBleed, { density: 300 }).resize(size, size).png().toBuffer();
-  writeFileSync(join(outDir, "apple-touch-icon.png"), buf);
+  writeFileSync(join(outDir, "apple-touch-icon.png"), await render(fullBleed, size));
 }
 
-/** OG / screenshot do manifest: tile sobre azul-marinho profundo com a assinatura tricolor. */
+/** OG / screenshot do manifest: Papel, logo, wordmark em Tinta e a faixa das quatro cores. */
 async function splash() {
   const w = 1200;
   const h = 630;
-  const icon = await sharp(tile, { density: 300 }).resize(220, 220).png().toBuffer();
-  const stripe = Buffer.from(
-    `<svg width="${w}" height="6"><rect width="400" height="6" fill="${FLAG_RED}"/><rect x="400" width="400" height="6" fill="#FFFFFF"/><rect x="800" width="400" height="6" fill="${FLAG_BLUE}"/></svg>`,
-  );
+  const icon = await render(tile, 220);
+  const band = QUARTET.map(
+    (c, i) => `<rect x="${i * (w / 4)}" width="${w / 4}" height="10" fill="${c}"/>`,
+  ).join("");
+  const stripe = Buffer.from(`<svg width="${w}" height="10">${band}</svg>`);
   const text = Buffer.from(
-    `<svg width="${w}" height="${h}"><text x="600" y="440" text-anchor="middle" font-family="Geist, Inter, Arial, sans-serif" font-size="52" font-weight="600" letter-spacing="-1" fill="#FFFFFF">Marketplace Paraguai</text><text x="600" y="492" text-anchor="middle" font-family="Geist, Inter, Arial, sans-serif" font-size="26" fill="#8AAAEA">Do Paraguai para a sua casa, com preço, frete e impostos claros</text></svg>`,
+    `<svg width="${w}" height="${h}"><text x="600" y="444" text-anchor="middle" font-family="Bricolage Grotesque, Figtree, Arial, sans-serif" font-size="60" font-weight="800" letter-spacing="-1.2" fill="${TINTA}">Marketplace Paraguai</text><text x="600" y="496" text-anchor="middle" font-family="Figtree, Arial, sans-serif" font-size="26" font-weight="500" fill="${TINTA_600}">Do Paraguai para todo o Brasil, com preço, frete e impostos claros</text></svg>`,
   );
-  const buf = await sharp({ create: { width: w, height: h, channels: 4, background: BLUE_950 } })
+  const buf = await sharp({ create: { width: w, height: h, channels: 4, background: PAPEL } })
     .composite([
-      { input: icon, top: 150, left: 490 },
+      { input: icon, top: 140, left: 490 },
       { input: text, top: 0, left: 0 },
-      { input: stripe, top: h - 6, left: 0 },
+      { input: stripe, top: h - 10, left: 0 },
     ])
     .png()
     .toBuffer();
   writeFileSync(join(root, "public/og-default.png"), buf);
 }
 
-await Promise.all([plain(192), plain(512), maskable(192), maskable(512), apple(180), splash()]);
-const fav = await sharp(tile, { density: 300 })
-  .resize(32, 32, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
-  .png()
-  .toBuffer();
-writeFileSync(join(root, "public/favicon-32.png"), fav);
-console.log("Ícones gerados em public/icons, public/favicon-32.png e public/og-default.png");
+/** favicon.ico com PNGs embutidos (16, 32 e 48 px), formato aceito por todos os navegadores. */
+async function favicon() {
+  const sizes = [16, 32, 48];
+  const images = await Promise.all(sizes.map((s) => render(tile, s)));
+  const header = Buffer.alloc(6);
+  header.writeUInt16LE(0, 0);
+  header.writeUInt16LE(1, 2);
+  header.writeUInt16LE(sizes.length, 4);
+  let offset = 6 + 16 * sizes.length;
+  const entries = sizes.map((s, i) => {
+    const e = Buffer.alloc(16);
+    e.writeUInt8(s, 0);
+    e.writeUInt8(s, 1);
+    e.writeUInt16LE(1, 4);
+    e.writeUInt16LE(32, 6);
+    e.writeUInt32LE(images[i].length, 8);
+    e.writeUInt32LE(offset, 12);
+    offset += images[i].length;
+    return e;
+  });
+  writeFileSync(join(root, "src/app/favicon.ico"), Buffer.concat([header, ...entries, ...images]));
+  writeFileSync(join(root, "public/favicon-32.png"), images[1]);
+}
+
+mkdirSync(join(root, "public/brand"), { recursive: true });
+await Promise.all([
+  plain(192),
+  plain(512),
+  maskable(192),
+  maskable(512),
+  apple(180),
+  splash(),
+  favicon(),
+  render(tile, 1024).then((buf) =>
+    writeFileSync(join(root, "public/brand/app-icon-1024.png"), buf),
+  ),
+]);
+console.log(
+  "Ícones gerados em public/icons, public/brand, public/favicon-32.png, src/app/favicon.ico e public/og-default.png",
+);

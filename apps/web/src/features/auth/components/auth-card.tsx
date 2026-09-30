@@ -26,7 +26,7 @@ export function AuthCard({ title, subtitle, children, footer }: AuthCardProps) {
   return (
     <div className="mx-auto flex w-full max-w-md flex-col gap-6 px-4 py-8">
       <div className="flex flex-col items-center gap-4 text-center">
-        <BrandLogo tile size={48} />
+        <BrandLogo size={48} />
         <div className="flex flex-col gap-1">
           <h1 className="text-title-1 text-foreground">{title}</h1>
           {subtitle ? <p className="text-body text-foreground-secondary">{subtitle}</p> : null}

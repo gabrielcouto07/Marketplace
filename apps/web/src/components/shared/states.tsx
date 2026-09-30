@@ -121,7 +121,7 @@ interface SectionHeaderProps {
   className?: string;
 }
 
-/** Título de seção em title-2 com ícone e chip opcionais; ação à direita. */
+/** Título de seção em title-2 (Bricolage 800) com ícone e chip opcionais; ação à direita. */
 export function SectionHeader({
   title,
   action,
@@ -136,7 +136,9 @@ export function SectionHeader({
         {Icon ? (
           <Icon className="size-5 shrink-0 text-primary" strokeWidth={1.75} aria-hidden />
         ) : null}
-        <Tag className="truncate text-title-2 text-foreground">{title}</Tag>
+        <Tag className="truncate font-heading text-title-2 font-extrabold tracking-[-0.02em] text-foreground">
+          {title}
+        </Tag>
         {meta}
       </div>
       {action}

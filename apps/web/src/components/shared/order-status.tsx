@@ -115,7 +115,7 @@ export function OrderTimeline({ status, events, className }: OrderTimelineProps)
               className={cn(
                 "relative z-10 flex size-6 items-center justify-center rounded-full",
                 done && !branchDanger && "bg-primary text-primary-foreground",
-                branchDanger && "bg-danger text-white",
+                branchDanger && "bg-danger text-destructive-foreground",
                 current &&
                   "animate-ring-pulse border-2 border-primary bg-surface text-primary motion-reduce:animate-none",
                 !done && !current && "border-2 border-border-strong bg-surface",

@@ -1,3 +1,4 @@
+import { cva } from "class-variance-authority";
 import { useTranslations } from "next-intl";
 
 import { BrandLogo } from "@/components/layout/brand-logo";
@@ -5,38 +6,49 @@ import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
 
 interface BrandMarkProps {
-  /** `light`: sobre superfície clara (ícone com tile navy) · `dark`: sobre brand-deep (só a sacola, texto branco). */
+  /** `light`: sobre superfície clara · `dark`: sobre brand-deep (texto claro). O logo é o mesmo. */
   tone?: "light" | "dark";
+  /** `md`: header desktop (logo 48) · `sm`: header mobile e painéis (logo 44). */
+  size?: "sm" | "md";
   /** Esconde o wordmark e deixa só o símbolo. */
   compact?: boolean;
   className?: string;
 }
 
+const LOGO_SIZE = { sm: 44, md: 48 } as const;
+
+const nameVariants = cva("font-heading leading-none font-extrabold tracking-[-0.02em]", {
+  variants: {
+    size: { sm: "text-title-2", md: "text-title-1" },
+    tone: { light: "text-foreground", dark: "text-white" },
+  },
+});
+
 /**
- * Símbolo da marca + wordmark em duas linhas ("MARKETPLACE" / "Paraguai"). Sempre linka para a home.
- * Em superfícies claras o ícone aparece com o tile; sobre brand-deep, só a sacola (DESIGN.md › Apêndice A).
+ * Lockup da marca: logo A + wordmark em duas linhas ("MARKETPLACE" em caixa alta espaçada /
+ * "Paraguai" em Bricolage 800). Sempre linka para a home (DESIGN.md › Apêndice A).
  */
-export function BrandMark({ tone = "light", compact, className }: BrandMarkProps) {
+export function BrandMark({ tone = "light", size = "md", compact, className }: BrandMarkProps) {
   const t = useTranslations("common");
   const onDark = tone === "dark";
   return (
     <Link
       href="/"
       aria-label={t("siteName")}
-      className={cn("flex shrink-0 items-center gap-2 rounded-sm focus-ring", className)}
+      className={cn("flex shrink-0 items-center gap-3 rounded-md focus-ring", className)}
     >
-      <BrandLogo tile={!onDark} size={onDark ? 32 : 36} />
+      <BrandLogo size={compact ? 32 : LOGO_SIZE[size]} />
       {compact ? null : (
-        <span className={cn("flex flex-col", onDark ? "text-white" : "text-foreground")}>
+        <span className="flex flex-col gap-1">
           <span
             className={cn(
-              "text-caption leading-none font-medium tracking-[0.08em] uppercase",
-              onDark ? "text-white/70" : "text-foreground-muted",
+              "text-caption leading-none font-bold tracking-[0.16em] uppercase",
+              onDark ? "text-white/70" : "text-foreground-secondary",
             )}
           >
             {t("brandLine1")}
           </span>
-          <span className="text-title-3 leading-tight">{t("brandLine2")}</span>
+          <span className={nameVariants({ size, tone })}>{t("brandLine2")}</span>
         </span>
       )}
     </Link>

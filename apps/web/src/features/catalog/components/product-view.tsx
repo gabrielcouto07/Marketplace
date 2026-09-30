@@ -259,7 +259,7 @@ function ProductContent({ product }: { product: ProductDetailDto }) {
               <Button variant="secondary" fullWidth disabled={!canBuy} onClick={onAddToCart}>
                 <ShoppingCart data-icon="inline-start" strokeWidth={1.75} /> {t("addToCart")}
               </Button>
-              {/* No mobile o CTA vermelho vive na barra fixa; aqui só a partir de lg. */}
+              {/* No mobile o CTA coral vive na barra fixa; aqui só a partir de lg. */}
               <Button
                 variant="cta"
                 fullWidth

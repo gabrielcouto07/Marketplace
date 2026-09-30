@@ -390,7 +390,7 @@ export function CheckoutView() {
       {/* Espaço para a barra fixa não cobrir o conteúdo no mobile. */}
       <div className="h-24 md:hidden" aria-hidden />
 
-      {/* Barra fixa: total + "Pagar" (único CTA vermelho da tela) */}
+      {/* Barra fixa: total + "Pagar" (único CTA coral da tela) */}
       <StickyBar tone="light">
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="text-caption text-foreground-secondary">{t("total")}</span>

@@ -11,9 +11,9 @@ import { blurDataUrlFor } from "@/lib/images";
 import { cn } from "@/lib/utils";
 
 /**
- * O tom do banner vira só o chip do título (ponto focal), nunca a área inteira: o `red` é o único
- * vermelho da home, o `blue` usa o azul da marca e o `neutral` um chip branco. A foto ocupa o card
- * com um scrim em brand-deep na base para o texto branco ler com contraste.
+ * O tom do banner vira só o chip do título (ponto focal), nunca a área inteira: o `red` vira o chip
+ * Coral do CTA, o `blue` a Pervinca do primary e o `neutral` um chip branco. A foto ocupa o card
+ * com um scrim em brand-deep (Tinta) na base para o texto branco ler com contraste.
  */
 const TONE_KICKER: Record<BannerDto["tone"], string> = {
   red: "bg-cta text-cta-foreground",

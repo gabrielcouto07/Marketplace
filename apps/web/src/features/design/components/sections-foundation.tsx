@@ -9,6 +9,7 @@ import { BrandMark } from "@/components/layout/brand-mark";
 import { CartBadge } from "@/components/layout/header";
 import { TricolorStripe } from "@/components/layout/tricolor-stripe";
 import { Button } from "@/components/ui/button";
+import { FlagBR, FlagPY, HeroIllustration } from "@/features/home/components/hero-illustration";
 import { contrastRatio, formatRatio, wcagLevel } from "@/lib/contrast";
 import { cn } from "@/lib/utils";
 
@@ -19,49 +20,110 @@ import { Demo } from "./design-view";
 /* Marca                                                                */
 /* ------------------------------------------------------------------ */
 
+const BRAND_PASTELS = [
+  { name: "Coral", strong: "bg-brand-coral", soft: "bg-brand-coral-soft", use: "CTA, busca, badge" },
+  {
+    name: "Pervinca",
+    strong: "bg-brand-pervinca",
+    soft: "bg-brand-pervinca-soft",
+    use: "primary (600), fita do header",
+  },
+  {
+    name: "Menta",
+    strong: "bg-brand-menta",
+    soft: "bg-brand-menta-soft",
+    use: "success, etiqueta",
+  },
+  {
+    name: "Manteiga",
+    strong: "bg-brand-manteiga",
+    soft: "bg-brand-manteiga-soft",
+    use: "tile do logo, carrinho",
+  },
+];
+
 export function BrandSection() {
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      <Demo label="Ícone principal" hint="public/logo.svg · vetor reconstruído do PNG original">
+      <Demo label="Logo A · Etiqueta" hint="public/logo.svg · detalhe muda com o tamanho">
         <div className="flex flex-wrap items-end gap-6">
-          <BrandLogo tile size={96} title="Ícone do Marketplace Paraguai" />
-          <BrandLogo tile size={48} />
-          <BrandLogo tile size={32} />
-          <BrandLogo tile size={20} />
+          <BrandLogo size={96} title="Logo do Marketplace Paraguai" />
+          <BrandLogo size={48} />
+          <BrandLogo size={40} />
+          <BrandLogo size={24} />
         </div>
         <p className="mt-4 text-body-sm text-foreground-secondary">
-          Sacola nas cores da bandeira com estrela dourada (no lugar do brasão, que é proibido)
-          sobre navy. Nunca recebe sombra, contorno ou recolorização.
+          Sacola do Paraguai (Coral · branco com estrela · Pervinca) com a etiqueta do Brasil presa
+          na alça, sobre o tile Manteiga. ≥ 42 px completo; abaixo disso sai a estrela; &lt; 28 px
+          saem barbante e círculo e a alça engrossa. Nunca recebe sombra, contorno ou recolorização.
         </p>
       </Demo>
-      <Demo label="Wordmark" hint="tile em superfícies claras · só a sacola sobre brand-deep">
+      <Demo label="Lockup" hint="md no header desktop · sm no mobile · tone dark sobre brand-deep">
         <div className="flex flex-col gap-4">
           <BrandMark />
+          <BrandMark size="sm" />
           <div className="relative overflow-hidden rounded-lg bg-brand-deep p-4">
             <TricolorStripe className="absolute inset-x-0 top-0" />
-            <BrandMark tone="dark" className="mt-1" />
+            <BrandMark tone="dark" size="sm" className="mt-1" />
+          </div>
+        </div>
+      </Demo>
+      <Demo label="Paleta da marca" hint="pastel é fundo; o conteúdo por cima é sempre Tinta">
+        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {BRAND_PASTELS.map((c) => (
+            <li key={c.name} className="flex flex-col gap-2">
+              <span className="flex h-20 flex-col overflow-hidden rounded-lg">
+                <span className={cn("flex-1", c.strong)} />
+                <span className={cn("h-6", c.soft)} />
+              </span>
+              <span className="text-body-sm font-semibold text-foreground">{c.name}</span>
+              <span className="text-caption text-foreground-muted">{c.use}</span>
+            </li>
+          ))}
+        </ul>
+        <div className="mt-4 flex gap-3">
+          <span className="flex h-10 flex-1 items-center rounded-md bg-brand-lilas px-3 text-caption font-semibold text-foreground">
+            Lilás · atalho da conta
+          </span>
+          <span className="flex h-10 flex-1 items-center rounded-md bg-brand-ceu px-3 text-caption font-semibold text-foreground">
+            Céu · hero
+          </span>
+        </div>
+      </Demo>
+      <Demo
+        label="Fita Pervinca e faixa das quatro cores"
+        hint="brand-ribbon (4 px) na base do header · brand-quartet em splash e OG"
+      >
+        <div className="flex flex-col gap-4">
+          <div className="overflow-hidden rounded-lg border border-border bg-surface">
+            <div className="flex h-14 items-center px-4">
+              <BrandMark size="sm" compact />
+            </div>
+            <div aria-hidden className="brand-ribbon" />
+          </div>
+          <div aria-hidden className="h-2.5 rounded-full brand-quartet" />
+          <div className="overflow-hidden rounded-lg bg-brand-deep">
+            <TricolorStripe />
+            <p className="p-4 text-caption text-white/70">
+              Tricolor (3 px) só sobre brand-deep: painel, footer, splash.
+            </p>
           </div>
         </div>
       </Demo>
       <Demo
-        label="Assinatura tricolor"
-        hint="3 px · só sobre brand-deep / brand-tile (hero, splash, footer, painel)"
+        label="Arte do hero"
+        hint="Ponte da Amizade PY → BR · bandeiras na versão da marca (sem brasão)"
         className="md:col-span-2"
       >
-        <div className="overflow-hidden rounded-lg bg-brand-deep">
-          <TricolorStripe />
-          <div className="flex flex-col gap-4 p-6 text-white md:flex-row md:items-center md:justify-between">
-            <div className="flex flex-col gap-1">
-              <span className="text-caption font-medium tracking-[0.08em] text-blue-300 uppercase">
-                Hero da home
-              </span>
-              <span className="text-display">Do Paraguai para a sua casa</span>
-              <span className="text-body text-blue-300">
-                Preço, frete e impostos claros antes de pagar.
-              </span>
-            </div>
-            <BrandLogo size={72} />
+        <div className="flex flex-col overflow-hidden rounded-xl bg-brand-ceu md:flex-row md:items-center md:justify-between">
+          <div className="flex shrink-0 items-center gap-2 p-5 md:pl-8">
+            <FlagPY className="rounded-[3px]" />
+            <FlagBR className="rounded-[3px]" />
+            <span className="font-heading text-hero whitespace-nowrap text-foreground">
+              Boa tarde!
+            </span>
           </div>
+          <HeroIllustration className="w-full md:w-1/2 md:self-end" />
         </div>
       </Demo>
     </div>
@@ -148,11 +210,11 @@ export function PaletteSection() {
 
       <Demo
         label="Proporção por tela"
-        hint="~85 % neutros · ~10 % azul · ~5 % vermelho · um CTA vermelho por tela"
+        hint="~80 % Papel e branco · ~15 % pastéis da marca · ~5 % Coral · um CTA coral por tela"
       >
         <div className="flex h-8 overflow-hidden rounded-sm">
-          <span className="flex-[85] bg-surface-muted" />
-          <span className="flex-[10] bg-primary" />
+          <span className="flex-[80] bg-background" />
+          <span className="flex-[15] brand-quartet" />
           <span className="flex-[5] bg-cta" />
         </div>
       </Demo>
@@ -168,7 +230,7 @@ export function TypographySection() {
   return (
     <Demo
       label="Escala mobile"
-      hint="Geist Sans · hierarquia por peso e cor antes de tamanho · preços em tabular-nums"
+      hint="Figtree na interface e nos números · Bricolage Grotesque 800 só em títulos (font-heading) · preços em tabular-nums"
     >
       <ul className="flex flex-col divide-y divide-border">
         {TYPE_SCALE.map((s) => (

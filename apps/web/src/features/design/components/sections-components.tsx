@@ -67,7 +67,7 @@ const VARIANTS = [
   { variant: "cta", label: "Comprar agora", hint: "primary-cta · um por tela" },
   { variant: "primary", label: "Continuar", hint: "primary · ações sem conotação de compra" },
   { variant: "secondary", label: "Adicionar ao carrinho", hint: "surface + borda" },
-  { variant: "soft", label: "Ver loja", hint: "azul suave" },
+  { variant: "soft", label: "Ver loja", hint: "Pervinca suave" },
   { variant: "ghost", label: "Cancelar", hint: "só texto" },
   { variant: "link", label: "Ver política", hint: "link" },
   { variant: "destructive", label: "Remover item", hint: "sempre com ícone" },
@@ -134,7 +134,7 @@ export function ButtonsSection() {
         </Demo>
         <Demo
           label="CTA full-width no mobile"
-          hint="a linha de compra: CTA vermelho + secundário ao lado"
+          hint="a linha de compra: CTA coral + secundário ao lado"
           className="md:col-span-2"
         >
           <div className="flex flex-col gap-2 sm:flex-row">

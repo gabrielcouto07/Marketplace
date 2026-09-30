@@ -29,7 +29,7 @@ export function CheckoutStepper({ current }: { current: 1 | 2 | 3 }) {
                 aria-hidden
                 className={cn(
                   "flex size-6 shrink-0 items-center justify-center rounded-full border text-caption tabular-nums transition-colors",
-                  done && "border-primary bg-primary text-white",
+                  done && "border-primary bg-primary text-primary-foreground",
                   active && "border-primary bg-surface text-primary",
                   !done && !active && "border-border-strong bg-surface text-foreground-muted",
                 )}

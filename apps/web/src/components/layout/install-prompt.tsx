@@ -54,7 +54,7 @@ export function InstallPrompt() {
       className="fixed inset-x-0 bottom-[calc(var(--bottom-nav-height)+var(--safe-bottom))] z-40 border-t border-border bg-surface shadow-md md:bottom-0"
     >
       <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3">
-        <BrandLogo tile size={40} />
+        <BrandLogo size={40} />
         <div className="min-w-0 flex-1">
           <p id="install-title" className="truncate text-body-sm font-medium text-foreground">
             {t("installTitle")}

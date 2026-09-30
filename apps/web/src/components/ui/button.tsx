@@ -6,11 +6,11 @@ import { cn } from "@/lib/utils";
 
 /**
  * Botões (DESIGN.md › Padrões de componentes › Botões).
- * - `cta`: vermelho, 48 px, só um por tela (Comprar agora, Finalizar compra, Pagar).
- * - `primary` (padrão): azul, ações principais sem conotação de compra.
+ * - `cta`: Coral com texto Tinta, 48 px, só um por tela (Comprar agora, Finalizar compra, Pagar).
+ * - `primary` (padrão): Pervinca profunda com texto branco, ações principais sem conotação de compra.
  * - `secondary`: surface + borda (Adicionar ao carrinho, ao lado do CTA).
- * - `ghost`: só texto/ícone. `soft`: azul suave (chips de ação). `link`: texto sublinhado.
- * - `destructive`: vermelho escuro suave (sempre acompanhado de ícone + texto).
+ * - `ghost`: só texto/ícone. `soft`: Pervinca suave (chips de ação). `link`: texto sublinhado.
+ * - `destructive`: coral escuro sobre fundo suave (sempre acompanhado de ícone + texto).
  * - `floating`: branco com sombra, para flutuar sobre imagens (galeria).
  * - `inverse`: escuro sobre claro / claro sobre escuro (barras e toasts).
  * Todos com `loading` (spinner mantendo a largura), `disabled` e foco visível; toque ≥ 44 px.

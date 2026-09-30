@@ -17,9 +17,20 @@ interface StoreShellProps extends HeaderProps {
  * O padding inferior reserva espaço para a bottom nav + safe-area no mobile.
  */
 export function StoreShell({ children, hideBottomNav, ...header }: StoreShellProps) {
+  // Reserva a altura do header enquanto ele hidrata: home mobile tem duas linhas (64 + 68 + fita).
+  const homeBar = !header.title && !header.showBack && !header.hideSearch;
+  const fallback = (
+    <div
+      aria-hidden
+      className={cn(
+        "bg-surface md:h-(--header-height)",
+        header.hideMobileBar ? "max-md:hidden" : homeBar ? "h-34" : "h-17",
+      )}
+    />
+  );
   return (
     <>
-      <Suspense fallback={<div className="h-16 border-b border-border bg-surface" />}>
+      <Suspense fallback={fallback}>
         <Header {...header} />
       </Suspense>
       <OfflineBanner />

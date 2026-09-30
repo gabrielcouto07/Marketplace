@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { GeistSans } from "geist/font/sans";
+import { Bricolage_Grotesque, Figtree } from "next/font/google";
 import { notFound } from "next/navigation";
 import { hasLocale, NextIntlClientProvider } from "next-intl";
 import { getTranslations, setRequestLocale } from "next-intl/server";
@@ -11,6 +11,15 @@ import { Providers } from "@/components/layout/providers";
 import { routing } from "@/i18n/routing";
 import { env } from "@/lib/env";
 import { site } from "@/lib/site";
+
+/** Interface, textos e números (DESIGN.md › Tipografia). */
+const figtree = Figtree({ subsets: ["latin", "latin-ext"], variable: "--font-figtree" });
+
+/** Títulos e wordmark, sempre em 800 via `font-heading`. */
+const bricolage = Bricolage_Grotesque({
+  subsets: ["latin", "latin-ext"],
+  variable: "--font-bricolage",
+});
 
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
@@ -73,7 +82,11 @@ export default async function LocaleLayout({
   setRequestLocale(locale);
 
   return (
-    <html lang={locale} className={`${GeistSans.variable} h-full`} suppressHydrationWarning>
+    <html
+      lang={locale}
+      className={`${figtree.variable} ${bricolage.variable} h-full`}
+      suppressHydrationWarning
+    >
       <body className="flex min-h-full flex-col bg-background text-foreground">
         <NextIntlClientProvider>
           <Providers>{children}</Providers>

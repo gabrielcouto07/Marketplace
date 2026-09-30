@@ -50,7 +50,7 @@ export function InstallView() {
   return (
     <PageContainer className="flex flex-col gap-8 py-8">
       <section className="mx-auto flex w-full max-w-md flex-col items-center gap-6 text-center">
-        <BrandLogo tile size={72} />
+        <BrandLogo size={72} />
         <p className="text-body text-foreground-secondary">{tPwa("androidHint")}</p>
         <ul className="flex w-full flex-col gap-3 text-left">
           {benefits.map(({ icon: Icon, label }) => (
