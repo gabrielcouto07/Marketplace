@@ -3,6 +3,7 @@ import { BadgeCheck, Clock } from "lucide-react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
 
+import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "@/i18n/navigation";
 import { initials } from "@/lib/palette";
 import { cn } from "@/lib/utils";
@@ -193,5 +194,31 @@ export function SellerBadge({ seller, variant = "inline", metrics, className }: 
         <span className="font-medium text-primary">{t("viewStore")}</span>
       </span>
     </Link>
+  );
+}
+
+/** Skeleton no formato do `SellerBadge variant="card"`: avatar + nome/cidade, reputação e rodapé. */
+export function SellerCardSkeleton({ className }: { className?: string }) {
+  return (
+    <div
+      aria-hidden
+      className={cn(
+        "flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 shadow-xs",
+        className,
+      )}
+    >
+      <div className="flex items-center gap-3">
+        <Skeleton className="size-10 rounded-full" />
+        <div className="flex flex-1 flex-col gap-2">
+          <Skeleton className="h-3.5 w-2/3" />
+          <Skeleton className="h-3 w-1/2" />
+        </div>
+      </div>
+      <div className="flex flex-col gap-2">
+        <Skeleton className="h-3 w-full" />
+        <Skeleton className="h-1.5 w-full rounded-full" />
+      </div>
+      <Skeleton className="h-3 w-1/3" />
+    </div>
   );
 }

@@ -8,7 +8,7 @@ import { useState } from "react";
 import { PageContainer } from "@/components/layout/store-shell";
 import { CategoryTile } from "@/components/shared/category-tile";
 import { ProductCard, ProductCardSkeleton } from "@/components/shared/product-card";
-import { SellerBadge } from "@/components/shared/seller-badge";
+import { SellerBadge, SellerCardSkeleton } from "@/components/shared/seller-badge";
 import { ErrorState, HorizontalScroller, SectionHeader } from "@/components/shared/states";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useHome } from "@/features/catalog/api";
@@ -73,10 +73,12 @@ export function HomeView() {
         </PageContainer>
 
         <PageContainer>
-          <SectionHeader title={t("featuredSellers")} />
+          <SectionHeader title={t("featuredSellers")} action={<SeeAllLink href="/lojas" />} />
           <HorizontalScroller>
             {isPending
-              ? Array.from({ length: 3 }).map((_, i) => <SellerCardSkeleton key={i} />)
+              ? Array.from({ length: 3 }).map((_, i) => (
+                  <SellerCardSkeleton key={i} className="w-[260px] shrink-0" />
+                ))
               : data.featuredSellers.map((s) => <SellerRailItem key={s.id} seller={s} />)}
           </HorizontalScroller>
         </PageContainer>
@@ -215,29 +217,6 @@ function SellerRailItem({ seller }: { seller: SellerSummaryDto }) {
   return (
     <div className="w-[260px] shrink-0">
       <SellerBadge seller={seller} variant="card" />
-    </div>
-  );
-}
-
-/** Skeleton no formato do `SellerBadge variant="card"`: avatar + nome/cidade, reputação e rodapé. */
-function SellerCardSkeleton() {
-  return (
-    <div
-      aria-hidden
-      className="flex w-[260px] shrink-0 flex-col gap-3 rounded-lg border border-border bg-surface p-4 shadow-xs"
-    >
-      <div className="flex items-center gap-3">
-        <Skeleton className="size-10 rounded-full" />
-        <div className="flex flex-1 flex-col gap-2">
-          <Skeleton className="h-3.5 w-2/3" />
-          <Skeleton className="h-3 w-1/2" />
-        </div>
-      </div>
-      <div className="flex flex-col gap-2">
-        <Skeleton className="h-3 w-full" />
-        <Skeleton className="h-1.5 w-full rounded-full" />
-      </div>
-      <Skeleton className="h-3 w-1/3" />
     </div>
   );
 }

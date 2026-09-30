@@ -329,7 +329,19 @@
     "reputation": "Reputación",
     "reviewsCount": "{count, plural, one {# opinión} other {# opiniones}}",
     "exchangeTitle": "Cambios y devoluciones",
-    "memberSinceLabel": "En la plataforma desde"
+    "memberSinceLabel": "En la plataforma desde",
+    "storesTitle": "Tiendas",
+    "storesSubtitle": "{count, plural, one {# tienda verificada} other {# tiendas verificadas}} en Paraguay",
+    "storesSortLabel": "Ordenar tiendas",
+    "storesSort": {
+      "featured": "Destacadas",
+      "reputation": "Mejor reputación",
+      "name": "Nombre (A–Z)"
+    },
+    "onlyOfficial": "Tiendas oficiales",
+    "noOfficialStores": "Todavía no hay tiendas oficiales",
+    "noOfficialStoresHint": "Quitá el filtro para ver todas las tiendas verificadas.",
+    "showAllStores": "Ver todas las tiendas"
   },
   "cart": {
     "title": "Carrito",

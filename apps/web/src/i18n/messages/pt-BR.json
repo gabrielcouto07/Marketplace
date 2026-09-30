@@ -329,7 +329,19 @@
     "reputation": "Reputação",
     "reviewsCount": "{count, plural, one {# avaliação} other {# avaliações}}",
     "exchangeTitle": "Trocas e devoluções",
-    "memberSinceLabel": "Na plataforma desde"
+    "memberSinceLabel": "Na plataforma desde",
+    "storesTitle": "Lojas",
+    "storesSubtitle": "{count, plural, one {# loja verificada} other {# lojas verificadas}} no Paraguai",
+    "storesSortLabel": "Ordenar lojas",
+    "storesSort": {
+      "featured": "Em destaque",
+      "reputation": "Melhor reputação",
+      "name": "Nome (A–Z)"
+    },
+    "onlyOfficial": "Lojas oficiais",
+    "noOfficialStores": "Nenhuma loja oficial por enquanto",
+    "noOfficialStoresHint": "Tire o filtro para ver todas as lojas verificadas.",
+    "showAllStores": "Ver todas as lojas"
   },
   "cart": {
     "title": "Carrinho",

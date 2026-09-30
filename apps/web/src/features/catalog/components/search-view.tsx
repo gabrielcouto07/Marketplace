@@ -110,8 +110,13 @@ export function SearchView({ fixed = {}, hideHeading, className }: SearchViewPro
     : fixed.categorySlug
       ? "category"
       : "search";
-  // Sugestões só na busca livre sem termo nem filtros.
-  const showSuggestions = mode === "search" && !fixed.sellerSlug && !filters.q && activeCount === 0;
+  // Sugestões só na busca livre sem termo, filtros nem ordenação: um `sort` na URL é uma listagem
+  // (ex.: "Ver tudo" de Novidades e Mais vendidos na home) e deve mostrar resultados.
+  const showSuggestions =
+    mode === "search" && !fixed.sellerSlug && !filters.q && !filters.sort && activeCount === 0;
+  // Listagem sem termo (ex.: /busca?sort=newest): o título vira o nome da ordenação.
+  const listingSort =
+    !filters.q && filters.sort && filters.sort !== "relevance" ? filters.sort : null;
 
   // Histórico de buscas: registra o termo aplicado na URL.
   useEffect(() => {
@@ -168,7 +173,7 @@ export function SearchView({ fixed = {}, hideHeading, className }: SearchViewPro
             <SearchField
               value={filters.q ?? ""}
               onSubmit={(q) => navigate({ ...filters, q: q || undefined })}
-              autoFocus={!filters.q}
+              autoFocus={showSuggestions}
             />
           </PageContainer>
         </div>
@@ -181,8 +186,15 @@ export function SearchView({ fixed = {}, hideHeading, className }: SearchViewPro
           className={cn("flex flex-col gap-4", mode === "embedded" ? "pt-4" : "pt-4 md:pt-8")}
         >
           {mode === "search" ? (
-            <h1 className="hidden text-title-1 text-foreground md:block">
-              {filters.q ? t("resultsFor", { query: filters.q }) : t("searchTitle")}
+            // No mobile a barra de topo só tem o input: numa listagem o título é o único contexto.
+            <h1
+              className={cn("text-title-1 text-foreground", listingSort ? null : "hidden md:block")}
+            >
+              {filters.q
+                ? t("resultsFor", { query: filters.q })
+                : listingSort
+                  ? sortItems[listingSort]
+                  : t("searchTitle")}
             </h1>
           ) : null}
           {mode === "category" ? (
