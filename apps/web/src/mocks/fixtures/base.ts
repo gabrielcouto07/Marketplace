@@ -119,7 +119,7 @@ export const CATEGORIES: CategoryDto[] = CATEGORY_SEED.map((c) => ({
   slug: c.slug,
   name: c.name,
   iconKey: c.iconKey,
-  imageUrl: `/images/categories/${c.slug}.svg`,
+  imageUrl: `/images/categories/${c.slug}.webp`,
   parentId: null,
   productCount: 8,
 }));
@@ -319,7 +319,7 @@ export const SELLERS: SellerDto[] = SELLER_SEED.map((s) => ({
   },
   exchangePolicy:
     "Trocas e devoluções em até 30 dias após o recebimento para produtos lacrados ou com defeito de fabricação. O frete de devolução é por conta da loja em caso de defeito.",
-  bannerUrl: `/images/banners/seller-${s.slug}.svg`,
+  bannerUrl: `/images/banners/seller-${s.slug}.webp`,
   categories: s.categories
     .map((slug) => categoryBySlug(slug))
     .filter((c): c is CategoryDto => Boolean(c))

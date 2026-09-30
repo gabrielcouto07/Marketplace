@@ -5,6 +5,8 @@ const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // O CLAUDE.md da raiz é a fonte de instruções; não gerar AGENTS.md/CLAUDE.md automáticos em apps/web.
+  agentRules: false,
   // Pacote de contratos do monorepo é consumido como TS puro.
   transpilePackages: ["@marketplace/contracts"],
   images: {

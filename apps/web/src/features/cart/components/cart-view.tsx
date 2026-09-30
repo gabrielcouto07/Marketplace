@@ -4,7 +4,7 @@ import type { Money } from "@marketplace/contracts";
 import { Package, WifiOff } from "lucide-react";
 import Image from "next/image";
 import { useTranslations } from "next-intl";
-import { useSyncExternalStore } from "react";
+import { useSyncExternalStore, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { usePwa } from "@/components/layout/pwa-provider";
@@ -26,13 +26,21 @@ import {
   type CartSellerGroup,
 } from "@/features/cart/store";
 import { Link } from "@/i18n/navigation";
-import { formatMoney, sum } from "@/lib/money";
+import { blurDataUrlFor, isDirectImage } from "@/lib/images";
+import { formatMoney, multiplyBasisPoints, sum } from "@/lib/money";
+import { cn } from "@/lib/utils";
 
 /**
  * Regra de frete grátis por loja (mock): a partir de R$ 300,00 de subtotal na mesma loja.
  * Valor em centavos. Quando a API real existir, deve vir na cotação/loja.
  */
 const FREE_SHIPPING_THRESHOLD_CENTS = 30000;
+
+/**
+ * Estimativa informativa dos impostos de importação (60 %), a mesma da página de produto e do mock
+ * do checkout. O valor exato vem na cotação do checkout (`estimatedImportTax`).
+ */
+const IMPORT_TAX_BASIS_POINTS = 6000;
 
 /** true após a store persistida do carrinho reidratar do localStorage (evita mismatch de hidratação). */
 export function useCartHydration(): boolean {
@@ -120,9 +128,17 @@ export function CartView() {
 
   return (
     <PageContainer className="flex flex-col gap-4 pt-4">
-      <p className="text-caption text-foreground-secondary tabular-nums">
-        {t("itemCount", { count })}
-      </p>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-caption text-foreground-secondary tabular-nums">
+          {t("itemCount", { count })}
+        </p>
+        <Link
+          href="/"
+          className="rounded-sm text-body-sm font-semibold text-primary focus-ring hover:underline"
+        >
+          {t("continueShopping")}
+        </Link>
+      </div>
 
       {!isOnline ? <OfflineNote /> : null}
 
@@ -138,44 +154,14 @@ export function CartView() {
           ))}
         </div>
 
-        {/* Resumo (desktop) */}
-        <section
-          aria-label={t("estimatedTotal")}
-          className="hidden flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-xs lg:sticky lg:top-[calc(var(--header-height)+1rem)] lg:flex"
-        >
-          <dl className="flex flex-col gap-2 text-body-sm">
-            <div className="flex justify-between gap-3">
-              <dt className="text-foreground-secondary">{t("products")}</dt>
-              <dd className="font-medium text-foreground tabular-nums">{formatMoney(subtotal)}</dd>
-            </div>
-            <div className="flex justify-between gap-3">
-              <dt className="text-foreground-secondary">{t("shippingAndTaxes")}</dt>
-              <dd className="text-foreground-muted">{t("calculatedAtCheckout")}</dd>
-            </div>
-          </dl>
-          {referenceSubtotal ? (
-            <p className="text-caption text-foreground-muted tabular-nums">
-              ≈ {formatMoney(referenceSubtotal)}
-            </p>
-          ) : null}
-          <p className="flex items-start gap-2 text-caption text-foreground-secondary">
-            <Package
-              className="mt-px size-4 shrink-0 text-primary"
-              strokeWidth={1.75}
-              aria-hidden
-            />
-            {t("groupedNote")}
-          </p>
-          <Button variant="cta" fullWidth render={<Link href={checkoutHref} />}>
-            {t("checkoutCta")}
-          </Button>
-        </section>
+        {/* Resumo: card inline no mobile (sem CTA, que vive na barra fixa); coluna fixa no desktop. */}
+        <CartSummary
+          subtotal={subtotal}
+          referenceSubtotal={referenceSubtotal}
+          checkoutHref={checkoutHref}
+          className="lg:sticky lg:top-[calc(var(--header-height)+1rem)]"
+        />
       </div>
-
-      <p className="flex items-start gap-2 text-caption text-foreground-secondary lg:hidden">
-        <Package className="mt-px size-4 shrink-0 text-primary" strokeWidth={1.75} aria-hidden />
-        {t("groupedNote")}
-      </p>
 
       {/* Espaço para a barra fixa não cobrir o conteúdo no mobile. */}
       <div className="h-24 lg:hidden" aria-hidden />
@@ -211,6 +197,112 @@ function OfflineNote() {
       <WifiOff className="mt-0.5 size-4 shrink-0" strokeWidth={1.75} aria-hidden />
       {t("offlineNote")}
     </p>
+  );
+}
+
+/**
+ * Resumo do carrinho (clareza de dinheiro): produtos, impostos estimados com explicação de uma
+ * linha e frete "calculado no checkout"; total estimado em destaque com a referência em guaranis.
+ * O CTA só aparece no desktop — no mobile ele vive na barra fixa.
+ */
+function CartSummary({
+  subtotal,
+  referenceSubtotal,
+  checkoutHref,
+  className,
+}: {
+  subtotal: Money;
+  referenceSubtotal: Money | null;
+  checkoutHref: string;
+  className?: string;
+}) {
+  const t = useTranslations("cart");
+  const estimatedTax = multiplyBasisPoints(subtotal, IMPORT_TAX_BASIS_POINTS);
+  const estimatedTotal: Money = {
+    amount: subtotal.amount + estimatedTax.amount,
+    currency: subtotal.currency,
+  };
+  const estimatedReference: Money | null =
+    referenceSubtotal && subtotal.amount > 0
+      ? {
+          amount: Math.round((referenceSubtotal.amount * estimatedTotal.amount) / subtotal.amount),
+          currency: referenceSubtotal.currency,
+        }
+      : null;
+
+  return (
+    <section
+      aria-label={t("summaryTitle")}
+      className={cn(
+        "flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-xs",
+        className,
+      )}
+    >
+      <h2 className="text-title-3 text-foreground">{t("summaryTitle")}</h2>
+      <dl className="flex flex-col gap-3 text-body-sm">
+        <SummaryRow label={t("products")} value={formatMoney(subtotal)} />
+        <SummaryRow
+          label={t("estimatedTaxes")}
+          value={formatMoney(estimatedTax)}
+          hint={t("estimatedTaxesHint")}
+        />
+        <SummaryRow
+          label={t("shipping")}
+          value={t("calculatedAtCheckout")}
+          valueClassName="font-normal text-foreground-muted"
+        />
+      </dl>
+      <div className="flex flex-col gap-1 border-t border-border pt-4">
+        <div className="flex items-baseline justify-between gap-3">
+          <span className="text-body-sm font-medium text-foreground">{t("estimatedTotal")}</span>
+          <span className="text-title-2 text-foreground tabular-nums">
+            {formatMoney(estimatedTotal)}
+          </span>
+        </div>
+        {estimatedReference ? (
+          <span className="self-end text-caption text-foreground-muted tabular-nums">
+            ≈ {formatMoney(estimatedReference)}
+          </span>
+        ) : null}
+        <p className="text-caption text-foreground-muted">{t("estimatedTotalNote")}</p>
+      </div>
+      <p className="flex items-start gap-2 text-caption text-foreground-secondary">
+        <Package className="mt-px size-4 shrink-0 text-primary" strokeWidth={1.75} aria-hidden />
+        {t("groupedNote")}
+      </p>
+      <Button
+        variant="cta"
+        fullWidth
+        className="hidden lg:inline-flex"
+        render={<Link href={checkoutHref} />}
+      >
+        {t("checkoutCta")}
+      </Button>
+    </section>
+  );
+}
+
+function SummaryRow({
+  label,
+  value,
+  hint,
+  valueClassName,
+}: {
+  label: ReactNode;
+  value: ReactNode;
+  hint?: string;
+  valueClassName?: string;
+}) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <div className="flex items-baseline justify-between gap-3">
+        <dt className="text-foreground-secondary">{label}</dt>
+        <dd className={cn("text-right font-medium text-foreground tabular-nums", valueClassName)}>
+          {value}
+        </dd>
+      </div>
+      {hint ? <dd className="text-caption text-foreground-muted">{hint}</dd> : null}
+    </div>
   );
 }
 
@@ -261,9 +353,18 @@ function SellerGroupCard({
           <li key={line.key} className="flex gap-3 p-4">
             <Link
               href={`/produto/${line.slug}`}
-              className="relative size-16 shrink-0 pressable overflow-hidden rounded-md bg-surface-muted focus-ring"
+              className="relative size-20 shrink-0 pressable overflow-hidden rounded-md bg-surface-muted focus-ring"
             >
-              <Image src={line.thumbnailUrl} alt="" fill sizes="64px" className="object-contain" />
+              <Image
+                src={line.thumbnailUrl}
+                alt=""
+                fill
+                sizes="80px"
+                placeholder="blur"
+                blurDataURL={blurDataUrlFor(line.thumbnailUrl)}
+                unoptimized={isDirectImage(line.thumbnailUrl)}
+                className="object-contain"
+              />
             </Link>
             <div className="flex min-w-0 flex-1 flex-col gap-2">
               <div className="flex flex-col">
@@ -280,7 +381,7 @@ function SellerGroupCard({
                 ) : null}
               </div>
               <div className="flex items-end justify-between gap-3">
-                <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-0.5">
                   <PriceTag
                     size="sm"
                     price={{
@@ -288,6 +389,14 @@ function SellerGroupCard({
                       currency: line.unitPrice.currency,
                     }}
                   />
+                  {line.quantity > 1 ? (
+                    <span className="text-caption text-foreground-muted tabular-nums">
+                      {t("unitPrice", {
+                        count: line.quantity,
+                        amount: formatMoney(line.unitPrice),
+                      })}
+                    </span>
+                  ) : null}
                   {line.quantity >= line.maxQuantity ? (
                     <span className="text-caption text-warning">
                       {t("maxQuantity", { max: line.maxQuantity })}
@@ -336,7 +445,7 @@ function CartSkeleton() {
             <Skeleton className="h-6 w-48 rounded-sm" />
           </div>
           <div className="flex gap-3 border-t border-border p-4">
-            <Skeleton className="size-16" />
+            <Skeleton className="size-20" />
             <div className="flex flex-1 flex-col gap-2">
               <Skeleton className="h-4 w-full" />
               <Skeleton className="h-3 w-1/2" />

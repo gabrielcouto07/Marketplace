@@ -375,3 +375,16 @@ A paleta padrão do Tailwind foi **desligada** (`--color-*: initial`): só exist
 7. **Sem aliases legados**: as classes do redesign anterior (`ink-*`, `line-*`, `canvas-*`, `surface-strong`,
    `shadow-card|float|cta|ink`, `rounded-2xl/3xl/4xl`, `animate-rise`) foram removidas de `globals.css` após a
    migração de todas as telas (25/09/2026). O mapeamento usado está em `docs/MIGRATION_BRIEF.md`.
+8. **Fotografia real (30/09/2026)**: produtos, categorias, banners e capas de loja usam fotos (WebP) geradas por
+   `apps/web/scripts/fetch-product-images.mjs` a partir de `product-images.manifest.json` (ver `docs/MOCKS.md ›
+Imagens`). Regras derivadas:
+   - Os assets de produto são normalizados para **1:1** no build; por isso `object-contain` preenche o palco sem
+     padding (o "respiro" vem da própria foto). Uploads de vendedor que não sejam quadrados continuam em
+     `object-contain` sobre `surface-muted`, nunca cortados.
+   - O `placeholder="blur"` usa a **cor dominante** de cada asset (`lib/images.ts › blurDataUrlFor`), não um
+     cinza genérico: a foto "revela" sobre o próprio tom.
+   - Sobre fotos, texto branco só com **scrim em `brand-deep`** (`bg-linear-to-t from-brand-deep/85 …`), que é um
+     degradê de uma cor só para contraste, não decoração. Banners da home, tiles de categoria (`variant="card"`)
+     e a capa da loja seguem isso; o tom do banner (`red`/`blue`/`neutral`) vira apenas o chip do título.
+   - O `ProductCard` tem corpo de estrutura fixa (título → avaliação → preço → rodapé) para alinhar preços entre
+     vizinhos; a linha de avaliação existe mesmo vazia. No carrossel a largura é 176 px (`w-44`).

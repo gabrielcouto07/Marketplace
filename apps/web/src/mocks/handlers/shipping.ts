@@ -6,7 +6,7 @@ import type {
 import { HttpResponse, http } from "msw";
 
 import { EXCHANGE_RATES, sellerById } from "../fixtures/base";
-import { productById } from "../fixtures/products";
+import { findProductRecord } from "../catalog-state";
 import { lookupPostalCode, quoteShipping } from "../fixtures/shipping";
 import { API, notFound, serverError, simulateLatency, validation } from "./utils";
 
@@ -32,9 +32,9 @@ export const shippingHandlers = [
     if (!destination) return notFound("CEP");
 
     // Frete grátis quando todos os itens da loja têm freeShipping e subtotal >= R$ 300
-    const products = body.items.map((i) => productById(i.productId)?.detail).filter(Boolean);
+    const products = body.items.map((i) => findProductRecord(i.productId)?.detail).filter(Boolean);
     const subtotal = body.items.reduce((acc, i) => {
-      const p = productById(i.productId)?.detail;
+      const p = findProductRecord(i.productId)?.detail;
       const variant = i.variantId ? p?.variants.find((v) => v.id === i.variantId) : null;
       return acc + (variant?.price.amount ?? p?.price.amount ?? 0) * i.quantity;
     }, 0);

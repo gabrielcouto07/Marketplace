@@ -1,5 +1,7 @@
 "use client";
 
+import { BadgeCheck } from "lucide-react";
+import Image from "next/image";
 import { useFormatter, useTranslations } from "next-intl";
 
 import { PageContainer } from "@/components/layout/store-shell";
@@ -14,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useProductSearch } from "@/features/catalog/api";
 import { useSeller, useSellerReviews } from "@/features/seller/api";
 import { Link } from "@/i18n/navigation";
+import { blurDataUrlFor } from "@/lib/images";
 import { cn } from "@/lib/utils";
 
 const CARD = "rounded-lg border border-border bg-surface p-4 shadow-xs";
@@ -62,9 +65,36 @@ export function SellerView({ slug }: { slug: string }) {
 
   return (
     <PageContainer className="flex flex-col gap-4 py-4 lg:py-6">
-      <section aria-labelledby="seller-name" className={cn(CARD, "flex flex-col gap-4")}>
-        <div className="flex items-center gap-4">
-          <SellerAvatar seller={seller} size="xl" />
+      <section aria-labelledby="seller-name" className={cn(CARD, "overflow-hidden p-0")}>
+        {/* Capa fotográfica da loja com scrim em brand-deep; o avatar sobrepõe a borda inferior. */}
+        <div className="relative h-28 bg-brand-deep sm:h-36">
+          {seller.bannerUrl ? (
+            <Image
+              src={seller.bannerUrl}
+              alt=""
+              fill
+              priority
+              sizes="(max-width: 1152px) 100vw, 1152px"
+              placeholder="blur"
+              blurDataURL={blurDataUrlFor(seller.bannerUrl)}
+              className="object-cover"
+            />
+          ) : null}
+          <span
+            aria-hidden
+            className="absolute inset-0 bg-linear-to-t from-brand-deep/60 to-brand-deep/0"
+          />
+        </div>
+        {/* `relative` para o conteúdo pintar acima da foto (posicionada) da capa. */}
+        <div className="relative -mt-8 flex flex-col gap-4 px-4 pb-4">
+          <div className="flex items-end justify-between gap-4">
+            <SellerAvatar seller={seller} size="xl" />
+            {seller.isOfficialStore ? (
+              <Badge variant="soft" className="mb-1">
+                <BadgeCheck strokeWidth={1.75} aria-hidden /> {t("officialStore")}
+              </Badge>
+            ) : null}
+          </div>
           <div className="flex min-w-0 flex-col gap-1">
             <h1 id="seller-name" className="flex items-center gap-2 text-title-2 text-foreground">
               <span className="min-w-0 truncate">{seller.name}</span>
@@ -75,40 +105,40 @@ export function SellerView({ slug }: { slug: string }) {
               {t("yearsOnMarketplace", { years: yearsSince(seller.memberSince) })}
             </p>
           </div>
-        </div>
 
-        <p className="text-body-sm leading-relaxed text-foreground-secondary">
-          {seller.description}
-        </p>
+          <p className="text-body-sm leading-relaxed text-foreground-secondary">
+            {seller.description}
+          </p>
 
-        <div className="flex flex-col gap-2 border-t border-border pt-4">
-          <div className="flex items-center justify-between gap-2 text-caption">
-            <span className="text-foreground-secondary">{tt("reputationLabel")}</span>
-            <span className="font-medium text-foreground">
-              {t(`reputationLabels.${seller.reputationLevel}`)}
-            </span>
+          <div className="flex flex-col gap-2 border-t border-border pt-4">
+            <div className="flex items-center justify-between gap-2 text-caption">
+              <span className="text-foreground-secondary">{tt("reputationLabel")}</span>
+              <span className="font-medium text-foreground">
+                {t(`reputationLabels.${seller.reputationLevel}`)}
+              </span>
+            </div>
+            <ReputationMeter level={seller.reputationLevel} />
+            <RatingStars
+              value={seller.rating}
+              count={seller.reviewCount}
+              variant="compact"
+              size="xs"
+              className="mt-1"
+            />
           </div>
-          <ReputationMeter level={seller.reputationLevel} />
-          <RatingStars
-            value={seller.rating}
-            count={seller.reviewCount}
-            variant="compact"
-            size="xs"
-            className="mt-1"
-          />
-        </div>
 
-        <ul
-          aria-label={t("metricsTitle")}
-          className="grid grid-cols-2 gap-4 border-t border-border pt-4"
-        >
-          {metrics.map(({ value, label }) => (
-            <li key={label} className="flex flex-col">
-              <span className="text-title-3 text-foreground tabular-nums">{value}</span>
-              <span className="text-caption text-foreground-muted">{label}</span>
-            </li>
-          ))}
-        </ul>
+          <ul
+            aria-label={t("metricsTitle")}
+            className="grid grid-cols-2 gap-4 border-t border-border pt-4"
+          >
+            {metrics.map(({ value, label }) => (
+              <li key={label} className="flex flex-col">
+                <span className="text-title-3 text-foreground tabular-nums">{value}</span>
+                <span className="text-caption text-foreground-muted">{label}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
       </section>
 
       <Tabs defaultValue="products" className="gap-4">

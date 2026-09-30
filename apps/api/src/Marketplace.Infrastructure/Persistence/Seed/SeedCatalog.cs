@@ -114,7 +114,7 @@ public static class SeedCatalog
             Slug = c.Slug,
             Name = c.Name,
             IconKey = c.IconKey,
-            ImageUrl = $"/images/categories/{c.Slug}.svg",
+            ImageUrl = $"/images/categories/{c.Slug}.webp",
             SortOrder = i,
         }).ToList();
         var categoryBySlug = categories.ToDictionary(c => c.Slug);
@@ -125,7 +125,7 @@ public static class SeedCatalog
             Slug = s.Slug,
             Name = s.Name,
             LogoUrl = $"/images/sellers/{s.Slug}.svg",
-            BannerUrl = $"/images/banners/seller-{s.Slug}.svg",
+            BannerUrl = $"/images/banners/seller-{s.Slug}.webp",
             ReputationLevel = s.ReputationLevel,
             IsOfficialStore = s.IsOfficialStore,
             City = s.City,
@@ -177,7 +177,7 @@ public static class SeedCatalog
                 {
                     Id = Guid($"{key}:image:{n}"),
                     ProductId = productId,
-                    Url = $"/images/products/{category.Slug}-{i + 1}-{n}.svg",
+                    Url = $"/images/products/{category.Slug}-{i + 1}-{n}.webp",
                     Alt = $"{t.Name} — imagem {n}",
                     SortOrder = n,
                 }).ToList();
@@ -351,8 +351,8 @@ public static class SeedCatalog
 
     public static List<Banner> Banners() =>
     [
-        new() { Id = Guid("banner:1"), Title = "Semana da Tecnologia", Subtitle = "Até 40% off em smartphones e notebooks", ImageUrl = "/images/banners/tech.svg", Href = "/busca?onlyOffers=true&categorySlug=celulares", Tone = BannerTone.blue, SortOrder = 1 },
-        new() { Id = Guid("banner:2"), Title = "Perfumes originais", Subtitle = "Importadora oficial com lote verificável", ImageUrl = "/images/banners/perfumes.svg", Href = "/categoria/perfumes", Tone = BannerTone.red, SortOrder = 2 },
-        new() { Id = Guid("banner:3"), Title = "Frete grátis acima de R$ 300", Subtitle = "Nas lojas participantes, com rastreio ponta a ponta", ImageUrl = "/images/banners/frete.svg", Href = "/busca?freeShipping=true", Tone = BannerTone.neutral, SortOrder = 3 },
+        new() { Id = Guid("banner:1"), Title = "Semana da Tecnologia", Subtitle = "Até 40% off em smartphones e notebooks", ImageUrl = "/images/banners/tech.webp", Href = "/busca?onlyOffers=true&categorySlug=celulares", Tone = BannerTone.blue, SortOrder = 1 },
+        new() { Id = Guid("banner:2"), Title = "Perfumes originais", Subtitle = "Importadora oficial com lote verificável", ImageUrl = "/images/banners/perfumes.webp", Href = "/categoria/perfumes", Tone = BannerTone.red, SortOrder = 2 },
+        new() { Id = Guid("banner:3"), Title = "Frete grátis acima de R$ 300", Subtitle = "Nas lojas participantes, com rastreio ponta a ponta", ImageUrl = "/images/banners/frete.webp", Href = "/busca?freeShipping=true", Tone = BannerTone.neutral, SortOrder = 3 },
     ];
 }

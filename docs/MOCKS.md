@@ -19,22 +19,57 @@ Ativação: `NEXT_PUBLIC_API_MOCKING=true` (`.env.local`). Com `false`, o app fa
   Caballero), métricas e política de troca (`base.ts`).
 - **Produtos (64)**: 8 templates por categoria em `product-templates.json` (nomes genéricos, sem marcas), preço base
   em centavos, `compareAt`, atributos, variações (Cor/Tamanho/Armazenamento/Volume…), garantia. `products.ts` gera
-  slug (`slugify(nome)-<cat3><n>`), imagens `/images/products/<cat>-<n>-<1..3>.svg`, variantes (produto cartesiano,
+  slug (`slugify(nome)-<cat3><n>`), imagens `/images/products/<cat>-<n>-<1..3>.webp`, variantes (produto cartesiano,
   +18% por degrau da 1ª opção quando ela é "tamanho/capacidade"), estoque (alguns esgotados), avaliações (3–6) com
   distribuição, perguntas (1–4), `isNew` (< 30 dias), `isOffer` (≥ 15% off), `freeShipping` (≥ R$ 300 e sorteio).
 - **Câmbio**: BRL→PYG 1389/100, PYG→BRL 72/1000, USD→BRL 540/100.
-- **Usuário demo**: `demo@mktpy.com` / `123456`, CPF `529.982.247-25` (válido), 2 endereços (SP e PR).
+- **Contas demo** (senha `123456` para todas):
+  - `demo@mktpy.com` — comprador (CPF `529.982.247-25`, 2 endereços SP/PR, 11 pedidos em todos os status);
+  - `loja@mktpy.com` — vendedor da **TecnoCentro CDE**, entra no painel `/vendedor`;
+  - `admin@mktpy.com` — administrador, entra em `/admin` (via `/admin/entrar`).
+    O mock tem um usuário ativo por vez: trocar de conta substitui `db.user`; pedidos/endereços são compartilhados.
 - **Pedidos (11)**: um em cada status do ciclo de vida, com timeline, rastreio (quando enviado), pagamento
   correspondente (Pix/boleto/cartão) — `orders.ts`.
 - **Frete** (`shipping.ts`): região pelo 1º dígito do CEP → cidade/UF, acréscimo de preço e dias; duas opções
   (econômico 12–25 d.u., expresso 5–10 d.u.); frete grátis quando todos os itens da loja têm `freeShipping` e o
   subtotal ≥ R$ 300.
 
-## Imagens placeholder
+## Imagens (fotografias reais)
 
-`scripts/generate-product-images.mjs` gera SVGs locais (sem marcas): 192 imagens de produto (64 × 3 variações de
-tom/rotação), 8 de categoria, 3 banners, 8 logos e 8 banners de loja. `pnpm images` para regerar. Os SVGs são
-servidos por `next/image` com `dangerouslyAllowSVG` + CSP restritiva.
+As fotos de produto, categoria, banner e capa de loja são fotografias do Unsplash (licença livre para uso
+comercial, sem atribuição obrigatória), baixadas e otimizadas localmente:
+
+| Arquivo                                | Papel                                                                                                                                                                                    |
+| -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scripts/product-images.manifest.json` | IDs de foto por template (`<categoria>-<n>`: até 3 fotos), por categoria, por banner e por loja. Quando um template tem menos de 3 fotos, o script gera recortes de detalhe da primeira. |
+| `scripts/fetch-product-images.mjs`     | Baixa (cache em `scripts/.image-cache`, ignorado no git) e gera WebP: produtos 800×800, categorias 640×640, banners 1200×600, capas de loja 1200×400. `pnpm --filter web images`.        |
+| `src/lib/image-blur.json`              | Cor dominante de cada asset, gerada pelo mesmo script; `lib/images.ts › blurDataUrlFor(url)` monta o placeholder de `next/image` com ela.                                                |
+| `scripts/generate-product-images.mjs`  | Só o que continua vetorial: monogramas das lojas (`/images/sellers/*.svg`) e `/images/products/placeholder.svg` (anúncio sem foto). Roda no `prebuild`.                                  |
+
+Os WebP são commitados (≈ 9 MB) e ficam **fora do precache** do service worker (`serwist.config.mjs › globIgnores`);
+o runtime caching `images` (CacheFirst, 30 dias) guarda só o que o usuário viu. Para trocar uma foto, edite o ID no
+manifest e rode `pnpm --filter web images --force`. Os nomes dos templates em `product-templates.json` (cópia
+idêntica em `apps/api/.../Seed/`) foram ajustados para casar com as fotos disponíveis.
+
+## Painéis do vendedor e do admin no mock
+
+`handlers/seller-panel.ts` e `handlers/admin.ts` cobrem todos os endpoints de `/seller/*` e `/admin/*` usados pelos
+painéis, sobre o **catálogo vivo** (`src/mocks/catalog-state.ts`): fixtures + `db.productOverrides` /
+`db.customProducts` / `db.sellerOverrides` / `db.customSellers`. Tudo que o painel altera aparece na vitrine
+(home, busca, produto, loja e checkout leem de lá).
+
+| Recurso                                            | Comportamento no mock                                                                                                                             |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/seller/register`                                 | cria a loja (status **Pendente** até o admin aprovar), associa ao usuário e devolve nova sessão com o papel Vendedor                              |
+| `/seller/products`                                 | lista/cria/edita/arquiva; produtos criados entram no catálogo público; `Arquivado`/`Rascunho` somem da vitrine                                    |
+| `/seller/orders/:id/prepare` · `/ship`             | `Pago → EmPreparacao → Enviado`, com rastreio e evento de postagem                                                                                |
+| `/seller/uploads` + `PUT/GET /uploads/mock/*`      | upload em duas etapas; os bytes ficam em base64 no `db` (orçamento ~3 MB) e são servidos pelo próprio MSW (`unoptimized` no `next/image`)         |
+| `/admin/overview`                                  | KPIs, vendas por dia (30 d), pedidos por status e recentes, calculados a partir de `db.orders`/`db.payments`                                      |
+| `/admin/users`                                     | 3 contas demo + 6 compradores fictícios; bloquear/desbloquear/anonimizar em `db.userStates`                                                       |
+| `/admin/sellers` · `/products`                     | moderação por overrides (status, reputação, loja oficial, preço, estoque)                                                                         |
+| `/admin/orders` · `/payments` · `/payouts`         | transições com rastreio/nota, resolução de disputa, estorno (pedido → Reembolsado), repasses derivados dos pedidos pagos (taxas de `db.settings`) |
+| `/admin/coupons` · `/exchange-rates` · `/settings` | CRUD persistido; cupons alimentam a cotação do checkout; nova cotação vira a taxa ativa                                                           |
+| `/admin/audit`                                     | toda mutação registra uma entrada (`action`, `target`, e-mail)                                                                                    |
 
 ## Latência, erros e gatilhos de teste
 

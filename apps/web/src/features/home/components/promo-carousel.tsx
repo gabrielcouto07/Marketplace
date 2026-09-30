@@ -1,89 +1,77 @@
 "use client";
 
 import type { BannerDto } from "@marketplace/contracts";
-import { ArrowRight, Smartphone, Sparkles, Truck, type LucideIcon } from "lucide-react";
+import { ArrowRight } from "lucide-react";
+import Image from "next/image";
 import { useTranslations } from "next-intl";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "@/i18n/navigation";
+import { blurDataUrlFor } from "@/lib/images";
 import { cn } from "@/lib/utils";
 
-interface ToneStyle {
-  card: string;
-  kicker: string;
-  icon: string;
-}
-
 /**
- * Um tom por banner. O `red` é o único vermelho da home (bg-cta); o `blue` usa brand-deep,
- * nunca o azul saturado chapado; o `neutral` é um card comum de surface.
+ * O tom do banner vira só o chip do título (ponto focal), nunca a área inteira: o `red` é o único
+ * vermelho da home, o `blue` usa o azul da marca e o `neutral` um chip branco. A foto ocupa o card
+ * com um scrim em brand-deep na base para o texto branco ler com contraste.
  */
-const TONES: Record<BannerDto["tone"], ToneStyle> = {
-  red: {
-    card: "bg-cta text-white",
-    kicker: "text-white/80",
-    icon: "bg-white/10 text-white",
-  },
-  blue: {
-    card: "bg-brand-deep text-white",
-    kicker: "text-blue-300",
-    icon: "bg-white/10 text-white",
-  },
-  neutral: {
-    card: "border border-border bg-surface text-foreground shadow-xs",
-    kicker: "text-foreground-secondary",
-    icon: "bg-primary-soft text-primary",
-  },
-};
-
-const TONE_ICONS: Record<BannerDto["tone"], LucideIcon> = {
-  red: Truck,
-  blue: Smartphone,
-  neutral: Sparkles,
+const TONE_KICKER: Record<BannerDto["tone"], string> = {
+  red: "bg-cta text-cta-foreground",
+  blue: "bg-primary text-primary-foreground",
+  neutral: "bg-white/90 text-brand-deep",
 };
 
 /** Item do carrossel: quase a largura da tela no mobile (o próximo espia), 3 colunas em lg. */
 const ITEM_CLASS =
   "w-[calc(100%-2rem)] shrink-0 snap-start sm:w-[calc(60%-0.75rem)] lg:w-auto lg:shrink";
 
-/** Carrossel de banners promocionais: cards de 160 px, rounded-lg, um por tom. */
+/** Carrossel de banners promocionais: cards fotográficos de 192 px (208 em lg), rounded-lg. */
 export function PromoCarousel({ banners }: { banners: BannerDto[] }) {
   const t = useTranslations("home");
   return (
     <ul className="mx-auto scrollbar-none flex w-full max-w-6xl snap-x snap-mandatory scroll-px-4 gap-3 overflow-x-auto px-4 lg:grid lg:grid-cols-3 lg:overflow-visible">
-      {banners.map((b, i) => {
-        const tone = TONES[b.tone];
-        const Icon = TONE_ICONS[b.tone];
-        return (
-          <li key={b.id} className={ITEM_CLASS}>
-            <Link
-              href={b.href}
-              className={cn(
-                "relative flex h-40 pressable flex-col justify-between rounded-lg p-4 focus-ring",
-                tone.card,
-              )}
-            >
+      {banners.map((b, i) => (
+        <li key={b.id} className={ITEM_CLASS}>
+          <Link
+            href={b.href}
+            className="group relative flex h-48 pressable flex-col justify-end overflow-hidden rounded-lg bg-brand-deep p-4 text-white shadow-xs focus-ring lg:h-52"
+          >
+            <Image
+              src={b.imageUrl}
+              alt=""
+              fill
+              priority={i === 0}
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 60vw, 384px"
+              placeholder="blur"
+              blurDataURL={blurDataUrlFor(b.imageUrl)}
+              className="object-cover transition-transform duration-300 ease-standard group-hover:scale-[1.03]"
+            />
+            <span
+              aria-hidden
+              className="absolute inset-0 bg-linear-to-t from-brand-deep/90 via-brand-deep/45 to-brand-deep/5"
+            />
+            <span className="relative flex max-w-[85%] flex-col items-start gap-2">
               <span
-                aria-hidden
                 className={cn(
-                  "absolute top-4 right-4 flex size-12 items-center justify-center rounded-md",
-                  tone.icon,
+                  "inline-flex h-6 items-center rounded-sm px-2 text-caption uppercase",
+                  TONE_KICKER[b.tone],
                 )}
               >
-                <Icon className="size-6" strokeWidth={1.75} />
+                {b.title}
               </span>
-              <span className="flex max-w-[75%] flex-col gap-1">
-                <span className={cn("text-caption uppercase", tone.kicker)}>{b.title}</span>
-                <span className="text-title-2 text-balance">{b.subtitle}</span>
-              </span>
+              <span className="text-title-2 text-balance">{b.subtitle}</span>
               <span className="inline-flex items-center gap-1 text-body-sm font-semibold">
                 {i === 0 ? t("seeOffers") : t("bannerCta")}
-                <ArrowRight className="size-4" strokeWidth={1.75} aria-hidden />
+                <ArrowRight
+                  className="size-4 transition-transform duration-200 group-hover:translate-x-0.5"
+                  strokeWidth={1.75}
+                  aria-hidden
+                />
               </span>
-            </Link>
-          </li>
-        );
-      })}
+            </span>
+          </Link>
+        </li>
+      ))}
     </ul>
   );
 }
@@ -92,9 +80,9 @@ export function PromoCarousel({ banners }: { banners: BannerDto[] }) {
 export function PromoCarouselSkeleton() {
   return (
     <div className="mx-auto flex w-full max-w-6xl gap-3 overflow-hidden px-4 lg:grid lg:grid-cols-3">
-      <Skeleton className={cn(ITEM_CLASS, "h-40 rounded-lg")} />
-      <Skeleton className={cn(ITEM_CLASS, "hidden h-40 rounded-lg sm:block")} />
-      <Skeleton className={cn(ITEM_CLASS, "hidden h-40 rounded-lg lg:block")} />
+      <Skeleton className={cn(ITEM_CLASS, "h-48 rounded-lg lg:h-52")} />
+      <Skeleton className={cn(ITEM_CLASS, "hidden h-48 rounded-lg sm:block lg:h-52")} />
+      <Skeleton className={cn(ITEM_CLASS, "hidden h-48 rounded-lg lg:block lg:h-52")} />
     </div>
   );
 }

@@ -35,15 +35,15 @@ Ver [apps/api/README.md](apps/api/README.md) e [docs/BACKEND_INTEGRATION.md](doc
 
 Outros comandos (raiz ou `apps/web`):
 
-| Comando                                    | Descrição                                                                  |
-| ------------------------------------------ | -------------------------------------------------------------------------- |
-| `pnpm build` / `pnpm start`                | build de produção (gera `public/sw.js` com precache) e servidor em `:3210` |
-| `pnpm typecheck`                           | `tsc --noEmit` em todos os pacotes                                         |
-| `pnpm lint` / `pnpm --filter web lint:fix` | ESLint                                                                     |
-| `pnpm format`                              | Prettier                                                                   |
-| `pnpm --filter web images`                 | regenera os SVGs placeholder de produtos/categorias/banners/lojas          |
-| `pnpm --filter web icons`                  | regenera ícones do manifest a partir de `public/logo.svg`                  |
-| `pnpm --filter web sw`                     | reconstrói o service worker                                                |
+| Comando                                    | Descrição                                                                                       |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------- |
+| `pnpm build` / `pnpm start`                | build de produção (gera `public/sw.js` com precache) e servidor em `:3210`                      |
+| `pnpm typecheck`                           | `tsc --noEmit` em todos os pacotes                                                              |
+| `pnpm lint` / `pnpm --filter web lint:fix` | ESLint                                                                                          |
+| `pnpm format`                              | Prettier                                                                                        |
+| `pnpm --filter web images`                 | baixa/otimiza as fotos de produtos, categorias, banners e lojas (ver `docs/MOCKS.md › Imagens`) |
+| `pnpm --filter web icons`                  | regenera ícones do manifest a partir de `public/logo.svg`                                       |
+| `pnpm --filter web sw`                     | reconstrói o service worker                                                                     |
 
 > A porta padrão é **3210** (3000 estava em uso na máquina de desenvolvimento). Altere em `apps/web/package.json`
 > e em `NEXT_PUBLIC_SITE_URL`.
@@ -66,7 +66,8 @@ O app sobe na Vercel sem backend: o build de produção usa o mock (MSW) por pad
    se quiser, instale como app (Chrome: ⋮ → Instalar app · Safari: Compartilhar → Adicionar à Tela de Início).
 
 Variáveis opcionais no painel da Vercel: `NEXT_PUBLIC_SITE_URL` (domínio próprio), `NEXT_PUBLIC_API_MOCKING=false`
-e `NEXT_PUBLIC_API_URL` quando a API .NET existir. Usuário demo: `demo@mktpy.com` / `123456`.
+e `NEXT_PUBLIC_API_URL` quando a API .NET existir. Contas demo (senha `123456`): `demo@mktpy.com` (comprador),
+`loja@mktpy.com` (vendedor, painel `/vendedor`) e `admin@mktpy.com` (painel `/admin`).
 
 ## Variáveis de ambiente (`apps/web/.env.local`)
 

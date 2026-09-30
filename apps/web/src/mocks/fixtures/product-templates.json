@@ -9,7 +9,9 @@
         ["Resolução", "3840 x 2160"],
         ["HDMI", "3 portas"]
       ],
-      "variants": { "Tamanho": ["50\"", "55\"", "65\""] },
+      "variants": {
+        "Tamanho": ["50\"", "55\"", "65\""]
+      },
       "warranty": 12
     },
     {
@@ -21,7 +23,9 @@
         ["Bluetooth", "5.3"],
         ["Microfones", "4"]
       ],
-      "variants": { "Cor": ["Preto", "Branco", "Azul"] },
+      "variants": {
+        "Cor": ["Preto", "Branco", "Azul"]
+      },
       "warranty": 12
     },
     {
@@ -33,43 +37,49 @@
         ["Proteção", "IP67"],
         ["Bateria", "20 h"]
       ],
-      "variants": { "Cor": ["Preto", "Vermelho"] },
+      "variants": {
+        "Cor": ["Preto", "Vermelho"]
+      },
       "warranty": 6
     },
     {
-      "name": "Soundbar 2.1 com subwoofer sem fio 300 W",
-      "price": 129900,
-      "compareAt": 169900,
+      "name": "Caixa de som inteligente com assistente de voz",
+      "price": 39900,
+      "compareAt": 49900,
       "attrs": [
-        ["Canais", "2.1"],
-        ["Potência", "300 W"],
-        ["Conexão", "HDMI ARC, óptica, Bluetooth"]
+        ["Assistente", "Compatível com Alexa e Google"],
+        ["Conexão", "Wi-Fi e Bluetooth 5.0"],
+        ["Potência", "2 x 10 W"]
+      ],
+      "variants": {
+        "Cor": ["Cinza", "Preto", "Branco"]
+      },
+      "warranty": 12
+    },
+    {
+      "name": "Câmera DSLR 24 MP com lente 18-55 mm",
+      "price": 349900,
+      "compareAt": 419900,
+      "attrs": [
+        ["Sensor", "APS-C 24,1 MP"],
+        ["Vídeo", "Full HD 60fps"],
+        ["Lente", "18-55 mm f/3.5-5.6 estabilizada"]
       ],
       "variants": null,
       "warranty": 12
     },
     {
-      "name": "Câmera de ação 4K 60fps com estabilização",
-      "price": 119900,
-      "compareAt": 149900,
+      "name": "Câmera instantânea com impressão de fotos",
+      "price": 59900,
+      "compareAt": 74900,
       "attrs": [
-        ["Resolução", "4K 60fps"],
-        ["Prova d'água", "10 m sem case"],
-        ["Tela", "Touch 2.0\""]
+        ["Filme", "Instantâneo 62 x 46 mm"],
+        ["Foco", "0,3 m ao infinito"],
+        ["Alimentação", "2 pilhas AA"]
       ],
-      "variants": null,
-      "warranty": 12
-    },
-    {
-      "name": "Projetor portátil Full HD 5000 lumens",
-      "price": 89900,
-      "compareAt": null,
-      "attrs": [
-        ["Resolução nativa", "1920 x 1080"],
-        ["Brilho", "5000 lm"],
-        ["Ruído", "< 30 dB"]
-      ],
-      "variants": null,
+      "variants": {
+        "Cor": ["Branco", "Azul", "Rosa"]
+      },
       "warranty": 6
     },
     {
@@ -81,7 +91,9 @@
         ["Bateria", "14 dias"],
         ["Sensores", "Cardíaco, SpO2, GPS"]
       ],
-      "variants": { "Cor": ["Preto", "Prata", "Rosa"] },
+      "variants": {
+        "Cor": ["Preto", "Prata", "Rosa"]
+      },
       "warranty": 12
     },
     {
@@ -93,7 +105,9 @@
         ["Autonomia", "6 h + 24 h no estojo"],
         ["Resistência", "IPX4"]
       ],
-      "variants": { "Cor": ["Preto", "Branco"] },
+      "variants": {
+        "Cor": ["Preto", "Branco"]
+      },
       "warranty": 6
     }
   ],
@@ -107,7 +121,9 @@
         ["Concentração", "Eau de Parfum"],
         ["Volume", "100 ml"]
       ],
-      "variants": { "Volume": ["50 ml", "100 ml"] },
+      "variants": {
+        "Volume": ["50 ml", "100 ml"]
+      },
       "warranty": null
     },
     {
@@ -119,7 +135,9 @@
         ["Concentração", "Eau de Toilette"],
         ["Volume", "100 ml"]
       ],
-      "variants": { "Volume": ["50 ml", "100 ml", "200 ml"] },
+      "variants": {
+        "Volume": ["50 ml", "100 ml", "200 ml"]
+      },
       "warranty": null
     },
     {
@@ -167,7 +185,9 @@
         ["Volume", "236 ml"],
         ["Fixação", "Média"]
       ],
-      "variants": { "Fragrância": ["Pêssego", "Baunilha", "Frutas vermelhas"] },
+      "variants": {
+        "Fragrância": ["Pêssego", "Baunilha", "Frutas vermelhas"]
+      },
       "warranty": null
     },
     {
@@ -205,7 +225,9 @@
         ["Memória", "16 GB DDR4"],
         ["Armazenamento", "SSD 512 GB NVMe"]
       ],
-      "variants": { "Memória": ["8 GB", "16 GB"] },
+      "variants": {
+        "Memória": ["8 GB", "16 GB"]
+      },
       "warranty": 12
     },
     {
@@ -221,15 +243,17 @@
       "warranty": 12
     },
     {
-      "name": "SSD NVMe 1 TB PCIe 4.0 7000 MB/s",
-      "price": 39900,
-      "compareAt": 54900,
+      "name": "Kit memória RAM DDR5 32 GB (2 x 16 GB) 6000 MHz",
+      "price": 69900,
+      "compareAt": 79900,
       "attrs": [
-        ["Capacidade", "1 TB"],
-        ["Interface", "PCIe 4.0 x4"],
-        ["Leitura", "7000 MB/s"]
+        ["Tipo", "DDR5 DIMM"],
+        ["Frequência", "6000 MHz"],
+        ["Latência", "CL30"]
       ],
-      "variants": { "Capacidade": ["500 GB", "1 TB", "2 TB"] },
+      "variants": {
+        "Capacidade": ["16 GB", "32 GB", "64 GB"]
+      },
       "warranty": 36
     },
     {
@@ -241,7 +265,9 @@
         ["Layout", "ABNT2"],
         ["Conexão", "2.4 GHz + Bluetooth"]
       ],
-      "variants": { "Cor": ["Preto", "Branco"] },
+      "variants": {
+        "Cor": ["Preto", "Branco"]
+      },
       "warranty": 12
     },
     {
@@ -253,7 +279,9 @@
         ["Peso", "60 g"],
         ["Bateria", "70 h"]
       ],
-      "variants": { "Cor": ["Preto", "Branco"] },
+      "variants": {
+        "Cor": ["Preto", "Branco"]
+      },
       "warranty": 12
     },
     {
@@ -277,19 +305,23 @@
         ["Velocidade", "AX3000"],
         ["Cobertura", "até 200 m²"]
       ],
-      "variants": { "Kit": ["1 unidade", "2 unidades"] },
+      "variants": {
+        "Kit": ["1 unidade", "2 unidades"]
+      },
       "warranty": 12
     },
     {
-      "name": "Webcam 4K com microfone e correção de luz",
-      "price": 29900,
-      "compareAt": null,
+      "name": "Óculos de realidade virtual 128 GB standalone",
+      "price": 249900,
+      "compareAt": 289900,
       "attrs": [
-        ["Resolução", "4K 30fps"],
-        ["Campo de visão", "90°"],
-        ["Conexão", "USB-C"]
+        ["Tela", "LCD 1832 x 1920 por olho"],
+        ["Armazenamento", "128 GB"],
+        ["Bateria", "2 a 3 h"]
       ],
-      "variants": null,
+      "variants": {
+        "Armazenamento": ["128 GB", "256 GB"]
+      },
       "warranty": 12
     }
   ],
@@ -318,7 +350,9 @@
         ["Câmera", "48 + 2 MP"],
         ["Bateria", "4500 mAh"]
       ],
-      "variants": { "Cor": ["Preto", "Branco"] },
+      "variants": {
+        "Cor": ["Preto", "Branco"]
+      },
       "warranty": 12
     },
     {
@@ -330,7 +364,9 @@
         ["Câmera", "200 MP periscópio"],
         ["Material", "Titânio"]
       ],
-      "variants": { "Cor": ["Titânio cinza", "Titânio preto"] },
+      "variants": {
+        "Cor": ["Titânio cinza", "Titânio preto"]
+      },
       "warranty": 12
     },
     {
@@ -346,28 +382,30 @@
       "warranty": null
     },
     {
-      "name": "Carregador rápido 65 W GaN USB-C 3 portas",
-      "price": 12900,
-      "compareAt": 17900,
+      "name": "Carregador magnético sem fio 15 W com cabo USB-C",
+      "price": 9900,
+      "compareAt": 14900,
       "attrs": [
-        ["Potência", "65 W"],
-        ["Portas", "2x USB-C, 1x USB-A"],
-        ["Tecnologia", "GaN"]
+        ["Potência", "15 W"],
+        ["Cabo", "USB-C 1 m integrado"],
+        ["Compatibilidade", "Carregamento magnético"]
       ],
       "variants": null,
-      "warranty": 12
+      "warranty": 6
     },
     {
-      "name": "Power bank 20.000 mAh 22.5 W com cabo integrado",
-      "price": 14900,
-      "compareAt": null,
+      "name": "Smartphone 6.5\" 128 GB bateria 6000 mAh",
+      "price": 89900,
+      "compareAt": 109900,
       "attrs": [
-        ["Capacidade", "20.000 mAh"],
-        ["Potência", "22,5 W"],
-        ["Portas", "USB-C + USB-A"]
+        ["Tela", "6.5\" 90 Hz"],
+        ["Bateria", "6000 mAh"],
+        ["Câmera", "50 MP + 2 MP"]
       ],
-      "variants": { "Cor": ["Preto", "Azul"] },
-      "warranty": 6
+      "variants": {
+        "Cor": ["Preto", "Azul", "Verde"]
+      },
+      "warranty": 12
     },
     {
       "name": "Tablet 11\" 128 GB Wi-Fi com caneta",
@@ -378,7 +416,9 @@
         ["Armazenamento", "128 GB"],
         ["Acessório", "Caneta inclusa"]
       ],
-      "variants": { "Armazenamento": ["128 GB", "256 GB"] },
+      "variants": {
+        "Armazenamento": ["128 GB", "256 GB"]
+      },
       "warranty": 12
     },
     {
@@ -440,7 +480,9 @@
         ["Uva", "Malbec"],
         ["Safra", "2021"]
       ],
-      "variants": { "Quantidade": ["1 garrafa", "Caixa 6"] },
+      "variants": {
+        "Quantidade": ["1 garrafa", "Caixa 6"]
+      },
       "warranty": null
     },
     {
@@ -488,7 +530,9 @@
         ["Volume", "250 ml"],
         ["Sabor", "Tradicional"]
       ],
-      "variants": { "Sabor": ["Tradicional", "Tropical", "Zero açúcar"] },
+      "variants": {
+        "Sabor": ["Tradicional", "Tropical", "Zero açúcar"]
+      },
       "warranty": null
     }
   ],
@@ -514,7 +558,9 @@
         ["Potência", "1700 W"],
         ["Programas", "8"]
       ],
-      "variants": { "Cor": ["Preto", "Branco"] },
+      "variants": {
+        "Cor": ["Preto", "Branco"]
+      },
       "warranty": 12
     },
     {
@@ -542,27 +588,29 @@
       "warranty": 12
     },
     {
-      "name": "Purificador de ar HEPA para 40 m²",
-      "price": 59900,
-      "compareAt": null,
+      "name": "Aspirador de pó vertical sem fio 2 em 1",
+      "price": 79900,
+      "compareAt": 99900,
       "attrs": [
-        ["Filtro", "HEPA H13"],
-        ["Área", "até 40 m²"],
-        ["Ruído", "24 dB"]
+        ["Autonomia", "até 45 min"],
+        ["Sucção", "25 kPa"],
+        ["Filtro", "HEPA lavável"]
       ],
       "variants": null,
       "warranty": 12
     },
     {
-      "name": "Luminária inteligente RGB Wi-Fi com app",
-      "price": 9900,
-      "compareAt": 14900,
+      "name": "Luminária de mesa articulada com lâmpada inteligente Wi-Fi",
+      "price": 14900,
+      "compareAt": null,
       "attrs": [
-        ["Conexão", "Wi-Fi 2.4 GHz"],
-        ["Cores", "16 milhões"],
-        ["Assistentes", "Compatível"]
+        ["Lâmpada", "LED RGB 9 W Wi-Fi"],
+        ["Controle", "App e assistente de voz"],
+        ["Material", "Metal"]
       ],
-      "variants": null,
+      "variants": {
+        "Cor": ["Grafite", "Branco"]
+      },
       "warranty": 12
     },
     {
@@ -586,7 +634,10 @@
         ["Material", "Algodão egípcio"],
         ["Peças", "4"]
       ],
-      "variants": { "Tamanho": ["Casal", "Queen", "King"], "Cor": ["Branco", "Cinza"] },
+      "variants": {
+        "Tamanho": ["Casal", "Queen", "King"],
+        "Cor": ["Branco", "Cinza"]
+      },
       "warranty": null
     }
   ],
@@ -612,7 +663,10 @@
         ["Peso", "215 g"],
         ["Uso", "Asfalto"]
       ],
-      "variants": { "Tamanho": ["39", "40", "41", "42", "43"], "Cor": ["Preto", "Azul"] },
+      "variants": {
+        "Tamanho": ["39", "40", "41", "42", "43"],
+        "Cor": ["Preto", "Azul"]
+      },
       "warranty": null
     },
     {
@@ -698,7 +752,9 @@
         ["Armação", "Acetato"],
         ["Inclui", "Estojo rígido"]
       ],
-      "variants": { "Cor": ["Preto", "Tartaruga"] },
+      "variants": {
+        "Cor": ["Preto", "Tartaruga"]
+      },
       "warranty": 12
     },
     {
@@ -710,7 +766,9 @@
         ["Movimento", "Quartzo"],
         ["Resistência", "5 ATM"]
       ],
-      "variants": { "Cor": ["Prata", "Dourado", "Preto"] },
+      "variants": {
+        "Cor": ["Prata", "Dourado", "Preto"]
+      },
       "warranty": 24
     },
     {
@@ -722,7 +780,9 @@
         ["Dimensões", "22 x 15 x 7 cm"],
         ["Alça", "Ajustável"]
       ],
-      "variants": { "Cor": ["Preto", "Caramelo", "Vermelho"] },
+      "variants": {
+        "Cor": ["Preto", "Caramelo", "Vermelho"]
+      },
       "warranty": null
     },
     {
@@ -734,7 +794,10 @@
         ["Impermeável", "Sim"],
         ["Capuz", "Retrátil"]
       ],
-      "variants": { "Tamanho": ["P", "M", "G", "GG"], "Cor": ["Preto", "Azul marinho"] },
+      "variants": {
+        "Tamanho": ["P", "M", "G", "GG"],
+        "Cor": ["Preto", "Azul marinho"]
+      },
       "warranty": null
     },
     {
@@ -746,7 +809,9 @@
         ["Solado", "Borracha"],
         ["Estilo", "Casual"]
       ],
-      "variants": { "Tamanho": ["37", "38", "39", "40", "41", "42", "43"] },
+      "variants": {
+        "Tamanho": ["37", "38", "39", "40", "41", "42", "43"]
+      },
       "warranty": null
     },
     {
@@ -758,7 +823,9 @@
         ["Proteção", "RFID"],
         ["Compartimentos", "8 cartões"]
       ],
-      "variants": { "Cor": ["Preto", "Marrom"] },
+      "variants": {
+        "Cor": ["Preto", "Marrom"]
+      },
       "warranty": null
     },
     {
@@ -782,7 +849,9 @@
         ["Ajuste", "Fivela"],
         ["Tamanho", "Único"]
       ],
-      "variants": { "Cor": ["Preto", "Bege", "Azul"] },
+      "variants": {
+        "Cor": ["Preto", "Bege", "Azul"]
+      },
       "warranty": null
     }
   ]

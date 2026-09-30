@@ -1,6 +1,8 @@
 import type { ApiErrorDto, PagedResult } from "@marketplace/contracts";
 import { HttpResponse, delay } from "msw";
 
+import { db } from "../db";
+
 /** Prefixo que casa tanto "/api/..." (browser) quanto "http://host/api/..." (Node). */
 export const API = "*/api";
 
@@ -77,4 +79,11 @@ export function addDays(iso: string, days: number): string {
   const d = new Date(iso);
   d.setDate(d.getDate() + days);
   return d.toISOString();
+}
+
+/** Sessão válida? (token emitido pelo mock em `Authorization: Bearer mock.<uuid>`) */
+export function isAuthorized(request: Request): boolean {
+  const auth = request.headers.get("authorization");
+  if (!auth) return false;
+  return db.tokens.includes(auth.replace(/^Bearer\s+/i, ""));
 }

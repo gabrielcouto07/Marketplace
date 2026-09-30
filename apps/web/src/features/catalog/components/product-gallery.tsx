@@ -8,7 +8,7 @@ import { useTranslations } from "next-intl";
 import { useMemo, useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
-import { BLUR_DATA_URL } from "@/lib/images";
+import { blurDataUrlFor, isDirectImage } from "@/lib/images";
 import { cn } from "@/lib/utils";
 
 interface ProductGalleryProps {
@@ -69,8 +69,9 @@ export function ProductGallery({ images, name, topRight, className }: ProductGal
                 draggable={false}
                 sizes="(max-width: 1024px) 100vw, 50vw"
                 placeholder="blur"
-                blurDataURL={BLUR_DATA_URL}
-                className="object-contain p-4 select-none"
+                blurDataURL={blurDataUrlFor(active.url)}
+                unoptimized={isDirectImage(active.url)}
+                className="object-contain select-none"
               />
             </motion.div>
           ) : null}
@@ -79,6 +80,15 @@ export function ProductGallery({ images, name, topRight, className }: ProductGal
         <div className="pointer-events-none absolute inset-x-4 top-4 flex justify-end gap-2">
           <div className="pointer-events-auto flex gap-2">{topRight}</div>
         </div>
+
+        {total > 1 ? (
+          <span
+            aria-hidden
+            className="pointer-events-none absolute right-4 bottom-4 inline-flex h-6 items-center rounded-sm bg-foreground/70 px-2 text-caption text-background tabular-nums backdrop-blur-sm"
+          >
+            {current + 1}/{total}
+          </span>
+        ) : null}
 
         {total > 1 ? (
           <>
@@ -135,8 +145,9 @@ export function ProductGallery({ images, name, topRight, className }: ProductGal
                     fill
                     sizes="64px"
                     placeholder="blur"
-                    blurDataURL={BLUR_DATA_URL}
-                    className="object-contain p-1"
+                    blurDataURL={blurDataUrlFor(img.url)}
+                    unoptimized={isDirectImage(img.url)}
+                    className="object-contain"
                   />
                 </button>
               </li>

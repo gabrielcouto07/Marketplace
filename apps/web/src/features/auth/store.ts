@@ -4,7 +4,7 @@ import type { AuthResponseDto, UserProfileDto } from "@marketplace/contracts";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
-import { setAccessTokenProvider } from "@/lib/api/http";
+import { http, setAccessTokenProvider, setSessionRefresher } from "@/lib/api/http";
 
 /**
  * Sessão do usuário (mock). Na integração real:
@@ -47,6 +47,32 @@ export const useAuthStore = create<AuthState>()(
 
 // Injeta o token no client HTTP sem acoplar lib/api à store.
 setAccessTokenProvider(() => useAuthStore.getState().accessToken);
+
+/**
+ * 401 → tenta `POST /auth/refresh` com o refresh token salvo (o backend .NET também aceita o cookie
+ * httpOnly) e atualiza a sessão; se não der, encerra a sessão para as telas mostrarem "Entre para
+ * continuar" em vez de um erro genérico. Sessões antigas do mock se recuperam sozinhas.
+ */
+setSessionRefresher(async () => {
+  const { refreshToken, setSession, signOut } = useAuthStore.getState();
+  if (!refreshToken) {
+    signOut();
+    return null;
+  }
+  try {
+    const session = await http<AuthResponseDto>("/auth/refresh", {
+      method: "POST",
+      body: { refreshToken },
+      accessToken: null,
+      skipRefresh: true,
+    });
+    setSession(session);
+    return session.accessToken;
+  } catch {
+    signOut();
+    return null;
+  }
+});
 
 export function useIsAuthenticated(): boolean {
   return useAuthStore((s) => s.user !== null);

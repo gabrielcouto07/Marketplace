@@ -13,6 +13,8 @@ export interface RequestOptions {
   headers?: Record<string, string>;
   /** Token de acesso; quando omitido usa o token armazenado (auth mock). */
   accessToken?: string | null;
+  /** Não tentar renovar a sessão em 401 (usado internamente na repetição e nas rotas de auth). */
+  skipRefresh?: boolean;
 }
 
 /**
@@ -54,6 +56,32 @@ export function setAccessTokenProvider(provider: () => string | null): void {
 }
 
 /**
+ * Renovação de sessão em 401: devolve o novo access token ou `null` (sessão encerrada).
+ * Registrada pela store de auth; `http()` chama uma única vez por rajada (single-flight) e repete a
+ * requisição original com o token novo. Sem isso, um token expirado vira "Algo deu errado" em toda
+ * tela autenticada (endereços, pedidos, checkout).
+ */
+type SessionRefresher = () => Promise<string | null>;
+let sessionRefresher: SessionRefresher | null = null;
+let refreshInFlight: Promise<string | null> | null = null;
+
+export function setSessionRefresher(refresher: SessionRefresher | null): void {
+  sessionRefresher = refresher;
+}
+
+function refreshSession(): Promise<string | null> {
+  if (!sessionRefresher) return Promise.resolve(null);
+  if (!refreshInFlight) {
+    refreshInFlight = sessionRefresher()
+      .catch(() => null)
+      .finally(() => {
+        refreshInFlight = null;
+      });
+  }
+  return refreshInFlight;
+}
+
+/**
  * Fetch wrapper tipado. Componentes NUNCA chamam isto diretamente — use os hooks em features/<dominio>/api.
  * Lança ApiError (resposta HTTP com erro) ou NetworkError (falha de rede/offline).
  */
@@ -61,10 +89,13 @@ export async function http<TResponse>(
   path: string,
   options: RequestOptions = {},
 ): Promise<TResponse> {
-  const { method = "GET", body, query, signal, headers = {}, accessToken } = options;
+  const { method = "GET", body, query, signal, headers = {}, accessToken, skipRefresh } = options;
   const url = `${getApiBaseUrl()}${path.startsWith("/") ? path : `/${path}`}${buildQueryString(query)}`;
 
   const token = accessToken === undefined ? tokenProvider() : accessToken;
+  // Só renova quando a requisição usou o token armazenado (não em login/refresh nem em repetições).
+  const canRefresh =
+    !skipRefresh && accessToken === undefined && Boolean(token) && !path.startsWith("/auth/");
   const init: RequestInit = {
     method,
     signal,
@@ -84,6 +115,13 @@ export async function http<TResponse>(
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError") throw error;
     throw new NetworkError(url, error);
+  }
+
+  if (response.status === 401 && canRefresh) {
+    const fresh = await refreshSession();
+    if (fresh && fresh !== token) {
+      return http<TResponse>(path, { ...options, accessToken: fresh, skipRefresh: true });
+    }
   }
 
   if (response.status === 204) return undefined as TResponse;
@@ -131,6 +169,39 @@ export async function uploadFile(
       message: "Não foi possível enviar a imagem.",
     });
   }
+}
+
+/**
+ * Baixa um arquivo (ex.: PDF do boleto) e dispara o download no navegador. Usa o mesmo `fetch`
+ * (o MSW intercepta em dev); URLs relativas resolvem na origem atual e levam o token da sessão.
+ */
+export async function downloadBlob(url: string, filename: string): Promise<void> {
+  const token = url.startsWith("/") ? tokenProvider() : null;
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+    });
+  } catch (error) {
+    throw new NetworkError(url, error);
+  }
+  if (!response.ok) {
+    throw new ApiError({
+      status: response.status,
+      code: `DOWNLOAD_${response.status}`,
+      message: "Não foi possível baixar o arquivo.",
+    });
+  }
+  const blob = await response.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = objectUrl;
+  anchor.download = filename;
+  anchor.rel = "noopener";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 10_000);
 }
 
 export const api = {

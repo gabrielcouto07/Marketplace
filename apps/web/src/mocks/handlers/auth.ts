@@ -14,10 +14,10 @@ import { HttpResponse, http } from "msw";
 import { isValidCpf } from "@/lib/validation/documents";
 
 import { db, persistDb } from "../db";
-import { DEMO_CREDENTIALS } from "../fixtures/account";
+import { DEMO_ACCOUNTS, DEMO_PASSWORD } from "../fixtures/account";
 import { API, addDays, nowIso, notFound, simulateLatency, unauthorized, validation } from "./utils";
 
-function issueSession(user: UserProfileDto): AuthResponseDto {
+export function issueSession(user: UserProfileDto): AuthResponseDto {
   const accessToken = `mock.${crypto.randomUUID()}`;
   db.tokens.push(accessToken);
   persistDb();
@@ -40,11 +40,26 @@ export const authHandlers = [
     await simulateLatency();
     const body = (await request.json()) as LoginRequest;
     const email = body.email?.trim().toLowerCase();
-    if (email !== DEMO_CREDENTIALS.email && email !== db.user.email.toLowerCase()) {
-      return validation({ email: ["Conta não encontrada. Use demo@mktpy.com / 123456."] });
+    const account = DEMO_ACCOUNTS.find((acc) => acc.user.email === email);
+    const isCurrent = email === db.user.email.toLowerCase();
+    if (!account && !isCurrent) {
+      return validation({
+        email: [
+          "Conta não encontrada. Use demo@mktpy.com (comprador), loja@mktpy.com (vendedor) ou admin@mktpy.com (admin).",
+        ],
+      });
     }
-    if (body.password !== DEMO_CREDENTIALS.password) {
+    if (body.password !== DEMO_PASSWORD) {
       return validation({ password: ["Senha incorreta. Dica: 123456."] });
+    }
+    if (account) {
+      // Troca a "sessão" do banco para a conta escolhida (o mock tem um usuário ativo por vez).
+      db.user = structuredClone(account.user);
+      if (account.sellerSlug) db.sellerByUser[db.user.id] = account.sellerSlug;
+    }
+    // Quem cadastrou loja nesta demonstração mantém o papel Vendedor ao voltar.
+    if (db.sellerByUser[db.user.id] && !db.user.roles.includes("Vendedor")) {
+      db.user = { ...db.user, roles: [...db.user.roles, "Vendedor"] };
     }
     return HttpResponse.json(issueSession(db.user));
   }),

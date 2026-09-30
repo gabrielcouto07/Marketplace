@@ -1,23 +1,32 @@
 import type { CategoryDto } from "@marketplace/contracts";
+import Image from "next/image";
 import { useTranslations } from "next-intl";
 
 import { CategoryIcon } from "@/components/shared/category-icon";
 import { Link } from "@/i18n/navigation";
+import { blurDataUrlFor } from "@/lib/images";
 import { categoryHue, hueStyle } from "@/lib/palette";
 import { cn } from "@/lib/utils";
 
 interface CategoryTileProps {
   category: CategoryDto;
-  /** `icon`: quadrado tintado de 64 px + rótulo (home) · `card`: tile grande com contagem (página de categorias). */
+  /** `icon`: quadrado tintado de 64 px + rótulo (home) · `card`: capa fotográfica com nome e contagem (página de categorias). */
   variant?: "icon" | "card";
+  priority?: boolean;
   className?: string;
 }
 
 /**
  * Atalho de categoria. O `icon` é o único lugar com tinta por categoria (DESIGN.md › Apêndice B,
- * item 4); o `card` usa surface-muted com ícone em primary.
+ * item 4); o `card` usa a foto de capa da categoria com scrim em brand-deep e, sem foto, cai em
+ * surface-muted com o ícone em primary.
  */
-export function CategoryTile({ category, variant = "icon", className }: CategoryTileProps) {
+export function CategoryTile({
+  category,
+  variant = "icon",
+  priority,
+  className,
+}: CategoryTileProps) {
   const t = useTranslations("catalog");
   const href = `/categoria/${category.slug}`;
 
@@ -41,21 +50,53 @@ export function CategoryTile({ category, variant = "icon", className }: Category
     );
   }
 
+  const withPhoto = Boolean(category.imageUrl);
   return (
     <Link
       href={href}
       className={cn(
-        "flex h-32 pressable flex-col justify-between rounded-lg bg-surface-muted p-4 focus-ring",
+        "group relative flex h-36 pressable flex-col justify-end overflow-hidden rounded-lg p-4 focus-ring",
+        withPhoto ? "bg-brand-deep text-white" : "bg-surface-muted text-foreground",
         className,
       )}
     >
-      <span className="flex size-11 items-center justify-center rounded-md bg-surface text-primary shadow-xs">
-        <CategoryIcon iconKey={category.iconKey} className="size-5" />
-      </span>
-      <span className="flex flex-col">
-        <span className="truncate text-body font-semibold text-foreground">{category.name}</span>
-        <span className="text-caption text-foreground-secondary">
-          {t("categoryProducts", { count: category.productCount })}
+      {category.imageUrl ? (
+        <>
+          <Image
+            src={category.imageUrl}
+            alt=""
+            fill
+            priority={priority}
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 288px"
+            placeholder="blur"
+            blurDataURL={blurDataUrlFor(category.imageUrl)}
+            className="object-cover transition-transform duration-300 ease-standard group-hover:scale-[1.03]"
+          />
+          <span
+            aria-hidden
+            className="absolute inset-0 bg-linear-to-t from-brand-deep/85 via-brand-deep/35 to-brand-deep/0"
+          />
+        </>
+      ) : null}
+      <span className="relative flex items-end justify-between gap-3">
+        <span className="flex min-w-0 flex-col">
+          <span className="truncate text-body font-semibold">{category.name}</span>
+          <span
+            className={cn(
+              "text-caption",
+              withPhoto ? "text-white/80" : "text-foreground-secondary",
+            )}
+          >
+            {t("categoryProducts", { count: category.productCount })}
+          </span>
+        </span>
+        <span
+          className={cn(
+            "flex size-9 shrink-0 items-center justify-center rounded-full",
+            withPhoto ? "bg-white/15 text-white" : "bg-surface text-primary shadow-xs",
+          )}
+        >
+          <CategoryIcon iconKey={category.iconKey} className="size-4" />
         </span>
       </span>
     </Link>

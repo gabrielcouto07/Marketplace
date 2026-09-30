@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 import { ProductGallery } from "./product-gallery";
 import { ProductQuestions } from "./product-questions";
 import { ProductReviews } from "./product-reviews";
+import { RelatedProducts } from "./related-products";
 import { VariantSelector, findVariant } from "./variant-selector";
 
 const CARD = "rounded-lg border border-border bg-surface p-4 shadow-xs";
@@ -347,6 +348,8 @@ function ProductContent({ product }: { product: ProductDetailDto }) {
           <ProductQuestions productId={product.id} productSlug={product.slug} />
         </div>
       </div>
+
+      <RelatedProducts product={product} className="mt-8" />
 
       {/* Espaço para a barra fixa não cobrir o conteúdo no mobile. */}
       <div className="h-20 lg:hidden" aria-hidden />

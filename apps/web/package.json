@@ -13,7 +13,7 @@
     "typecheck": "tsc --noEmit",
     "sw": "serwist build serwist.config.mjs",
     "icons": "node scripts/generate-icons.mjs",
-    "images": "node scripts/generate-product-images.mjs"
+    "images": "node scripts/fetch-product-images.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.8.0",

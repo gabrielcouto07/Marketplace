@@ -76,7 +76,7 @@ export function OrderCard({ order, className }: { order: OrderDto; className?: s
         className,
       )}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
         <div className="flex min-w-0 flex-col">
           <p className="text-body-sm font-semibold text-foreground tabular-nums">
             {t("orderNumber", { number: order.number })}
@@ -85,7 +85,7 @@ export function OrderCard({ order, className }: { order: OrderDto; className?: s
             {format.dateTime(new Date(order.createdAt), "short")} · {order.seller.name}
           </p>
         </div>
-        <OrderStatusBadge status={order.status} />
+        <OrderStatusBadge status={order.status} className="shrink-0" />
       </div>
 
       <div className="flex items-center gap-2">

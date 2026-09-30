@@ -267,7 +267,7 @@ function buildAll(): ProductRecord[] {
         : 0;
       const images = [1, 2, 3].map((n) => ({
         id: guid(`${key}:image:${n}`),
-        url: `/images/products/${category.slug}-${i + 1}-${n}.svg`,
+        url: `/images/products/${category.slug}-${i + 1}-${n}.webp`,
         alt: `${t.name} — imagem ${n}`,
         sortOrder: n,
       }));

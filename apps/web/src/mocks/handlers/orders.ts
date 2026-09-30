@@ -3,6 +3,7 @@ import { HttpResponse, http } from "msw";
 
 import { db, persistDb } from "../db";
 import { TIMELINE_DESCRIPTIONS } from "../fixtures/orders";
+import { buildBoletoPdf } from "../pdf";
 import { API, notFound, nowIso, num, paginate, simulateLatency, unauthorized } from "./utils";
 
 /** Pix/boleto pendentes são aprovados automaticamente após 20 s (demo de polling). */
@@ -15,7 +16,8 @@ function isAuthorized(request: Request): boolean {
   return db.tokens.includes(token);
 }
 
-function advanceOrder(order: OrderDto, status: OrderStatus): void {
+/** Avança o pedido de status registrando o evento na linha do tempo (painéis e webhooks simulados). */
+export function advanceOrder(order: OrderDto, status: OrderStatus): void {
   const now = nowIso();
   order.status = status;
   order.updatedAt = now;
@@ -119,6 +121,19 @@ export const orderHandlers = [
   }),
 
   // ----- Pagamentos -----
+  /** PDF do boleto (demonstração): o gateway real devolve o arquivo pronto em `boleto.pdfUrl`. */
+  http.get(`${API}/payments/:id/boleto.pdf`, async ({ params }) => {
+    await simulateLatency();
+    const payment = db.payments.find((p) => p.id === params.id);
+    if (!payment?.boleto) return notFound("Boleto");
+    return new HttpResponse(buildBoletoPdf(payment), {
+      headers: {
+        "Content-Type": "application/pdf",
+        "Content-Disposition": `inline; filename="boleto-${payment.id.slice(0, 8)}.pdf"`,
+      },
+    });
+  }),
+
   http.get(`${API}/payments/:id`, async ({ params }) => {
     await simulateLatency();
     settlePendingPayments();

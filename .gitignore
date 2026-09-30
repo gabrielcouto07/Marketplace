@@ -14,3 +14,6 @@ next-env.d.ts
 apps/web/public/sw.js
 apps/web/public/sw.js.map
 apps/web/public/swe-worker-*.js
+
+# cache local das fotos baixadas pelo script de imagens
+apps/web/scripts/.image-cache

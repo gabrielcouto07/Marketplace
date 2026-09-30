@@ -37,8 +37,9 @@ Com o mock desligado, `MockProvider` não bloqueia a renderização e `instrumen
   do Next o cookie funciona no PWA; `POST /auth/refresh` aceita body `{ refreshToken }` ou o cookie.
 - Google: configure `Auth:Google:ClientId` na API e troque `useGoogleLogin` para obter o `idToken` real via Google
   Identity Services.
-- TODO no front: interceptar 401 em `lib/api/http.ts`, chamar `/auth/refresh` e repetir a requisição; depois reduzir
-  `Auth:Jwt:AccessTokenMinutes` (hoje 7 dias por compatibilidade com o mock).
+- O front já intercepta **401** em `lib/api/http.ts`: chama `POST /auth/refresh` uma única vez (single-flight),
+  repete a requisição com o token novo e, se a renovação falhar, encerra a sessão (as telas mostram "Entre para
+  continuar"). Com isso `Auth:Jwt:AccessTokenMinutes` pode ser reduzido (hoje 7 dias por compatibilidade com o mock).
 
 ## 4. Pagamentos
 

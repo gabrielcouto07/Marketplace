@@ -4,7 +4,7 @@ import type { PaymentDto, PaymentStatus } from "@marketplace/contracts";
 import { AlertCircle, Clock, Copy, CreditCard, Download, PlayCircle } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 import { QRCodeSVG } from "qrcode.react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { PageContainer } from "@/components/layout/store-shell";
@@ -21,6 +21,7 @@ import {
 } from "@/features/orders/components/purchase-order-card";
 import { formatCountdown, useCountdown } from "@/hooks/use-countdown";
 import { Link, useRouter } from "@/i18n/navigation";
+import { downloadBlob } from "@/lib/api/http";
 import { formatMoney } from "@/lib/money";
 
 export function PaymentView({ paymentId }: { paymentId: string }) {
@@ -263,6 +264,19 @@ function PixCard({ payment, remaining }: { payment: PaymentDto; remaining: numbe
           <Copy data-icon="inline-start" strokeWidth={1.75} /> {tc("copy")}
         </Button>
       </div>
+      <ol
+        aria-label={t("pixHowTo")}
+        className="flex w-full flex-col gap-2 border-t border-border pt-4 text-body-sm text-foreground-secondary"
+      >
+        {[t("pixStep1"), t("pixStep2"), t("pixStep3")].map((step, i) => (
+          <li key={step} className="flex items-start gap-3">
+            <span className="flex size-6 shrink-0 items-center justify-center rounded-full bg-primary-soft text-caption text-primary tabular-nums">
+              {i + 1}
+            </span>
+            <span className="pt-0.5">{step}</span>
+          </li>
+        ))}
+      </ol>
     </section>
   );
 }
@@ -272,6 +286,20 @@ function BoletoCard({ payment }: { payment: PaymentDto }) {
   const format = useFormatter();
   const copy = useCopy();
   const boleto = payment.boleto!;
+  const [downloading, setDownloading] = useState(false);
+
+  const download = async () => {
+    setDownloading(true);
+    try {
+      await downloadBlob(boleto.pdfUrl, `boleto-${payment.id.slice(0, 8)}.pdf`);
+      toast.success(t("downloadStarted"));
+    } catch {
+      toast.error(t("downloadFailed"));
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   return (
     <section
       aria-labelledby="boleto-title"
@@ -296,11 +324,7 @@ function BoletoCard({ payment }: { payment: PaymentDto }) {
         <Button variant="secondary" fullWidth onClick={() => copy(boleto.digitableLine)}>
           <Copy data-icon="inline-start" strokeWidth={1.75} /> {t("copyLine")}
         </Button>
-        <Button
-          variant="primary"
-          fullWidth
-          onClick={() => toast(t("downloadBoleto"), { description: boleto.pdfUrl })}
-        >
+        <Button variant="primary" fullWidth loading={downloading} onClick={download}>
           <Download data-icon="inline-start" strokeWidth={1.75} /> {t("downloadPdf")}
         </Button>
       </div>

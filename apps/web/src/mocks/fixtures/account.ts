@@ -2,8 +2,11 @@ import type { AddressDto, UserProfileDto } from "@marketplace/contracts";
 
 import { guid, isoDaysAgo } from "./base";
 
-/** Usuário de demonstração: demo@mktpy.com / 123456 */
-export const DEMO_CREDENTIALS = { email: "demo@mktpy.com", password: "123456" } as const;
+/** Senha única das contas de demonstração. */
+export const DEMO_PASSWORD = "123456";
+
+/** Comprador de demonstração: demo@mktpy.com / 123456 */
+export const DEMO_CREDENTIALS = { email: "demo@mktpy.com", password: DEMO_PASSWORD } as const;
 
 export const DEMO_USER: UserProfileDto = {
   id: guid("user:demo"),
@@ -15,6 +18,42 @@ export const DEMO_USER: UserProfileDto = {
   roles: ["Comprador"],
   createdAt: isoDaysAgo(320),
 };
+
+/** Dona da loja TecnoCentro CDE: entra no painel do vendedor (/vendedor). loja@mktpy.com / 123456 */
+export const SELLER_USER: UserProfileDto = {
+  id: guid("user:seller"),
+  fullName: "Mariana Ríos",
+  email: "loja@mktpy.com",
+  phone: "595981234567",
+  cpf: null,
+  avatarUrl: null,
+  roles: ["Comprador", "Vendedor"],
+  createdAt: isoDaysAgo(1460),
+};
+
+/** Operação da plataforma: entra no painel administrativo (/admin). admin@mktpy.com / 123456 */
+export const ADMIN_USER: UserProfileDto = {
+  id: guid("user:admin"),
+  fullName: "Ana Admin",
+  email: "admin@mktpy.com",
+  phone: "11912345678",
+  cpf: null,
+  avatarUrl: null,
+  roles: ["Comprador", "Admin"],
+  createdAt: isoDaysAgo(700),
+};
+
+export interface DemoAccount {
+  user: UserProfileDto;
+  /** Loja associada (papel Vendedor). */
+  sellerSlug: string | null;
+}
+
+export const DEMO_ACCOUNTS: DemoAccount[] = [
+  { user: DEMO_USER, sellerSlug: null },
+  { user: SELLER_USER, sellerSlug: "tecnocentro-cde" },
+  { user: ADMIN_USER, sellerSlug: null },
+];
 
 export const DEMO_ADDRESSES: AddressDto[] = [
   {

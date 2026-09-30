@@ -1,26 +1,29 @@
 import type { PagedResult, ReviewDto, SellerSummaryDto } from "@marketplace/contracts";
 import { HttpResponse, http } from "msw";
 
-import { SELLERS, sellerBySlug, toSellerSummary } from "../fixtures/base";
+import { allSellers, findSellerBySlug, sellerStatus } from "../catalog-state";
+import { toSellerSummary } from "../fixtures/base";
 import { PRODUCT_RECORDS } from "../fixtures/products";
 import { API, notFound, num, paginate, simulateLatency } from "./utils";
 
 export const sellerHandlers = [
   http.get(`${API}/sellers`, async () => {
     await simulateLatency();
-    const body: SellerSummaryDto[] = SELLERS.map(toSellerSummary);
+    const body: SellerSummaryDto[] = allSellers()
+      .filter((s) => sellerStatus(s.id) !== "Suspenso")
+      .map(toSellerSummary);
     return HttpResponse.json(body);
   }),
 
   http.get(`${API}/sellers/:slug`, async ({ params }) => {
     await simulateLatency();
-    const seller = sellerBySlug(String(params.slug));
+    const seller = findSellerBySlug(String(params.slug));
     return seller ? HttpResponse.json(seller) : notFound("Loja");
   }),
 
   http.get(`${API}/sellers/:slug/reviews`, async ({ params, request }) => {
     await simulateLatency();
-    const seller = sellerBySlug(String(params.slug));
+    const seller = findSellerBySlug(String(params.slug));
     if (!seller) return notFound("Loja");
     const url = new URL(request.url);
     const page = num(url.searchParams.get("page"), 1)!;

@@ -29,9 +29,15 @@ import { formatMoney } from "@/lib/money";
 import { formatCpf, onlyDigits } from "@/lib/validation/documents";
 
 const METHODS = [
-  { value: "Pix", icon: QrCode, label: "pix", hint: "pixDescription" },
-  { value: "Boleto", icon: Barcode, label: "boleto", hint: "boletoDescription" },
-  { value: "Cartao", icon: CreditCard, label: "card", hint: "cardDescription" },
+  { value: "Pix", icon: QrCode, label: "pix", hint: "pixDescription", recommended: true },
+  {
+    value: "Boleto",
+    icon: Barcode,
+    label: "boleto",
+    hint: "boletoDescription",
+    recommended: false,
+  },
+  { value: "Cartao", icon: CreditCard, label: "card", hint: "cardDescription", recommended: false },
 ] as const;
 
 function isPaymentMethod(value: unknown): value is PaymentMethod {
@@ -75,7 +81,10 @@ export function PaymentSection({
               <opt.icon className="size-5" strokeWidth={1.75} aria-hidden />
             </span>
             <span className="flex min-w-0 flex-1 flex-col">
-              <span className="text-body-sm font-medium text-foreground">{t(opt.label)}</span>
+              <span className="flex items-center gap-2">
+                <span className="text-body-sm font-medium text-foreground">{t(opt.label)}</span>
+                {opt.recommended ? <Badge variant="soft">{t("recommended")}</Badge> : null}
+              </span>
               <span className="text-caption text-foreground-secondary">{t(opt.hint)}</span>
             </span>
           </OptionCard>

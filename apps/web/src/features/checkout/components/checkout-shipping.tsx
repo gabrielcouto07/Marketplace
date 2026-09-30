@@ -1,6 +1,7 @@
 "use client";
 
 import type { CheckoutGroupDto, CheckoutQuoteDto } from "@marketplace/contracts";
+import Image from "next/image";
 import { useTranslations } from "next-intl";
 
 import { ErrorState } from "@/components/shared/states";
@@ -79,10 +80,33 @@ function ShippingGroup({
   const tCatalog = useTranslations("catalog");
   const count = group.lines.reduce((acc, l) => acc + l.quantity, 0);
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-3">
       <p className="text-caption text-foreground-secondary">
         {group.seller.name} · {tOrders("items", { count })}
       </p>
+      {/* Revisão dos itens da loja: o comprador vê o que está pagando antes de escolher o frete. */}
+      <ul className="flex flex-col gap-2">
+        {group.lines.map((line) => (
+          <li
+            key={`${line.productId}:${line.variantId ?? "default"}`}
+            className="flex items-center gap-3"
+          >
+            <span className="relative size-10 shrink-0 overflow-hidden rounded-sm bg-surface-muted">
+              <Image src={line.thumbnailUrl} alt="" fill sizes="40px" className="object-contain" />
+            </span>
+            <span className="flex min-w-0 flex-1 flex-col">
+              <span className="line-clamp-1 text-body-sm text-foreground">{line.name}</span>
+              <span className="text-caption text-foreground-secondary tabular-nums">
+                {tOrders("quantityShort", { count: line.quantity })} {formatMoney(line.unitPrice)}
+                {line.variantLabel ? ` · ${line.variantLabel}` : ""}
+              </span>
+            </span>
+            <span className="shrink-0 text-body-sm font-medium text-foreground tabular-nums">
+              {formatMoney(line.lineTotal)}
+            </span>
+          </li>
+        ))}
+      </ul>
       <RadioGroup
         aria-label={t("shippingBy", { seller: group.seller.name })}
         value={selectedId ?? undefined}

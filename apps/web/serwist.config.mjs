@@ -11,6 +11,9 @@ export default serwist.withNextConfig(() => ({
   swSrc: "src/sw.ts",
   swDest: "public/sw.js",
   globDirectory: ".",
+  // Fotos de produto/categoria/banner (~9 MB em WebP) ficam fora do precache: o runtime caching
+  // `images` (CacheFirst, 30 dias) guarda só o que o usuário realmente viu.
+  globIgnores: ["public/images/**"],
   // Só a rota /offline entra aqui: arquivos de public/ já são incluídos pelo glob (com hash) e
   // repeti-los sem revision faz o Serwist lançar "conflicting entries" e o SW falha ao registrar.
   additionalPrecacheEntries: [

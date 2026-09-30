@@ -38,7 +38,7 @@ export const PRODUCT_NORMAL: ProductSummaryDto = {
   id: "p-1",
   slug: "fone-bluetooth-anc",
   name: "Fone de ouvido Bluetooth com cancelamento de ruído e estojo de carga",
-  thumbnailUrl: "/images/products/eletronicos-1-1.svg",
+  thumbnailUrl: "/images/products/eletronicos-1-1.webp",
   isNew: true,
 };
 
@@ -47,7 +47,7 @@ export const PRODUCT_DISCOUNT: ProductSummaryDto = {
   id: "p-2",
   slug: "perfume-importado-100ml",
   name: "Perfume importado 100 ml eau de parfum",
-  thumbnailUrl: "/images/products/perfumes-1-1.svg",
+  thumbnailUrl: "/images/products/perfumes-1-1.webp",
   price: { amount: 38990, currency: "BRL" },
   compareAtPrice: { amount: 51990, currency: "BRL" },
   referencePrice: { amount: 568_000, currency: "PYG" },
@@ -62,7 +62,7 @@ export const PRODUCT_SOLD_OUT: ProductSummaryDto = {
   id: "p-3",
   slug: "notebook-14-i5",
   name: 'Notebook 14" Core i5 16 GB RAM 512 GB SSD',
-  thumbnailUrl: "/images/products/informatica-1-1.svg",
+  thumbnailUrl: "/images/products/informatica-1-1.webp",
   price: { amount: 329900, currency: "BRL" },
   referencePrice: { amount: 4_810_000, currency: "PYG" },
   stock: 0,

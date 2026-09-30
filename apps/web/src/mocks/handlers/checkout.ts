@@ -14,7 +14,8 @@ import { convert, multiplyBasisPoints, sum } from "@/lib/money";
 import { isValidCpf } from "@/lib/validation/documents";
 
 import { db, persistDb } from "../db";
-import { getRate, sellerById, toSellerSummary } from "../fixtures/base";
+import { findProductRecord, findSellerById } from "../catalog-state";
+import { getRate, toSellerSummary } from "../fixtures/base";
 import {
   IMPORT_TAX_BASIS_POINTS,
   TIMELINE_DESCRIPTIONS,
@@ -23,7 +24,6 @@ import {
   computeTotals,
   nextOrderNumber,
 } from "../fixtures/orders";
-import { productById } from "../fixtures/products";
 import { lookupPostalCode, quoteShipping } from "../fixtures/shipping";
 import { API, addDays, addMinutes, notFound, nowIso, simulateLatency, validation } from "./utils";
 
@@ -37,11 +37,11 @@ function buildGroups(
 ): CheckoutGroupDto[] | { error: ReturnType<typeof validation> } {
   const groups: CheckoutGroupDto[] = [];
   for (const g of body.groups) {
-    const seller = sellerById(g.sellerId);
+    const seller = findSellerById(g.sellerId);
     if (!seller) return { error: validation({ groups: [`Loja ${g.sellerId} não encontrada.`] }) };
     const lines: CheckoutLineDto[] = [];
     for (const item of g.items) {
-      const record = productById(item.productId);
+      const record = findProductRecord(item.productId);
       if (!record)
         return { error: validation({ items: [`Produto ${item.productId} não encontrado.`] }) };
       const p = record.detail;
@@ -59,7 +59,7 @@ function buildGroups(
       });
     }
     const subtotal = sum(lines.map((l) => l.lineTotal));
-    const allFree = g.items.every((i) => productById(i.productId)?.detail.freeShipping);
+    const allFree = g.items.every((i) => findProductRecord(i.productId)?.detail.freeShipping);
     const options = quoteShipping(
       body.postalCode,
       seller.id,
@@ -93,10 +93,20 @@ export const checkoutHandlers = [
 
     const subtotal = sum(result.map((g) => g.subtotal));
     const shippingTotal = sum(result.map((g) => g.shipping));
-    const discount: Money =
-      body.couponCode?.toUpperCase() === "PARAGUAI10"
-        ? multiplyBasisPoints(subtotal, 1000)
-        : { amount: 0, currency: "BRL" };
+    const code = body.couponCode?.trim().toUpperCase();
+    const coupon = code
+      ? db.coupons.find(
+          (c) =>
+            c.code === code &&
+            c.active &&
+            (!c.expiresAt || new Date(c.expiresAt) > new Date()) &&
+            (c.maxUses === null || c.usedCount < c.maxUses) &&
+            (c.minSubtotalAmount === null || subtotal.amount >= c.minSubtotalAmount),
+        )
+      : undefined;
+    const discount: Money = coupon
+      ? multiplyBasisPoints(subtotal, coupon.discountBasisPoints)
+      : { amount: 0, currency: "BRL" };
     const taxable: Money = {
       amount: subtotal.amount + shippingTotal.amount - discount.amount,
       currency: "BRL",
@@ -153,7 +163,7 @@ export const checkoutHandlers = [
         group.shippingOptions[0];
       const items = buildOrderItems(
         group.lines.map((l) => ({
-          product: productById(l.productId)!.detail,
+          product: findProductRecord(l.productId)!.detail,
           quantity: l.quantity,
           variantId: l.variantId,
         })),

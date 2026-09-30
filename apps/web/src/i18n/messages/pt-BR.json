@@ -360,7 +360,13 @@
     "calculatedAtCheckout": "calculados no checkout",
     "exploreOffers": "Explorar ofertas",
     "checkoutCta": "Finalizar compra",
-    "subtotalLabel": "Subtotal"
+    "subtotalLabel": "Subtotal",
+    "unitPrice": "{count} × {amount}",
+    "summaryTitle": "Resumo",
+    "estimatedTaxes": "Impostos de importação (estimado)",
+    "estimatedTaxesHint": "Estimativa de 60% sobre os produtos. O valor exato aparece no checkout, antes de pagar.",
+    "shipping": "Frete",
+    "estimatedTotalNote": "Sem o frete, que depende do seu CEP e da opção escolhida."
   },
   "checkout": {
     "title": "Checkout",
@@ -439,7 +445,8 @@
     "cardBrand": "Bandeira: {brand}",
     "exchangeRateLabel": "Câmbio travado",
     "summaryHint": "Impostos e frete já estão no total. Sem surpresa depois.",
-    "newAddressHint": "Endereço no Brasil para entrega e cálculo do frete."
+    "newAddressHint": "Endereço no Brasil para entrega e cálculo do frete.",
+    "recommended": "Recomendado"
   },
   "payment": {
     "title": "Pagamento",
@@ -474,7 +481,13 @@
     "downloadPdf": "Baixar PDF",
     "expiresChip": "Expira em {time}",
     "cardDeclinedHint": "Nenhum valor foi cobrado. Volte ao carrinho e tente outro cartão ou pague com Pix.",
-    "pixExpiredHint": "O código não vale mais. Faça um novo pedido para gerar outro Pix."
+    "pixExpiredHint": "O código não vale mais. Faça um novo pedido para gerar outro Pix.",
+    "pixHowTo": "Como pagar",
+    "pixStep1": "Abra o app do seu banco e escolha pagar com Pix.",
+    "pixStep2": "Escaneie o QR code ou cole o código copia e cola.",
+    "pixStep3": "Confirme o valor. A aprovação leva poucos segundos.",
+    "downloadStarted": "Download do boleto iniciado",
+    "downloadFailed": "Não foi possível baixar o boleto. Tente de novo."
   },
   "orders": {
     "title": "Meus pedidos",
@@ -644,7 +657,7 @@
     "sendLink": "Enviar link",
     "linkSent": "Se o e-mail existir, você receberá um link em instantes.",
     "backToLogin": "Voltar para o login",
-    "demoHint": "Demo: demo@mktpy.com / 123456",
+    "demoHint": "Demo · comprador: demo@mktpy.com · vendedor: loja@mktpy.com · admin: admin@mktpy.com (senha 123456)",
     "welcome": "Bem-vindo(a), {name}!",
     "loggedOut": "Você saiu da conta",
     "loginError": "Não foi possível entrar. Verifique os dados."
@@ -880,7 +893,7 @@
     "audit": "Auditoria",
     "loginTitle": "Acesso administrativo",
     "loginSubtitle": "Área restrita à equipe do marketplace.",
-    "loginRestricted": "Entre com uma conta que tenha o papel de administrador.",
+    "loginRestricted": "Entre com uma conta que tenha o papel de administrador. Demo: admin@mktpy.com / 123456.",
     "loginSubmit": "Entrar no painel",
     "loginNotAdmin": "Esta conta não tem permissão de administrador.",
     "loginWelcome": "Bem-vindo, {name}!",
