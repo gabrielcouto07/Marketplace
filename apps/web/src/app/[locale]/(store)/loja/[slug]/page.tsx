@@ -13,8 +13,8 @@ interface PageProps {
 
 /** Metadata real da loja (nome e descrição); cai no slug se a API/mock não responder a tempo. */
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { slug } = await params;
-  const seller = await fetchSellerForMetadata(slug);
+  const { locale, slug } = await params;
+  const seller = await fetchSellerForMetadata(slug, locale);
   const title = seller?.name ?? slug.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
   const description = seller ? summarize(seller.description) : undefined;
   return {

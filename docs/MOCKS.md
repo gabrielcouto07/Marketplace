@@ -92,4 +92,4 @@ painéis, sobre o **catálogo vivo** (`src/mocks/catalog-state.ts`): fixtures + 
 1. Declare o DTO em `packages/contracts/src/index.ts`.
 2. Adicione a função em `features/<dominio>/api` (`xxxApi.*` + hook).
 3. Crie o handler em `src/mocks/handlers/<dominio>.ts` usando `API`, `simulateLatency`, `paginate`, `problem/notFound/validation`.
-4. Documente em `apps/web/API_CONTRACTS.md`.
+4. Documente em `docs/CONTRACTS.md`.

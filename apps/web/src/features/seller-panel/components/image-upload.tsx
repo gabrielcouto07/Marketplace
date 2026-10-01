@@ -8,7 +8,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { isApiError } from "@/lib/api/errors";
-import { BLUR_DATA_URL } from "@/lib/images";
+import { BLUR_DATA_URL, isDirectImage } from "@/lib/images";
 import { cn } from "@/lib/utils";
 
 import { uploadImage } from "../api";
@@ -83,7 +83,7 @@ export function SingleImageUpload({
             className="object-cover"
             placeholder="blur"
             blurDataURL={BLUR_DATA_URL}
-            unoptimized={value.startsWith("/api/")}
+            unoptimized={isDirectImage(value)}
           />
         ) : (
           <button
@@ -173,10 +173,7 @@ export function GalleryUpload({
 
   return (
     <div className="flex flex-col gap-2">
-      <ul
-        className="grid grid-cols-3 gap-2 sm:grid-cols-4"
-        aria-describedby={describedBy}
-      >
+      <ul className="grid grid-cols-3 gap-2 sm:grid-cols-4" aria-describedby={describedBy}>
         {value.map((img, index) => (
           <li
             key={img.url}
@@ -190,7 +187,7 @@ export function GalleryUpload({
               className="object-contain"
               placeholder="blur"
               blurDataURL={BLUR_DATA_URL}
-              unoptimized={img.url.startsWith("/api/")}
+              unoptimized={isDirectImage(img.url)}
             />
             {index === 0 ? (
               <span className="absolute top-1 left-1 rounded-sm bg-primary px-1.5 py-0.5 text-caption text-primary-foreground">

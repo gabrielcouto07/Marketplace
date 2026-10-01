@@ -48,7 +48,7 @@ import {
 } from "@/components/ui/table";
 import { Link } from "@/i18n/navigation";
 import { isApiError } from "@/lib/api/errors";
-import { BLUR_DATA_URL } from "@/lib/images";
+import { BLUR_DATA_URL, isDirectImage } from "@/lib/images";
 import { formatMoney } from "@/lib/money";
 
 import {
@@ -460,7 +460,7 @@ export function SellerProducts() {
                           className="object-contain"
                           placeholder="blur"
                           blurDataURL={BLUR_DATA_URL}
-                          unoptimized={p.thumbnailUrl.startsWith("/api/")}
+                          unoptimized={isDirectImage(p.thumbnailUrl)}
                         />
                       </span>
                       <span className="line-clamp-2 max-w-[220px] font-medium sm:max-w-none">
@@ -616,6 +616,8 @@ export function SellerSettings() {
           bannerUrl: p.bannerUrl,
           exchangePolicy: p.exchangePolicy,
           categoryIds: p.categories.map((c) => c.id),
+          originPostalCode: p.originPostalCode ?? "",
+          phone: p.phone ?? "",
         }}
         submitLabel={tc("save")}
         submitting={update.isPending}

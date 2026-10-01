@@ -11,6 +11,7 @@ namespace Marketplace.Application.Services;
 /// <summary>Área do vendedor: cadastro da loja, perfil, produtos, pedidos e indicadores.</summary>
 public sealed class SellerPanelService(
     IAppDbContext db,
+    ICatalogCache catalogCache,
     AuthService auth,
     OrderService orders,
     PlatformSettingsProvider settingsProvider,
@@ -55,7 +56,7 @@ public sealed class SellerPanelService(
             throw AppException.Conflict("SELLER_ALREADY_EXISTS", "Você já tem uma loja cadastrada.");
 
         var input = new SellerProfileInput(request.Name, request.Ruc, request.City, request.Description, request.LogoUrl,
-            request.BannerUrl, request.ExchangePolicy, request.CategoryIds);
+            request.BannerUrl, request.ExchangePolicy, request.CategoryIds, request.OriginPostalCode, request.Phone);
         var validated = await ValidateProfileAsync(input, existingId: null, ct);
         if (request.AcceptTerms != true)
             throw AppException.Validation("acceptTerms", "É preciso aceitar os termos para vendedores.");
@@ -72,7 +73,10 @@ public sealed class SellerPanelService(
             LogoUrl = validated.LogoUrl,
             BannerUrl = validated.BannerUrl,
             ExchangePolicy = validated.ExchangePolicy,
-            Status = SellerStatus.Aprovado,
+            OriginPostalCode = validated.OriginPostalCode,
+            Phone = validated.Phone,
+            // Entra como Pendente: a vitrine só mostra lojas aprovadas pelo admin (CatalogService/SellerService).
+            Status = SellerStatus.Pendente,
             OwnerUserId = userId,
             MemberSince = now,
             ReputationLevel = 3,
@@ -102,6 +106,8 @@ public sealed class SellerPanelService(
         seller.LogoUrl = validated.LogoUrl;
         seller.BannerUrl = validated.BannerUrl;
         seller.ExchangePolicy = validated.ExchangePolicy;
+        seller.OriginPostalCode = validated.OriginPostalCode;
+        seller.Phone = validated.Phone;
         seller.Categories.RemoveAll(c => !validated.CategoryIds.Contains(c.CategoryId));
         foreach (var id in validated.CategoryIds.Where(id => seller.Categories.All(c => c.CategoryId != id)))
             seller.Categories.Add(new SellerCategory { SellerId = seller.Id, CategoryId = id });
@@ -113,11 +119,12 @@ public sealed class SellerPanelService(
             p.SearchText = Slug.Normalize($"{p.Name} {validated.Name}");
         }
         await db.SaveChangesAsync(ct);
+        await catalogCache.InvalidateAsync(ct);
         var fresh = await db.Sellers.AsNoTracking().Include(s => s.Categories).ThenInclude(c => c.Category).FirstAsync(s => s.Id == seller.Id, ct);
         return await ToProfileAsync(fresh, ct);
     }
 
-    private sealed record ValidatedProfile(string Name, string Ruc, string City, string Description, string? LogoUrl, string? BannerUrl, string ExchangePolicy, List<Guid> CategoryIds);
+    private sealed record ValidatedProfile(string Name, string Ruc, string City, string Description, string? LogoUrl, string? BannerUrl, string ExchangePolicy, List<Guid> CategoryIds, string? OriginPostalCode, string? Phone);
 
     private async Task<ValidatedProfile> ValidateProfileAsync(SellerProfileInput input, Guid? existingId, CancellationToken ct)
     {
@@ -129,9 +136,13 @@ public sealed class SellerPanelService(
             ? "Trocas e devoluções em até 30 dias após o recebimento para produtos lacrados ou com defeito de fabricação."
             : input.ExchangePolicy.Trim();
         var categoryIds = (input.CategoryIds ?? []).Distinct().ToList();
+        var originPostalCode = string.IsNullOrWhiteSpace(input.OriginPostalCode) ? null : input.OriginPostalCode.Trim().ToUpperInvariant();
+        var phone = string.IsNullOrWhiteSpace(input.Phone) ? null : input.Phone.Trim();
 
         var errors = new ValidationErrors()
             .AddIf(name.Length < 3, "name", "Informe o nome da loja (mínimo 3 caracteres).")
+            .AddIf(originPostalCode is { Length: > 16 }, "originPostalCode", "Código postal inválido.")
+            .AddIf(phone is { Length: > 32 } || (phone is not null && Documents.OnlyDigits(phone).Length < 8), "phone", "Telefone inválido.")
             .AddIf(name.Length > 80, "name", "Nome muito longo (máximo 80 caracteres).")
             .AddIf(!Documents.IsValidRuc(ruc), "ruc", "RUC inválido (ex.: 80012345-0).")
             .AddIf(city.Length < 2, "city", "Informe a cidade de origem dos envios.")
@@ -150,7 +161,7 @@ public sealed class SellerPanelService(
         return new ValidatedProfile(name, ruc, city, description,
             string.IsNullOrWhiteSpace(input.LogoUrl) ? null : input.LogoUrl.Trim(),
             string.IsNullOrWhiteSpace(input.BannerUrl) ? null : input.BannerUrl.Trim(),
-            policy, categoryIds);
+            policy, categoryIds, originPostalCode, phone);
     }
 
     private async Task<string> UniqueSellerSlugAsync(string name, CancellationToken ct)
@@ -168,7 +179,7 @@ public sealed class SellerPanelService(
         var count = await db.Products.CountAsync(p => p.SellerId == s.Id && p.Status == ProductStatus.Ativo, ct);
         return new SellerProfileDto(s.Id, s.Slug, s.Name, s.LogoUrl, s.BannerUrl, s.City, s.Description, s.Ruc, s.ExchangePolicy,
             s.Status, s.ReputationLevel, s.IsOfficialStore, s.Rating, s.ReviewCount, count, s.MemberSince,
-            s.Categories.Select(c => c.Category.ToRef()).ToList());
+            s.Categories.Select(c => c.Category.ToRef()).ToList(), s.OriginPostalCode, s.Phone);
     }
 
     // ----- Dashboard -----
@@ -233,6 +244,11 @@ public sealed class SellerPanelService(
             WarrantyMonths = v.WarrantyMonths,
             HandlingDaysMin = v.HandlingDaysMin,
             HandlingDaysMax = v.HandlingDaysMax,
+            WeightGrams = v.WeightGrams,
+            LengthCm = v.Dimensions?.LengthCm,
+            WidthCm = v.Dimensions?.WidthCm,
+            HeightCm = v.Dimensions?.HeightCm,
+            HsCode = v.HsCode,
             OriginCity = seller.City,
             Status = v.Status,
             CreatedAt = now,
@@ -242,13 +258,14 @@ public sealed class SellerPanelService(
         };
         db.Products.Add(product);
         await db.SaveChangesAsync(ct);
+        await catalogCache.InvalidateAsync(ct);
         return ToDto(product);
     }
 
     public async Task<SellerProductDto> UpdateProductAsync(Guid id, SellerProductInput input, CancellationToken ct)
     {
         var seller = await RequireSellerAsync(ct);
-        var product = await db.Products.Include(p => p.Images).FirstOrDefaultAsync(p => p.Id == id && p.SellerId == seller.Id, ct)
+        var product = await db.Products.Include(p => p.Images).Include(p => p.Variants).FirstOrDefaultAsync(p => p.Id == id && p.SellerId == seller.Id, ct)
                       ?? throw AppException.NotFound("Produto");
         var v = await ValidateProductAsync(input, ct);
         product.CategoryId = v.CategoryId;
@@ -257,8 +274,14 @@ public sealed class SellerPanelService(
         product.Description = v.Description;
         product.PriceAmount = v.PriceAmount;
         product.CompareAtAmount = v.CompareAtAmount;
-        product.Stock = v.Stock;
+        // Com variações o estoque é a soma delas (editado por variação); sem variações, o campo do formulário manda.
+        if (product.Variants.Count == 0) product.Stock = v.Stock;
         product.FreeShipping = v.FreeShipping;
+        product.WeightGrams = v.WeightGrams;
+        product.LengthCm = v.Dimensions?.LengthCm;
+        product.WidthCm = v.Dimensions?.WidthCm;
+        product.HeightCm = v.Dimensions?.HeightCm;
+        product.HsCode = v.HsCode;
         product.WarrantyMonths = v.WarrantyMonths;
         product.HandlingDaysMin = v.HandlingDaysMin;
         product.HandlingDaysMax = v.HandlingDaysMax;
@@ -281,6 +304,7 @@ public sealed class SellerPanelService(
             }
         }
         await db.SaveChangesAsync(ct);
+        await catalogCache.InvalidateAsync(ct);
         return ToDto(product);
     }
 
@@ -293,9 +317,10 @@ public sealed class SellerPanelService(
         product.Status = ProductStatus.Arquivado;
         product.UpdatedAt = Now;
         await db.SaveChangesAsync(ct);
+        await catalogCache.InvalidateAsync(ct);
     }
 
-    private sealed record ValidatedProduct(string Name, string Description, Guid CategoryId, long PriceAmount, long? CompareAtAmount, int Stock, bool FreeShipping, int? WarrantyMonths, int HandlingDaysMin, int HandlingDaysMax, List<ProductAttribute> Attributes, List<SellerProductImageInput> Images, ProductStatus Status);
+    private sealed record ValidatedProduct(string Name, string Description, Guid CategoryId, long PriceAmount, long? CompareAtAmount, int Stock, bool FreeShipping, int? WarrantyMonths, int HandlingDaysMin, int HandlingDaysMax, List<ProductAttribute> Attributes, List<SellerProductImageInput> Images, ProductStatus Status, int? WeightGrams, ParcelDimensionsDto? Dimensions, string? HsCode);
 
     private async Task<ValidatedProduct> ValidateProductAsync(SellerProductInput input, CancellationToken ct)
     {
@@ -307,9 +332,14 @@ public sealed class SellerPanelService(
         var minDays = input.HandlingDaysMin ?? 1;
         var maxDays = input.HandlingDaysMax ?? Math.Max(minDays, 3);
         var status = input.Status ?? ProductStatus.Ativo;
+        var dims = input.Dimensions;
+        var hsCode = string.IsNullOrWhiteSpace(input.HsCode) ? null : Documents.OnlyDigits(input.HsCode);
 
         var errors = new ValidationErrors()
             .AddIf(name.Length < 5, "name", "Informe o nome do produto (mínimo 5 caracteres).")
+            .AddIf(input.WeightGrams is < 0 or > 100_000, "weightGrams", "Peso inválido (0 a 100 kg).")
+            .AddIf(dims is not null && (dims.LengthCm is < 1 or > 200 || dims.WidthCm is < 1 or > 200 || dims.HeightCm is < 1 or > 200), "dimensions", "Dimensões inválidas (1 a 200 cm).")
+            .AddIf(hsCode is { Length: < 4 or > 16 }, "hsCode", "Código NCM/HS inválido.")
             .AddIf(name.Length > 200, "name", "Nome muito longo (máximo 200 caracteres).")
             .AddIf(description.Length < 20, "description", "Descreva o produto (mínimo 20 caracteres).")
             .AddIf(input.CategoryId is null, "categoryId", "Escolha a categoria.")
@@ -329,7 +359,7 @@ public sealed class SellerPanelService(
             throw AppException.Validation("categoryId", "Categoria inválida.");
 
         return new ValidatedProduct(name, description, input.CategoryId!.Value, input.PriceAmount!.Value, input.CompareAtAmount, input.Stock!.Value,
-            input.FreeShipping, input.WarrantyMonths, minDays, maxDays, attributes, images, status);
+            input.FreeShipping, input.WarrantyMonths, minDays, maxDays, attributes, images, status, input.WeightGrams, dims, hsCode);
     }
 
     private async Task<string> UniqueProductSlugAsync(string name, CancellationToken ct)
@@ -348,7 +378,10 @@ public sealed class SellerPanelService(
             new DayRange(p.HandlingDaysMin, p.HandlingDaysMax),
             p.Attributes.Select(a => new ProductAttributeDto(a.Name, a.Value)).ToList(),
             p.Images.OrderBy(i => i.SortOrder).Select(i => new SellerProductImageDto(i.Id, i.Url, i.Alt, i.SortOrder, i.StorageKey)).ToList(),
-            p.Status, p.SoldCount, p.Rating, p.ReviewCount, p.CreatedAt, p.UpdatedAt);
+            p.Status, p.SoldCount, p.Rating, p.ReviewCount, p.CreatedAt, p.UpdatedAt,
+            p.WeightGrams,
+            p is { LengthCm: { } len, WidthCm: { } wid, HeightCm: { } hei } ? new ParcelDimensionsDto(len, wid, hei) : null,
+            p.HsCode);
 
     // ----- Pedidos da loja -----
 

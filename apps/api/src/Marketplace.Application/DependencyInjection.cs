@@ -15,6 +15,8 @@ public static class DependencyInjection
         services.AddScoped<CheckoutService>();
         services.AddScoped<OrderService>();
         services.AddScoped<PaymentService>();
+        services.AddScoped<RefundService>();
+        services.AddScoped<TrackingService>();
         services.AddScoped<PayoutService>();
         services.AddScoped<AuthService>();
         services.AddScoped<AccountService>();

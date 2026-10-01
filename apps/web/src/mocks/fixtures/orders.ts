@@ -12,15 +12,21 @@ import type {
 } from "@marketplace/contracts";
 import { ORDER_HAPPY_PATH } from "@marketplace/contracts";
 
+import { getApiBaseUrl } from "@/lib/api/http";
 import { convert, multiplyBasisPoints, sum } from "@/lib/money";
 
 import { DEMO_ADDRESSES } from "./account";
 import { getRate, guid, isoDaysAgo } from "./base";
 import { PRODUCTS } from "./products";
-import { quoteShipping } from "./shipping";
+import { DEFAULT_CARRIER, quoteShipping } from "./shipping";
 
-/** Alíquota estimada de importação (60% imposto + ICMS simplificado ≈ 92% nas remessas; aqui 60% para demo). */
+/**
+ * Padrões das configurações da plataforma usados pelos seeds (os handlers leem `db.settings`,
+ * que nasce com estes mesmos valores — ver `mocks/db.ts`).
+ */
 export const IMPORT_TAX_BASIS_POINTS = 6000;
+export const PIX_EXPIRATION_MINUTES = 30;
+export const BOLETO_DUE_DAYS = 3;
 
 export const TIMELINE_DESCRIPTIONS: Record<OrderStatus, string> = {
   AguardandoPagamento: "Pedido criado. Aguardando confirmação do pagamento.",
@@ -149,11 +155,15 @@ export function buildOrderItems(
   });
 }
 
-export function computeTotals(items: OrderItemDto[], shipping: Money) {
+export function computeTotals(
+  items: OrderItemDto[],
+  shipping: Money,
+  importTaxBasisPoints = IMPORT_TAX_BASIS_POINTS,
+) {
   const subtotal = sum(items.map((i) => i.lineTotal));
   const importTax = multiplyBasisPoints(
     { amount: subtotal.amount + shipping.amount, currency: "BRL" },
-    IMPORT_TAX_BASIS_POINTS,
+    importTaxBasisPoints,
   );
   const total = sum([subtotal, shipping, importTax]);
   return {
@@ -164,12 +174,6 @@ export function computeTotals(items: OrderItemDto[], shipping: Money) {
     total,
     totalReference: convert(total, getRate("BRL", "PYG")),
   };
-}
-
-let orderSeq = 100200;
-export function nextOrderNumber(): string {
-  orderSeq += 1;
-  return `PY-2026-${String(orderSeq).padStart(6, "0")}`;
 }
 
 interface SeedOrder {
@@ -208,12 +212,24 @@ export function buildPayment(input: {
   createdAt: string;
   status: PaymentDto["status"];
   installments?: number;
+  pixExpirationMinutes?: number;
+  boletoDueDays?: number;
 }): PaymentDto {
-  const { id, purchaseId, method, amount, createdAt, status, installments = 1 } = input;
+  const {
+    id,
+    purchaseId,
+    method,
+    amount,
+    createdAt,
+    status,
+    installments = 1,
+    pixExpirationMinutes = PIX_EXPIRATION_MINUTES,
+    boletoDueDays = BOLETO_DUE_DAYS,
+  } = input;
   const expires = new Date(createdAt);
-  expires.setMinutes(expires.getMinutes() + 30);
+  expires.setMinutes(expires.getMinutes() + pixExpirationMinutes);
   const due = new Date(createdAt);
-  due.setDate(due.getDate() + 3);
+  due.setDate(due.getDate() + boletoDueDays);
   const digits = amount.amount.toString().padStart(10, "0");
   return {
     id,
@@ -221,6 +237,11 @@ export function buildPayment(input: {
     method,
     status,
     amount,
+    // Pagamentos seed estornados (pedido Reembolsado) devolvem o valor cheio.
+    refundedAmount: {
+      amount: status === "Estornado" ? amount.amount : 0,
+      currency: amount.currency,
+    },
     createdAt,
     paidAt: status === "Aprovado" ? createdAt : null,
     pix:
@@ -236,14 +257,14 @@ export function buildPayment(input: {
         ? {
             barcode: `23790${digits}00000000000000000000000000000000`.slice(0, 44),
             digitableLine: `23790.${digits.slice(0, 5)} ${digits.slice(5, 10)}.000000 00000.000000 1 ${digits}`,
-            pdfUrl: `/api/payments/${id}/boleto.pdf`,
+            pdfUrl: `${getApiBaseUrl()}/payments/${id}/boleto.pdf`,
             dueDate: due.toISOString(),
           }
         : null,
     card:
       method === "Cartao"
         ? {
-            brand: "Visa",
+            brand: "visa",
             last4: "4242",
             installments,
             installmentAmount: {
@@ -280,6 +301,15 @@ function buildSeedOrders(): { orders: OrderDto[]; payments: PaymentDto[] } {
     const max = new Date(createdAt);
     max.setDate(max.getDate() + shippingOption.estimatedDays.max + 4);
     const timeline = buildTimeline(seed.status, seed.daysAgo);
+    const shipped = [
+      "Enviado",
+      "EmTransitoInternacional",
+      "Entregue",
+      "Concluido",
+      "EmDisputa",
+      "Devolvido",
+      "Reembolsado",
+    ].includes(seed.status);
 
     orders.push({
       id: guid(`order:seed:${idx}`),
@@ -292,17 +322,8 @@ function buildSeedOrders(): { orders: OrderDto[]; payments: PaymentDto[] } {
       items,
       shippingAddress: address,
       shippingOption,
-      trackingCode: [
-        "Enviado",
-        "EmTransitoInternacional",
-        "Entregue",
-        "Concluido",
-        "EmDisputa",
-        "Devolvido",
-        "Reembolsado",
-      ].includes(seed.status)
-        ? `PY${String(700000 + idx * 137).padStart(9, "0")}BR`
-        : null,
+      trackingCode: shipped ? `PY${String(700000 + idx * 137).padStart(9, "0")}BR` : null,
+      carrier: shipped ? DEFAULT_CARRIER : null,
       trackingEvents: buildTracking(seed.status, seed.daysAgo, seller.city),
       estimatedDelivery: { min: min.toISOString(), max: max.toISOString() },
       totals,

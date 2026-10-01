@@ -157,7 +157,7 @@ const SELLER_SEED: SellerSeed[] = [
     city: "Ciudad del Este",
     reputationLevel: 5,
     isOfficialStore: true,
-    ruc: "80012345-6",
+    ruc: "80012345-0",
     memberSinceDays: 1460,
     categories: ["eletronicos", "informatica", "celulares"],
     description:
@@ -175,7 +175,7 @@ const SELLER_SEED: SellerSeed[] = [
     city: "Ciudad del Este",
     reputationLevel: 5,
     isOfficialStore: true,
-    ruc: "80023456-3",
+    ruc: "80023456-1",
     memberSinceDays: 1100,
     categories: ["perfumes"],
     description:
@@ -193,7 +193,7 @@ const SELLER_SEED: SellerSeed[] = [
     city: "Ciudad del Este",
     reputationLevel: 4,
     isOfficialStore: false,
-    ruc: "80034567-0",
+    ruc: "80034567-3",
     memberSinceDays: 720,
     categories: ["casa"],
     description:
@@ -211,7 +211,7 @@ const SELLER_SEED: SellerSeed[] = [
     city: "Asunción",
     reputationLevel: 4,
     isOfficialStore: false,
-    ruc: "80045678-8",
+    ruc: "80045678-5",
     memberSinceDays: 900,
     categories: ["eletronicos", "informatica", "celulares", "casa"],
     description:
@@ -229,7 +229,7 @@ const SELLER_SEED: SellerSeed[] = [
     city: "Ciudad del Este",
     reputationLevel: 5,
     isOfficialStore: true,
-    ruc: "80056789-5",
+    ruc: "80056789-7",
     memberSinceDays: 2000,
     categories: ["celulares", "eletronicos"],
     description:
@@ -247,7 +247,7 @@ const SELLER_SEED: SellerSeed[] = [
     city: "Ciudad del Este",
     reputationLevel: 3,
     isOfficialStore: false,
-    ruc: "80067890-2",
+    ruc: "80067890-7",
     memberSinceDays: 400,
     categories: ["bebidas"],
     description:
@@ -265,7 +265,7 @@ const SELLER_SEED: SellerSeed[] = [
     city: "Salto del Guairá",
     reputationLevel: 4,
     isOfficialStore: false,
-    ruc: "80078901-9",
+    ruc: "80078901-6",
     memberSinceDays: 610,
     categories: ["esportes"],
     description:
@@ -283,7 +283,7 @@ const SELLER_SEED: SellerSeed[] = [
     city: "Pedro Juan Caballero",
     reputationLevel: 3,
     isOfficialStore: false,
-    ruc: "80089012-7",
+    ruc: "80089012-4",
     memberSinceDays: 250,
     categories: ["moda"],
     description: "Acessórios, calçados e vestuário com curadoria. Troca garantida em até 30 dias.",
@@ -337,7 +337,3 @@ export function toSellerSummary(s: SellerDto): SellerSummaryDto {
     city: s.city,
   };
 }
-
-export const sellerBySlug = (slug: string): SellerDto | undefined =>
-  SELLERS.find((s) => s.slug === slug);
-export const sellerById = (id: string): SellerDto | undefined => SELLERS.find((s) => s.id === id);

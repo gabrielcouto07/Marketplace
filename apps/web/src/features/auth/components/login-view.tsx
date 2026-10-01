@@ -12,7 +12,7 @@ import { useLogin } from "@/features/auth/api";
 import { Link } from "@/i18n/navigation";
 import { loginSchema, type LoginFormValues } from "@/lib/validation/schemas";
 
-import { ApiErrorNotice, AuthCard, DemoHint, GoogleButton, OrDivider } from "./auth-card";
+import { ApiErrorNotice, AuthCard, DemoHint, GoogleSignIn } from "./auth-card";
 import { FormField, PasswordInput, applyApiErrors, fieldError } from "./form-field";
 import { useAuthRedirect, useRedirectIfAuthenticated } from "./use-auth-redirect";
 
@@ -85,8 +85,7 @@ export function LoginView() {
         </Button>
         <DemoHint>{t("demoHint")}</DemoHint>
       </form>
-      <OrDivider />
-      <GoogleButton />
+      <GoogleSignIn />
     </AuthCard>
   );
 }

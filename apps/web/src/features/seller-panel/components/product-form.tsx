@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, Trash2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect } from "react";
-import { Controller, useFieldArray, useForm } from "react-hook-form";
+import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 
 import { FormField } from "@/components/shared/form-field";
 import { Button } from "@/components/ui/button";
@@ -49,6 +49,10 @@ const EMPTY: ProductFormValues = {
   warrantyMonths: null,
   handlingDaysMin: 1,
   handlingDaysMax: 3,
+  weightGrams: null,
+  lengthCm: null,
+  widthCm: null,
+  heightCm: null,
   attributes: [],
   images: [],
   status: "Ativo",
@@ -66,6 +70,10 @@ function toFormValues(p: SellerProductDto): ProductFormValues {
     warrantyMonths: p.warrantyMonths,
     handlingDaysMin: p.handlingDays.min,
     handlingDaysMax: p.handlingDays.max,
+    weightGrams: p.weightGrams,
+    lengthCm: p.dimensions?.lengthCm ?? null,
+    widthCm: p.dimensions?.widthCm ?? null,
+    heightCm: p.dimensions?.heightCm ?? null,
     attributes: p.attributes,
     images: p.images.map((i) => ({ url: i.url, alt: i.alt, storageKey: i.storageKey })),
     status: p.status === "Rascunho" ? "Rascunho" : "Ativo",
@@ -120,6 +128,8 @@ function IntInput({
   min = 0,
   max,
   allowEmpty,
+  placeholder,
+  ariaLabel,
 }: {
   id: string;
   value: number | null | undefined;
@@ -131,6 +141,8 @@ function IntInput({
   min?: number;
   max?: number;
   allowEmpty?: boolean;
+  placeholder?: string;
+  ariaLabel?: string;
 }) {
   return (
     <Input
@@ -140,6 +152,8 @@ function IntInput({
       inputMode="numeric"
       min={min}
       max={max}
+      placeholder={placeholder}
+      aria-label={ariaLabel}
       className="tabular-nums"
       aria-invalid={invalid || undefined}
       aria-describedby={describedBy}
@@ -168,11 +182,11 @@ export function ProductForm({
     defaultValues: product ? toFormValues(product) : EMPTY,
     mode: "onBlur",
   });
-  const { register, handleSubmit, control, setError, formState, watch } = form;
+  const { register, handleSubmit, control, setError, formState } = form;
   const { errors } = formState;
   const attributes = useFieldArray({ control, name: "attributes" });
-  const price = watch("priceAmount");
-  const compareAt = watch("compareAtAmount");
+  const price = useWatch({ control, name: "priceAmount" });
+  const compareAt = useWatch({ control, name: "compareAtAmount" });
   const discount =
     compareAt && price && compareAt > price
       ? Math.round(((compareAt - price) / compareAt) * 100)
@@ -196,6 +210,12 @@ export function ProductForm({
       warrantyMonths: values.warrantyMonths,
       handlingDaysMin: values.handlingDaysMin,
       handlingDaysMax: values.handlingDaysMax,
+      weightGrams: values.weightGrams,
+      dimensions:
+        values.lengthCm && values.widthCm && values.heightCm
+          ? { lengthCm: values.lengthCm, widthCm: values.widthCm, heightCm: values.heightCm }
+          : null,
+      hsCode: product?.hsCode ?? null,
       attributes: values.attributes.filter((a) => a.name && a.value),
       images: values.images.map((i) => ({
         url: i.url,
@@ -472,6 +492,83 @@ export function ProductForm({
               )}
             />
           </FormField>
+        </div>
+
+        <div className="flex flex-col gap-4 border-t border-border pt-4">
+          <div className="flex flex-col gap-1">
+            <h3 className="text-body-sm font-semibold text-foreground">{t("productParcel")}</h3>
+            <p className="text-caption text-foreground-secondary">{t("productParcelHint")}</p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField
+              id="product-weight"
+              label={t("productWeight")}
+              optional
+              error={errors.weightGrams?.message}
+            >
+              <Controller
+                control={control}
+                name="weightGrams"
+                render={({ field }) => (
+                  <IntInput
+                    id="product-weight"
+                    name={field.name}
+                    value={field.value}
+                    onChange={field.onChange}
+                    onBlur={field.onBlur}
+                    max={100_000}
+                    allowEmpty
+                    invalid={Boolean(errors.weightGrams)}
+                    describedBy={describedBy("product-weight", Boolean(errors.weightGrams))}
+                  />
+                )}
+              />
+            </FormField>
+            <FormField
+              id="product-dimensions"
+              labelFor="product-lengthCm"
+              label={t("productDimensions")}
+              optional
+              error={
+                errors.lengthCm?.message ?? errors.widthCm?.message ?? errors.heightCm?.message
+              }
+            >
+              <div
+                role="group"
+                aria-label={t("productDimensions")}
+                className="grid grid-cols-3 gap-2"
+              >
+                {(
+                  [
+                    ["lengthCm", "productLength"],
+                    ["widthCm", "productWidth"],
+                    ["heightCm", "productHeight"],
+                  ] as const
+                ).map(([name, labelKey]) => (
+                  <Controller
+                    key={name}
+                    control={control}
+                    name={name}
+                    render={({ field }) => (
+                      <IntInput
+                        id={`product-${name}`}
+                        name={field.name}
+                        value={field.value}
+                        onChange={field.onChange}
+                        onBlur={field.onBlur}
+                        max={200}
+                        allowEmpty
+                        placeholder={t(labelKey)}
+                        ariaLabel={t(labelKey)}
+                        invalid={Boolean(errors[name])}
+                        describedBy={describedBy("product-dimensions", Boolean(errors[name]))}
+                      />
+                    )}
+                  />
+                ))}
+              </div>
+            </FormField>
+          </div>
         </div>
       </section>
 

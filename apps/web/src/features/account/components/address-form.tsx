@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect } from "react";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 
 import { FormField } from "@/components/shared/form-field";
 import { Button } from "@/components/ui/button";
@@ -57,10 +57,11 @@ export function AddressForm({
     defaultValues: { ...EMPTY, ...defaultValues },
     mode: "onBlur",
   });
-  const { register, handleSubmit, control, watch, setValue, getValues, setError, formState } = form;
+  const { register, handleSubmit, control, setValue, getValues, setError, formState } = form;
   const { errors } = formState;
 
-  const cep = onlyDigits(watch("postalCode") ?? "");
+  const postalCodeValue = useWatch({ control, name: "postalCode" });
+  const cep = onlyDigits(postalCodeValue ?? "");
   const lookup = usePostalCodeLookup(cep);
 
   useEffect(() => {

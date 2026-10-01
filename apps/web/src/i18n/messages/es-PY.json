@@ -19,6 +19,7 @@
     "continue": "Continuar",
     "copy": "Copiar",
     "copied": "¡Copiado!",
+    "copyFailed": "No se pudo copiar. Seleccioná el texto y copialo manualmente.",
     "businessDays": "{min}–{max} días hábiles",
     "businessDaysShort": "{min} a {max} días hábiles",
     "optional": "opcional",
@@ -122,7 +123,11 @@
     "imagesMax": "Máximo 8 fotos",
     "compareAtGreater": "El precio anterior debe ser mayor que el actual",
     "handlingRange": "El máximo debe ser mayor o igual al mínimo",
-    "trackingCodeLength": "Código de seguimiento de 8 a 40 caracteres"
+    "trackingCodeLength": "Código de seguimiento de 8 a 40 caracteres",
+    "weightRange": "Peso en gramos enteros, hasta 100.000 g",
+    "dimensionRange": "Usá centímetros enteros, hasta 200 cm",
+    "dimensionsIncomplete": "Ingresá las tres medidas o dejá todas en blanco",
+    "invalidPostalCode": "Código postal inválido (4 a 10 dígitos)"
   },
   "errors": {
     "genericTitle": "Algo salió mal",
@@ -504,7 +509,9 @@
     "exchangeRateLabel": "Cambio fijado",
     "summaryHint": "Impuestos y envío ya están en el total. Sin sorpresas después.",
     "newAddressHint": "Dirección en Brasil para la entrega y el cálculo del envío.",
-    "recommended": "Recomendado"
+    "recommended": "Recomendado",
+    "cardUnavailable": "Pago con tarjeta no disponible en este entorno. Pagá con Pix o boleto.",
+    "orderValidationFailed": "No se pudo confirmar el pedido: {message}"
   },
   "payment": {
     "title": "Pago",
@@ -617,7 +624,12 @@
     "trackOrder": "Seguir pedido",
     "ordersInPurchase": "{count, plural, one {# pedido} other {# pedidos}}",
     "quantityShort": "{count}×",
-    "detailTitle": "Detalles del pedido"
+    "detailTitle": "Detalles del pedido",
+    "trackingCodeAt": "Código de seguimiento · {carrier}",
+    "trackAtCarrier": "Seguir en la transportadora",
+    "confirmReceipt": "Confirmar recepción",
+    "receiptConfirm": "¿Recibiste el pedido y está todo bien? Esto concluye la compra y libera la liquidación al vendedor.",
+    "receiptConfirmed": "Recepción confirmada. ¡Gracias por tu compra!"
   },
   "account": {
     "title": "Mi cuenta",
@@ -718,7 +730,8 @@
     "demoHint": "Demo · comprador: demo@mktpy.com · vendedor: loja@mktpy.com · admin: admin@mktpy.com (contraseña 123456)",
     "welcome": "¡Bienvenido/a, {name}!",
     "loggedOut": "Cerraste sesión",
-    "loginError": "No se pudo iniciar sesión. Verificá los datos."
+    "loginError": "No se pudo iniciar sesión. Verificá los datos.",
+    "googleUnavailable": "No se pudo abrir el inicio de sesión de Google. Probá de nuevo o ingresá con tu e-mail."
   },
   "sellerPanel": {
     "title": "Panel del vendedor",
@@ -826,6 +839,13 @@
     "productHandlingMin": "Preparación (mín. días)",
     "productHandlingMax": "Preparación (máx. días)",
     "productHandlingHint": "Días hábiles hasta despachar. Entra en el plazo mostrado al comprador.",
+    "productParcel": "Paquete",
+    "productParcelHint": "Peso y medidas del paquete cerrado. Los usamos para cotizar el envío; sin ellos, vale la tabla estándar.",
+    "productWeight": "Peso (g)",
+    "productDimensions": "Dimensiones (cm)",
+    "productLength": "Largo",
+    "productWidth": "Ancho",
+    "productHeight": "Alto",
     "productAttributes": "Características",
     "productAttributesHint": "Ficha técnica: color, pantalla, capacidad, voltaje…",
     "attributeName": "Característica",
@@ -871,6 +891,10 @@
     "storePolicy": "Política de cambios",
     "storePolicyHint": "Si lo dejás en blanco, usamos la política estándar de 30 días.",
     "storePolicyPlaceholder": "Cambios y devoluciones hasta 30 días…",
+    "storeOriginPostalCode": "Código postal de origen",
+    "storeOriginPostalCodeHint": "Código postal desde donde salen los paquetes. Mejora la cotización del envío.",
+    "storePhone": "Teléfono",
+    "storePhoneHint": "Con código de país, ej.: +595 61 500 123. Lo usan la transportadora y el soporte.",
     "registerTitle": "Vender en el marketplace",
     "registerSubtitle": "Registrá tu tienda en pocos minutos y empezá a vender a Brasil.",
     "registerBenefitShipping": "Envío y seguimiento de punta a punta",
@@ -951,7 +975,8 @@
     "audit": "Auditoría",
     "loginTitle": "Acceso administrativo",
     "loginSubtitle": "Área restringida al equipo del marketplace.",
-    "loginRestricted": "Ingresá con una cuenta con rol de administrador. Demo: admin@mktpy.com / 123456.",
+    "loginRestricted": "Ingresá con una cuenta con rol de administrador.",
+    "loginDemoHint": "Demo: admin@mktpy.com / 123456.",
     "loginSubmit": "Entrar al panel",
     "loginNotAdmin": "Esta cuenta no tiene permiso de administrador.",
     "loginWelcome": "¡Bienvenido, {name}!",

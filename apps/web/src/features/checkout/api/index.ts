@@ -17,7 +17,9 @@ export const checkoutApi = {
       ...body,
       postalCode: onlyDigits(body.postalCode),
     }),
-  placeOrder: (body: PlaceOrderRequest) => api.post<PlaceOrderResponseDto>("/orders", body),
+  // Fechar a compra inclui a ida ao gateway (autorização do cartão): merece mais tempo que o padrão de 20 s.
+  placeOrder: (body: PlaceOrderRequest) =>
+    api.post<PlaceOrderResponseDto>("/orders", body, { timeoutMs: 60_000 }),
 };
 
 /** Cotação do checkout: recalcula frete por vendedor, impostos estimados e trava o câmbio por 15 min. */

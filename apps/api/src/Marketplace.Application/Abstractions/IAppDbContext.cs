@@ -1,5 +1,6 @@
 using Marketplace.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 
 namespace Marketplace.Application.Abstractions;
@@ -40,5 +41,6 @@ public interface IAppDbContext
     DbSet<PlatformSettings> PlatformSettings { get; }
 
     DatabaseFacade Database { get; }
+    ChangeTracker ChangeTracker { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

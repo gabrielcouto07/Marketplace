@@ -77,10 +77,13 @@ public static class Mappers
             a.State, a.Country, a.Phone, a.IsDefault);
 
     public static ShippingOptionDto ToDto(this ShippingOptionSnapshot o) =>
-        new(o.Id, o.Carrier, o.Service, Money.Brl(o.PriceAmount), new DayRange(o.EstimatedDaysMin, o.EstimatedDaysMax), o.Description);
+        new(o.Id, o.Provider ?? "table", o.ServiceCode ?? string.Empty, o.Carrier, o.Service, Money.Brl(o.PriceAmount), new DayRange(o.EstimatedDaysMin, o.EstimatedDaysMax), o.Description);
 
     public static ShippingOptionSnapshot ToSnapshot(this ShippingOptionDto o) =>
-        new(o.Id, o.Carrier, o.Service, o.Price.Amount, o.EstimatedDays.Min, o.EstimatedDays.Max, o.Description);
+        new(o.Id, o.Carrier, o.Service, o.Price.Amount, o.EstimatedDays.Min, o.EstimatedDays.Max, o.Description, o.Provider, o.ServiceCode);
+
+    public static ShippingOptionDto ToDto(this Abstractions.ShippingRateOption o) =>
+        new(o.Id, o.Provider, o.ServiceCode, o.Carrier, o.Service, o.Price, o.EstimatedDays, o.Description);
 
     public static UserProfileDto ToDto(this User u) =>
         new(u.Id, u.FullName, u.Email, u.Phone, u.Cpf, u.AvatarUrl, u.Roles, u.CreatedAt);
@@ -99,7 +102,8 @@ public static class Mappers
             p.CardLast4 is not null
                 ? new CardPaymentDto(p.CardBrand ?? "Cartão", p.CardLast4, p.Installments ?? 1,
                     new Money(p.InstallmentAmount ?? p.Amount, p.Currency))
-                : null);
+                : null,
+            new Money(p.RefundedAmount, p.Currency));
 
     public static OrderItemDto ToDto(this OrderItem i) =>
         new(i.Id, i.ProductId, i.ProductSlug, i.VariantId, i.Name, i.VariantLabel, i.ThumbnailUrl, i.Quantity,
@@ -115,6 +119,7 @@ public static class Mappers
             o.ShippingAddress.ToDto(),
             o.ShippingOption.ToDto(),
             o.TrackingCode,
+            o.Carrier,
             o.TrackingEvents.OrderBy(e => e.OccurredAt).Select(ToDto).ToList(),
             new DateRange(o.EstimatedDeliveryMin, o.EstimatedDeliveryMax),
             new OrderTotalsDto(

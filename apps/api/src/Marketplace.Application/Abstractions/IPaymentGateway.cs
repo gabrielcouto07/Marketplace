@@ -33,6 +33,16 @@ public sealed record CreatePaymentResult(
     CardDetails? Card,
     string? FailureReason);
 
+/// <summary>Situação da cobrança consultada no gateway. Amount/PaidAt permitem conferir o valor antes de aprovar.</summary>
+public sealed record GatewayPaymentStatus(
+    PaymentStatus Status,
+    Money? Amount,
+    DateTime? PaidAt,
+    /// <summary>Referência externa enviada na criação (nosso PaymentId) — resolve webhooks que chegam antes de gravarmos o id do gateway.</summary>
+    string? ExternalReference = null);
+
+public sealed record GatewayRefundResult(string? RefundId, PaymentStatus? NewStatus);
+
 public sealed record GatewayPaymentEvent(
     string EventId,
     string Type,
@@ -40,21 +50,41 @@ public sealed record GatewayPaymentEvent(
     Guid? PaymentId,
     PaymentStatus? NewStatus,
     DateTime OccurredAt,
-    string RawPayload);
+    string RawPayload,
+    /// <summary>Valor informado pelo gateway no evento (quando houver), para conferência.</summary>
+    Money? Amount = null);
 
-/// <summary>Gateway de pagamento (Pix, boleto, cartão). Implementações: Fake (dev) e Mercado Pago.</summary>
+/// <summary>
+/// Gateway de pagamento (Pix, boleto, cartão). Implementações: Fake (dev) e Mercado Pago. Todos os gateways
+/// ficam registrados no <see cref="IPaymentGatewayRegistry"/>: o padrão cria cobranças novas; consultas, estornos
+/// e webhooks usam o gateway gravado em <c>Payment.Gateway</c>.
+/// </summary>
 public interface IPaymentGateway
 {
     string Name { get; }
 
     Task<CreatePaymentResult> CreatePaymentAsync(CreatePaymentRequest request, CancellationToken ct);
 
-    Task<PaymentStatus> GetStatusAsync(string gatewayPaymentId, CancellationToken ct);
+    Task<GatewayPaymentStatus> GetStatusAsync(string gatewayPaymentId, CancellationToken ct);
 
-    Task RefundAsync(string gatewayPaymentId, Money amount, CancellationToken ct);
+    /// <param name="idempotencyKey">Chave estável por (pagamento, pedido): repetir a chamada não estorna duas vezes.</param>
+    Task<GatewayRefundResult> RefundAsync(string gatewayPaymentId, Money amount, string idempotencyKey, CancellationToken ct);
 
     /// <summary>Valida assinatura e traduz o webhook do provedor. Retorna null quando o evento deve ser ignorado.</summary>
     Task<GatewayPaymentEvent?> ParseWebhookAsync(WebhookRequest request, CancellationToken ct);
+}
+
+public interface IPaymentGatewayRegistry
+{
+    /// <summary>Gateway usado para criar cobranças novas (<c>Payments:Provider</c>).</summary>
+    IPaymentGateway Default { get; }
+
+    IReadOnlyCollection<string> Names { get; }
+
+    /// <summary>Gateway pelo nome gravado no pagamento. Lança quando não está registrado.</summary>
+    IPaymentGateway Get(string name);
+
+    bool TryGet(string name, out IPaymentGateway gateway);
 }
 
 public sealed record WebhookRequest(

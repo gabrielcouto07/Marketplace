@@ -2,8 +2,8 @@
 
 Especificação dos endpoints REST que o frontend consome (hoje via MSW) e que o backend
 **ASP.NET Core Web API + PostgreSQL** deverá implementar. Os DTOs TypeScript equivalentes
-estão em [`packages/contracts/src/index.ts`](../../packages/contracts/src/index.ts) e os
-handlers mock em [`src/mocks/handlers`](src/mocks/handlers).
+estão em [`packages/contracts/src/index.ts`](../packages/contracts/src/index.ts) e os
+handlers mock em [`apps/web/src/mocks/handlers`](../apps/web/src/mocks/handlers).
 
 ## Convenções gerais
 
@@ -362,3 +362,27 @@ Mock: usuário `demo@mktpy.com` / `123456`. Comprador identificado por **CPF**; 
 - Cupom `PARAGUAI10` = 10% no subtotal.
 - Alíquota estimada de importação: 60% (basis points 6000) sobre produtos + frete. Em produção, parametrizar por
   faixa de valor (Remessa Conforme / ICMS) em `/admin/settings`.
+
+---
+
+## Atualizações de 2026-10-01 (integrações)
+
+Mudanças aditivas: clientes antigos continuam funcionando. O backend em `apps/api` implementa tudo abaixo.
+
+| Onde | O que mudou |
+| --- | --- |
+| `ShippingOptionDto` | `+ provider` (`table`, `correios`…) e `+ serviceCode`; o `id` continua estável por (provedor, serviço, loja, zona do CEP) |
+| `CheckoutQuoteDto` | `+ postalCode` (CEP cotado) e `+ couponCode`; `POST /orders` responde 422 em `addressId` quando o endereço tem outro CEP |
+| `OrderDto` | `+ carrier` |
+| `GET /orders/{id}/tracking` | `OrderTrackingDto { trackingCode, carrier, trackingUrl, events }` (link na transportadora quando há template) |
+| `POST /orders/{id}/confirm-receipt` | `Entregue → Concluido` pelo comprador |
+| `PaymentDto` | `+ refundedAmount` |
+| `GET /payments/{id}` | exige sessão do dono (ou admin). `GET /payments/{id}/boleto.pdf?t=` aceita o link assinado emitido na criação do boleto |
+| `SellerProductDto` / `SellerProductInput` | `+ weightGrams`, `+ dimensions { lengthCm, widthCm, heightCm }`, `+ hsCode` (cotação com transportadoras) |
+| `SellerProfileDto` / `SellerProfileInput` / `SellerRegisterRequest` | `+ originPostalCode`, `+ phone` |
+| `POST /seller/register` | a loja nasce `Pendente` e aparece na vitrine após aprovação do admin |
+| `AskQuestionRequest` | só `{ question }` |
+| Webhooks | `POST /webhooks/payments/{gateway}` (`fake`, `mercadopago`) e `POST /webhooks/shipping/{provider}` (`generic`); rotas antigas continuam como alias. Idempotentes por (provedor, id do evento); resposta ≠ 2xx = reenviar; 404 enquanto a cobrança/pedido não existe |
+| Erros | 404/405/415 também em `application/problem+json`; novos códigos 409 `DATA_CONFLICT`, 502 `UPSTREAM_UNAVAILABLE`, 504 `UPSTREAM_TIMEOUT`, 422 `SHIPPING_UNAVAILABLE` |
+| Cartão | `card.brand` é o `payment_method_id` do Mercado Pago (`visa`, `master`, `amex`, `elo`, `hipercard`); o front tokeniza com o SDK JS (`NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY`) |
+| Front | envia `Accept-Language` e `credentials: include`, timeout de 20 s; `POST /auth/logout` com `{ refreshToken }`; access token de 60 min renovado em 401 |

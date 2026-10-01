@@ -39,7 +39,8 @@ public sealed record ShippingQuoteItem(Guid ProductId, Guid? VariantId, int Quan
 
 public sealed record ShippingQuoteRequest(string? PostalCode, Guid SellerId, IReadOnlyList<ShippingQuoteItem>? Items);
 
-public sealed record ShippingOptionDto(Guid Id, string Carrier, string Service, Money Price, DayRange EstimatedDays, string? Description);
+/// <summary>Provider/ServiceCode identificam a origem da cotação (ex.: table/economy, correios/04014) e permitem reencontrar a opção ao recotar.</summary>
+public sealed record ShippingOptionDto(Guid Id, string Provider, string ServiceCode, string Carrier, string Service, Money Price, DayRange EstimatedDays, string? Description);
 
 public sealed record ShippingDestinationDto(string City, string State);
 
@@ -72,7 +73,9 @@ public sealed record CheckoutQuoteDto(
     Money Total,
     Money TotalReference,
     ExchangeRateDto ExchangeRate,
-    DateTime LockedUntil);
+    DateTime LockedUntil,
+    string PostalCode,
+    string? CouponCode);
 
 public sealed record CardPaymentInput(string? Token, string? HolderName, string? Brand, string? Last4, int Installments);
 
@@ -122,6 +125,7 @@ public sealed record OrderDto(
     AddressDto ShippingAddress,
     ShippingOptionDto ShippingOption,
     string? TrackingCode,
+    string? Carrier,
     IReadOnlyList<TrackingEventDto> TrackingEvents,
     DateRange EstimatedDelivery,
     OrderTotalsDto Totals,
@@ -129,7 +133,7 @@ public sealed record OrderDto(
     OrderPaymentRefDto Payment,
     IReadOnlyList<OrderTimelineEventDto> Timeline);
 
-public sealed record OrderTrackingDto(string? TrackingCode, IReadOnlyList<TrackingEventDto> Events);
+public sealed record OrderTrackingDto(string? TrackingCode, string? Carrier, string? TrackingUrl, IReadOnlyList<TrackingEventDto> Events);
 
 // ----- Pagamentos -----
 
@@ -149,7 +153,8 @@ public sealed record PaymentDto(
     DateTime? PaidAt,
     PixPaymentDto? Pix,
     BoletoPaymentDto? Boleto,
-    CardPaymentDto? Card);
+    CardPaymentDto? Card,
+    Money RefundedAmount);
 
 // ----- Carrinho / favoritos (sincronização) -----
 

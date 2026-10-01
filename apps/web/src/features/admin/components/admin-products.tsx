@@ -36,7 +36,7 @@ import {
 } from "@/components/shared/panel-widgets";
 import { useDebouncedValue } from "@/hooks/use-debounce";
 import { Link } from "@/i18n/navigation";
-import { BLUR_DATA_URL } from "@/lib/images";
+import { BLUR_DATA_URL, isDirectImage } from "@/lib/images";
 import { formatMoney } from "@/lib/money";
 
 import { useAdminProductUpdate, useAdminProducts } from "../api";
@@ -98,7 +98,7 @@ function ProductDetail({
                 className="object-contain"
                 placeholder="blur"
                 blurDataURL={BLUR_DATA_URL}
-                unoptimized={p.thumbnailUrl.startsWith("/api/")}
+                unoptimized={isDirectImage(p.thumbnailUrl)}
               />
             </span>
             <div className="flex flex-col gap-1">
@@ -303,7 +303,7 @@ export function AdminProducts() {
                             className="object-contain"
                             placeholder="blur"
                             blurDataURL={BLUR_DATA_URL}
-                            unoptimized={p.thumbnailUrl.startsWith("/api/")}
+                            unoptimized={isDirectImage(p.thumbnailUrl)}
                           />
                         </span>
                         <span className="line-clamp-2 max-w-[200px] font-medium sm:max-w-none">

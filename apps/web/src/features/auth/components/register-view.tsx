@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 import { formatPhoneBr } from "@/lib/validation/documents";
 import { registerSchema, type RegisterFormValues } from "@/lib/validation/schemas";
 
-import { ApiErrorNotice, AuthCard, GoogleButton, OrDivider } from "./auth-card";
+import { ApiErrorNotice, AuthCard, GoogleSignIn } from "./auth-card";
 import {
   FormField,
   PasswordInput,
@@ -188,8 +188,7 @@ export function RegisterView() {
           {t("signUp")}
         </Button>
       </form>
-      <OrDivider />
-      <GoogleButton />
+      <GoogleSignIn />
     </AuthCard>
   );
 }

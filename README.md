@@ -92,7 +92,7 @@ docs/               documentação técnica (abaixo)
 
 | Documento                                                  | Conteúdo                                                                                                                               |
 | ---------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| [apps/web/API_CONTRACTS.md](apps/web/API_CONTRACTS.md)     | **especificação dos endpoints** (método, rota, request, response), incluindo frete, rastreio, pagamento com split, repasses e webhooks |
+| [docs/CONTRACTS.md](docs/CONTRACTS.md)     | **especificação dos endpoints** (método, rota, request, response), incluindo frete, rastreio, pagamento com split, repasses e webhooks |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)               | camadas, pastas, regras da camada de API, decisões                                                                                     |
 | [docs/FEATURES.md](docs/FEATURES.md)                       | o que está pronto, o que é mock, rotas e componentes por feature                                                                       |
 | [docs/DATA_MODELS.md](docs/DATA_MODELS.md)                 | DTOs, ciclo de vida do pedido, dinheiro/câmbio, mapeamento para PostgreSQL                                                             |

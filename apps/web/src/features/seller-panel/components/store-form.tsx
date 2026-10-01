@@ -20,11 +20,23 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useCategories } from "@/features/catalog/api";
-import { formatRuc } from "@/lib/validation/documents";
+import { formatRuc, onlyDigits } from "@/lib/validation/documents";
 import { storeSchema, type StoreFormOutput, type StoreFormValues } from "@/lib/validation/schemas";
 
 import { useSellerCities } from "../api";
 import { SingleImageUpload } from "./image-upload";
+
+/** `+595 61 500 123` → `+595 61 500 123` (mantém só dígitos, espaços e o "+" inicial). */
+function normalizePhoneInput(value: string): string {
+  const plus = value.trim().startsWith("+") ? "+" : "";
+  return (
+    plus +
+    value
+      .replace(/[^\d ]/g, "")
+      .replace(/\s{2,}/g, " ")
+      .slice(0, 20)
+  );
+}
 
 export interface StoreFormProps {
   defaultValues?: Partial<StoreFormValues>;
@@ -47,6 +59,8 @@ const EMPTY: StoreFormValues = {
   bannerUrl: null,
   exchangePolicy: "",
   categoryIds: [],
+  originPostalCode: "",
+  phone: "",
 };
 
 /** Dados da loja: nome, logo, banner, RUC, cidade de envio, bio, categorias e política de troca. */
@@ -76,6 +90,10 @@ export function StoreForm({
       setError(field as keyof StoreFormValues, { message: messages[0] });
   }, [serverErrors, setError]);
 
+  // Mantém o "+" quando informado (E.164: +595 61 500 123 → +59561500123); só dígitos no resto.
+  const normalizePhone = (value: string) =>
+    value.trim().startsWith("+") ? `+${onlyDigits(value)}` : onlyDigits(value);
+
   const submit = handleSubmit((values) =>
     onSubmit({
       name: values.name,
@@ -86,6 +104,8 @@ export function StoreForm({
       bannerUrl: values.bannerUrl,
       exchangePolicy: values.exchangePolicy || null,
       categoryIds: values.categoryIds,
+      originPostalCode: values.originPostalCode ? onlyDigits(values.originPostalCode) : null,
+      phone: values.phone ? normalizePhone(values.phone) : null,
     }),
   );
 
@@ -238,6 +258,59 @@ export function StoreForm({
                   </Select>
                 )
               }
+            />
+          </FormField>
+
+          <FormField
+            id="store-origin-cep"
+            label={t("storeOriginPostalCode")}
+            optional
+            error={errors.originPostalCode?.message}
+            hint={t("storeOriginPostalCodeHint")}
+          >
+            <Input
+              id="store-origin-cep"
+              inputMode="numeric"
+              autoComplete="postal-code"
+              placeholder="7000"
+              className="tabular-nums"
+              aria-invalid={Boolean(errors.originPostalCode) || undefined}
+              aria-describedby={describedBy(
+                "store-origin-cep",
+                Boolean(errors.originPostalCode),
+                true,
+              )}
+              {...register("originPostalCode")}
+            />
+          </FormField>
+
+          <FormField
+            id="store-phone"
+            label={t("storePhone")}
+            optional
+            error={errors.phone?.message}
+            hint={t("storePhoneHint")}
+          >
+            <Controller
+              control={control}
+              name="phone"
+              render={({ field }) => (
+                <Input
+                  id="store-phone"
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  placeholder="+595 61 500 123"
+                  className="tabular-nums"
+                  aria-invalid={Boolean(errors.phone) || undefined}
+                  aria-describedby={describedBy("store-phone", Boolean(errors.phone), true)}
+                  value={field.value ?? ""}
+                  onChange={(e) => field.onChange(normalizePhoneInput(e.target.value))}
+                  onBlur={field.onBlur}
+                  name={field.name}
+                  ref={field.ref}
+                />
+              )}
             />
           </FormField>
         </div>

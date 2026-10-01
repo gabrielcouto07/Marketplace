@@ -13,10 +13,9 @@ namespace Marketplace.Application.Services;
 public sealed class CheckoutService(
     IAppDbContext db,
     ShippingService shipping,
-    IPostalCodeLookup postalCodes,
     ExchangeRateService rates,
     PlatformSettingsProvider settingsProvider,
-    IPaymentGateway gateway,
+    IPaymentGatewayRegistry gateways,
     OrderService orders,
     PaymentService payments,
     ICurrentUser currentUser,
@@ -26,6 +25,9 @@ public sealed class CheckoutService(
 {
     private DateTime Now => clock.GetUtcNow().UtcDateTime;
 
+    /// <summary>Gateway que cria cobranças novas; as antigas seguem no gateway gravado no pagamento.</summary>
+    private IPaymentGateway Gateway => gateways.Default;
+
     public async Task<CheckoutQuoteDto> QuoteAsync(CheckoutQuoteRequest request, CancellationToken ct)
     {
         var cep = Documents.OnlyDigits(request.PostalCode);
@@ -33,7 +35,15 @@ public sealed class CheckoutService(
             .AddIf(cep.Length != 8, "postalCode", "CEP inválido.")
             .AddIf(request.Groups is null || request.Groups.Count == 0, "groups", "Carrinho vazio.")
             .ThrowIfAny();
-        if (await postalCodes.LookupAsync(cep, ct) is null) throw AppException.Validation("postalCode", "CEP inválido.");
+        ShippingDestination destination;
+        try
+        {
+            destination = await shipping.ResolveDestinationAsync(cep, ct);
+        }
+        catch (AppException ex) when (ex.Status == 404)
+        {
+            throw AppException.Validation("postalCode", "CEP inválido.");
+        }
 
         var settings = await settingsProvider.GetAsync(ct);
         var rate = await rates.GetCurrentAsync(CurrencyCode.BRL, CurrencyCode.PYG, ct);
@@ -53,7 +63,7 @@ public sealed class CheckoutService(
             stockErrors.ThrowIfAny();
 
             var subtotal = Money.Sum(lines.Select(l => l.LineTotal));
-            var options = await shipping.QuoteForSellerAsync(seller, cep, lines, settings, ct);
+            var options = await shipping.QuoteForSellerAsync(seller, destination, lines, settings, ct);
             var selected = options.FirstOrDefault(o => o.Id == g.ShippingOptionId) ?? options[0];
             groups.Add(new CheckoutGroupDto(
                 seller.ToSummary(),
@@ -65,14 +75,14 @@ public sealed class CheckoutService(
 
         var subtotalAll = Money.Sum(groups.Select(g => g.Subtotal));
         var shippingTotal = Money.Sum(groups.Select(g => g.Shipping));
-        var discount = await CouponDiscountAsync(request.CouponCode, subtotalAll, now, ct);
+        var (discount, couponCode) = await CouponDiscountAsync(request.CouponCode, subtotalAll, now, ct);
         var taxable = subtotalAll.Add(shippingTotal).Subtract(discount);
         var tax = ImportTaxCalculator.Estimate(taxable, settings, usdRate);
         var total = taxable.Add(tax.Tax);
 
         var quote = new CheckoutQuoteDto(
             Guid.NewGuid(), groups, subtotalAll, shippingTotal, tax.Tax, tax.EffectiveBasisPoints, discount, total,
-            rate.Convert(total), rate.ToDto(), now.AddMinutes(settings.QuoteLockMinutes));
+            rate.Convert(total), rate.ToDto(), now.AddMinutes(settings.QuoteLockMinutes), cep, couponCode);
 
         db.CheckoutQuotes.Add(new CheckoutQuote
         {
@@ -81,6 +91,8 @@ public sealed class CheckoutService(
             ExchangeRateId = rate.Id,
             PayloadJson = JsonSerializer.Serialize(quote, json),
             TotalAmount = total.Amount,
+            PostalCode = cep,
+            CouponCode = couponCode,
             CreatedAt = now,
             LockedUntil = quote.LockedUntil,
         });
@@ -88,14 +100,14 @@ public sealed class CheckoutService(
         return quote;
     }
 
-    private async Task<Money> CouponDiscountAsync(string? code, Money subtotal, DateTime now, CancellationToken ct)
+    private async Task<(Money Discount, string? Code)> CouponDiscountAsync(string? code, Money subtotal, DateTime now, CancellationToken ct)
     {
         var normalized = code?.Trim().ToUpperInvariant();
-        if (string.IsNullOrEmpty(normalized)) return Money.ZeroBrl;
+        if (string.IsNullOrEmpty(normalized)) return (Money.ZeroBrl, null);
         var coupon = await db.Coupons.AsNoTracking().FirstOrDefaultAsync(c => c.Code == normalized, ct);
         // Cupom inválido não bloqueia a cotação (o checkout recota a cada mudança); apenas não desconta.
-        if (coupon is null || !coupon.IsUsable(now, subtotal.Amount)) return Money.ZeroBrl;
-        return subtotal.MultiplyBasisPoints(coupon.DiscountBasisPoints);
+        if (coupon is null || !coupon.IsUsable(now, subtotal.Amount)) return (Money.ZeroBrl, null);
+        return (subtotal.MultiplyBasisPoints(coupon.DiscountBasisPoints), normalized);
     }
 
     public async Task<PlaceOrderResponseDto> PlaceOrderAsync(PlaceOrderRequest request, CancellationToken ct)
@@ -121,6 +133,9 @@ public sealed class CheckoutService(
         var address = await db.Addresses.AsNoTracking()
                           .FirstOrDefaultAsync(a => a.Id == request.AddressId && a.UserId == userId && a.DeletedAt == null, ct)
                       ?? throw AppException.NotFound("Endereço");
+        // Frete e impostos foram calculados para o CEP da cotação: outro endereço exige recotar.
+        if (quoteRow.PostalCode is not null && Documents.OnlyDigits(address.PostalCode) != quoteRow.PostalCode)
+            throw AppException.Validation("addressId", "O endereço mudou desde a cotação. Atualize o resumo do pedido.");
 
         var payment = request.Payment ?? throw AppException.Validation("payment", "Informe a forma de pagamento.");
         var payerDocument = Documents.OnlyDigits(payment.PayerDocument);
@@ -160,7 +175,7 @@ public sealed class CheckoutService(
             CreatedAt = now,
             UpdatedAt = now,
             ExpiresAt = expiresAt,
-            Gateway = gateway.Name,
+            Gateway = Gateway.Name,
             PayerDocument = payerDocument,
             CardBrand = payment.Card?.Brand,
             CardLast4 = payment.Card?.Last4,
@@ -212,17 +227,20 @@ public sealed class CheckoutService(
             var items = new List<OrderItem>();
             foreach (var line in group.Lines)
             {
-                var product = await db.Products.Include(p => p.Variants).FirstAsync(p => p.Id == line.ProductId, ct);
+                var product = await db.Products.AsNoTracking().Include(p => p.Variants).FirstAsync(p => p.Id == line.ProductId, ct);
                 var variant = line.VariantId is { } vid ? product.Variants.First(v => v.Id == vid) : null;
-                var available = variant?.Stock ?? product.Stock;
-                if (available < line.Quantity)
+                var quantity = line.Quantity;
+                // Reserva atômica (UPDATE ... WHERE stock >= qtd): duas compras simultâneas não vendem a mesma unidade.
+                var reserved = variant is not null
+                    ? await db.ProductVariants.Where(v => v.Id == variant.Id && v.Stock >= quantity)
+                        .ExecuteUpdateAsync(s => s.SetProperty(v => v.Stock, v => v.Stock - quantity), ct)
+                    : await db.Products.Where(p => p.Id == product.Id && p.Stock >= quantity)
+                        .ExecuteUpdateAsync(s => s.SetProperty(p => p.Stock, p => p.Stock - quantity), ct);
+                if (reserved == 0)
                     throw AppException.Validation("items", $"Estoque insuficiente para \"{product.Name}\".");
                 if (variant is not null)
-                {
-                    variant.Stock -= line.Quantity;
-                    product.Stock = product.Variants.Sum(v => v.Stock);
-                }
-                else product.Stock -= line.Quantity;
+                    await db.Products.Where(p => p.Id == product.Id)
+                        .ExecuteUpdateAsync(s => s.SetProperty(p => p.Stock, p => p.Stock >= quantity ? p.Stock - quantity : 0), ct);
                 handlingDays = Math.Max(handlingDays, product.HandlingDaysMax);
                 items.Add(new OrderItem
                 {
@@ -268,10 +286,12 @@ public sealed class CheckoutService(
         }
 
         quoteRow.ConsumedAt = now;
-        if (quote.Discount.Amount > 0 && !string.IsNullOrWhiteSpace(purchase.CouponCode))
+        if (quote.Discount.Amount > 0 && !string.IsNullOrWhiteSpace(quoteRow.CouponCode))
         {
-            var coupon = await db.Coupons.FirstOrDefaultAsync(c => c.Code == purchase.CouponCode, ct);
-            if (coupon is not null) coupon.UsedCount++;
+            purchase.CouponCode = quoteRow.CouponCode;
+            var couponCode = quoteRow.CouponCode;
+            await db.Coupons.Where(c => c.Code == couponCode)
+                .ExecuteUpdateAsync(s => s.SetProperty(c => c.UsedCount, c => c.UsedCount + 1), ct);
         }
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
@@ -279,7 +299,7 @@ public sealed class CheckoutService(
         // 2) Gateway (fora da transação): cria a cobrança e aplica o resultado.
         try
         {
-            var result = await gateway.CreatePaymentAsync(new CreatePaymentRequest(
+            var result = await Gateway.CreatePaymentAsync(new CreatePaymentRequest(
                 paymentId, purchaseId, payment.Method, quote.Total, payerDocument, user.FullName, user.Email,
                 $"Marketplace PY — compra {purchaseId.ToString()[..8]}", expiresAt,
                 payment.Card is null ? null : new CardTokenInput(payment.Card.Token!, payment.Card.HolderName ?? user.FullName,
@@ -289,7 +309,7 @@ public sealed class CheckoutService(
         }
         catch (Exception ex) when (ex is not AppException)
         {
-            logger.LogError(ex, "Falha no gateway {Gateway} ao criar pagamento {PaymentId}", gateway.Name, paymentId);
+            logger.LogError(ex, "Falha no gateway {Gateway} ao criar pagamento {PaymentId}", Gateway.Name, paymentId);
             await payments.MarkFailedAsync(paymentId, "Falha de comunicação com o gateway de pagamento.", ct);
         }
 

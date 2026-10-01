@@ -16,6 +16,7 @@ import type {
 } from "@marketplace/contracts";
 import { HttpResponse, http } from "msw";
 
+import { getApiBaseUrl } from "@/lib/api/http";
 import { convert, discountPercent, sum } from "@/lib/money";
 
 import {
@@ -26,7 +27,7 @@ import {
   sellerStatus,
 } from "../catalog-state";
 import { db, persistDb } from "../db";
-import { CATEGORIES, categoryById, getRate, slugify, toSellerSummary } from "../fixtures/base";
+import { categoryById, getRate, slugify, toSellerSummary } from "../fixtures/base";
 import { issueSession } from "./auth";
 import { advanceOrder, settlePendingPayments } from "./orders";
 import {
@@ -72,11 +73,24 @@ function requireSeller(request: Request): SellerDto | ReturnType<typeof problem>
 
 const isResponse = (value: unknown): value is Response => value instanceof Response;
 
+/** CEP/código postal de origem (4 a 10 dígitos) e telefone (8 a 15 dígitos), ambos opcionais. */
+function validateContact(body: SellerProfileInput): Record<string, string[]> {
+  const errors: Record<string, string[]> = {};
+  const cep = body.originPostalCode?.replace(/\D/g, "") ?? "";
+  if (body.originPostalCode?.trim() && (cep.length < 4 || cep.length > 10))
+    errors.originPostalCode = ["Código postal inválido."];
+  const phone = body.phone?.replace(/\D/g, "") ?? "";
+  if (body.phone?.trim() && (phone.length < 8 || phone.length > 15))
+    errors.phone = ["Telefone inválido."];
+  return errors;
+}
+
 function productsOf(sellerId: string): ProductDetailDto[] {
   return allProducts().filter((p) => p.seller.id === sellerId);
 }
 
 function toProfile(seller: SellerDto): SellerProfileDto {
+  const override = db.sellerOverrides[seller.id];
   return {
     id: seller.id,
     slug: seller.slug,
@@ -95,6 +109,8 @@ function toProfile(seller: SellerDto): SellerProfileDto {
     productCount: productsOf(seller.id).filter((p) => productStatus(p.id) !== "Arquivado").length,
     memberSince: seller.memberSince,
     categories: seller.categories,
+    originPostalCode: override?.originPostalCode ?? null,
+    phone: override?.phone ?? null,
   };
 }
 
@@ -131,6 +147,9 @@ function toSellerProduct(p: ProductDetailDto): SellerProductDto {
     freeShipping: p.freeShipping,
     warrantyMonths: p.warrantyMonths,
     handlingDays: p.handlingDays,
+    weightGrams: override?.weightGrams ?? null,
+    dimensions: override?.dimensions ?? null,
+    hsCode: override?.hsCode ?? null,
     attributes: p.attributes,
     images: p.images.map((img, i) => ({
       id: img.id,
@@ -168,7 +187,36 @@ function validateProduct(body: SellerProductInput) {
   if (body.handlingDaysMin < 1 || body.handlingDaysMax < body.handlingDaysMin)
     errors.handlingDaysMax = ["Prazo de postagem inválido."];
   if ((body.images?.length ?? 0) > 8) errors.images = ["Máximo de 8 imagens."];
+  const weight = body.weightGrams;
+  if (
+    weight !== null &&
+    weight !== undefined &&
+    (!Number.isInteger(weight) || weight < 0 || weight > 100_000)
+  )
+    errors.weightGrams = ["Peso em gramas entre 0 e 100.000."];
+  const dims = body.dimensions;
+  if (dims) {
+    const ok = [dims.lengthCm, dims.widthCm, dims.heightCm].every(
+      (v) => Number.isInteger(v) && v >= 0 && v <= 200,
+    );
+    if (!ok) errors.dimensions = ["Dimensões em centímetros inteiros entre 0 e 200."];
+  }
+  if (body.hsCode && !/^\d{4,10}$/.test(body.hsCode.replace(/\D/g, "")))
+    errors.hsCode = ["Código NCM/HS com 4 a 10 dígitos."];
   return Object.keys(errors).length ? validation(errors) : null;
+}
+
+/** Dados de envio normalizados (null quando vazios). */
+function shippingFromInput(body: SellerProductInput) {
+  const dims = body.dimensions;
+  return {
+    weightGrams: body.weightGrams ?? null,
+    dimensions:
+      dims && (dims.lengthCm || dims.widthCm || dims.heightCm)
+        ? { lengthCm: dims.lengthCm, widthCm: dims.widthCm, heightCm: dims.heightCm }
+        : null,
+    hsCode: body.hsCode?.trim() || null,
+  };
 }
 
 function buildCustomProduct(body: SellerProductInput, seller: SellerDto): ProductDetailDto {
@@ -230,6 +278,7 @@ function overrideFromInput(body: SellerProductInput) {
     freeShipping: body.freeShipping,
     warrantyMonths: body.warrantyMonths,
     handlingDays: { min: body.handlingDaysMin, max: body.handlingDaysMax },
+    ...shippingFromInput(body),
     attributes: body.attributes ?? [],
     images: (body.images ?? []).map((img, i) => ({
       id: `${i + 1}`,
@@ -288,6 +337,7 @@ export const sellerPanelHandlers = [
     if (!body.description || body.description.trim().length < 20)
       errors.description = ["Descreva sua loja com pelo menos 20 caracteres."];
     if (!body.acceptTerms) errors.acceptTerms = ["Aceite os termos para continuar."];
+    Object.assign(errors, validateContact(body));
     if (Object.keys(errors).length) return validation(errors);
 
     const id = crypto.randomUUID();
@@ -325,6 +375,10 @@ export const sellerPanelHandlers = [
       categories,
     };
     db.customSellers.push(seller);
+    db.sellerOverrides[seller.id] = {
+      originPostalCode: body.originPostalCode?.trim() || null,
+      phone: body.phone?.replace(/\D/g, "") || null,
+    };
     db.sellerByUser[db.user.id] = slug;
     if (!db.user.roles.includes("Vendedor")) db.user.roles = [...db.user.roles, "Vendedor"];
     db.audit.push({
@@ -361,6 +415,7 @@ export const sellerPanelHandlers = [
     if (!body.city) errors.city = ["Escolha a cidade de envio."];
     if (!body.description || body.description.trim().length < 20)
       errors.description = ["Descreva sua loja com pelo menos 20 caracteres."];
+    Object.assign(errors, validateContact(body));
     if (Object.keys(errors).length) return validation(errors);
     db.sellerOverrides[seller.id] = {
       ...db.sellerOverrides[seller.id],
@@ -371,6 +426,8 @@ export const sellerPanelHandlers = [
       bannerUrl: body.bannerUrl,
       exchangePolicy: body.exchangePolicy?.trim() || undefined,
       categoryIds: body.categoryIds?.length ? body.categoryIds : undefined,
+      originPostalCode: body.originPostalCode?.trim() || null,
+      phone: body.phone?.replace(/\D/g, "") || null,
     };
     persistDb();
     return HttpResponse.json(toProfile(findSellerBySlug(seller.slug)!));
@@ -440,6 +497,7 @@ export const sellerPanelHandlers = [
     db.productOverrides[product.id] = {
       status: body.status,
       images: overrideFromInput(body).images,
+      ...shippingFromInput(body),
       updatedAt: nowIso(),
     };
     persistDb();
@@ -531,6 +589,7 @@ export const sellerPanelHandlers = [
       errors.trackingCode = ["Código de rastreio inválido (8 a 20 letras/números)."];
     if (Object.keys(errors).length) return validation(errors);
     order.trackingCode = body.trackingCode.toUpperCase();
+    order.carrier = body.carrier.trim();
     order.shippingOption = { ...order.shippingOption, carrier: body.carrier.trim() };
     order.trackingEvents = [
       ...order.trackingEvents,
@@ -567,7 +626,7 @@ export const sellerPanelHandlers = [
       return validation({ sizeBytes: ["Imagem maior que 5 MB."] });
     const ext = body.fileName?.split(".").pop()?.toLowerCase() ?? "img";
     const key = `${seller.slug}/${Date.now().toString(36)}-${crypto.randomUUID().slice(0, 8)}.${ext}`;
-    const url = `/api/uploads/mock/${key}`;
+    const url = `${getApiBaseUrl()}/uploads/mock/${key}`;
     const presigned: PresignedUploadDto = {
       uploadUrl: url,
       publicUrl: url,
@@ -602,6 +661,3 @@ export const sellerPanelHandlers = [
     });
   }),
 ];
-
-/** Categorias disponíveis para o cadastro de produto (usado pelo admin/painel). */
-export const SELLER_CATEGORIES = CATEGORIES;

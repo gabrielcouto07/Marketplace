@@ -24,8 +24,8 @@ function titleFromSlug(slug: string): string {
  * Se a API/mock não responder a tempo, cai no título derivado do slug.
  */
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { slug } = await params;
-  const product = await fetchProductForMetadata(slug);
+  const { locale, slug } = await params;
+  const product = await fetchProductForMetadata(slug, locale);
   const title = product?.name ?? titleFromSlug(slug);
   const description = product ? summarize(product.description) : undefined;
   const image = product?.images[0]?.url;

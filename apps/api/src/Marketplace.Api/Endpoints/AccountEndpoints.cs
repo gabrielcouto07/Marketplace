@@ -65,7 +65,7 @@ public static class AccountEndpoints
             Secure = http.Request.IsHttps,
             SameSite = SameSiteMode.Lax,
             Path = "/api/auth",
-            Expires = DateTimeOffset.UtcNow.AddDays(30),
+            Expires = DateTimeOffset.UtcNow.AddDays(http.RequestServices.GetRequiredService<IConfiguration>().GetValue<int?>("Auth:RefreshTokenDays") ?? 30),
         });
         return session;
     }
@@ -158,7 +158,7 @@ public static class AccountEndpoints
             var claims = local.ValidateToken(token) ?? throw AppException.Unauthorized("Token de upload inválido ou expirado.");
             if (claims.Key != key) throw AppException.Unauthorized("Token não corresponde ao arquivo.");
             if (request.ContentLength is { } len && len > claims.Size) throw AppException.Validation("sizeBytes", "Arquivo maior que o declarado.");
-            await local.SaveAsync(key, request.Body, ct);
+            await local.SaveAsync(key, request.Body, claims.Size, claims.ContentType, ct);
             return Results.NoContent();
         }).DisableAntiforgery();
 

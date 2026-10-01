@@ -29,6 +29,9 @@ public class Seller
     public string Country { get; set; } = "PY";
     public string Description { get; set; } = string.Empty;
     public required string Ruc { get; set; }
+    /// <summary>Código postal e telefone de origem: exigidos por transportadoras para cotação e etiqueta.</summary>
+    public string? OriginPostalCode { get; set; }
+    public string? Phone { get; set; }
     public DateTime MemberSince { get; set; }
     public string ExchangePolicy { get; set; } = string.Empty;
     public SellerStatus Status { get; set; } = SellerStatus.Aprovado;
@@ -77,6 +80,13 @@ public class Product
     public int HandlingDaysMin { get; set; } = 1;
     public int HandlingDaysMax { get; set; } = 3;
     public int? WarrantyMonths { get; set; }
+    /// <summary>Peso (g) e dimensões (cm) para cotação com transportadoras; nulos usam os defaults do provedor.</summary>
+    public int? WeightGrams { get; set; }
+    public int? LengthCm { get; set; }
+    public int? WidthCm { get; set; }
+    public int? HeightCm { get; set; }
+    /// <summary>Código NCM/HS para a declaração aduaneira.</summary>
+    public string? HsCode { get; set; }
     public ProductStatus Status { get; set; } = ProductStatus.Ativo;
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }

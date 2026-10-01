@@ -155,9 +155,11 @@ public sealed class BuyerFlowTests : IClassFixture<ApiFactory>
         var sellerId = product.GetProperty("seller").GetProperty("id").GetGuid();
         var addresses = await client.GetFromJsonAsync<JsonElement>("/api/me/addresses", Json);
         var addressId = addresses[0].GetProperty("id").GetGuid();
+        // O pedido só aceita o endereço com o CEP cotado.
+        var postalCode = addresses[0].GetProperty("postalCode").GetString();
 
         var quote = await (await client.PostAsJsonAsync("/api/checkout/quotes",
-            new { postalCode = "80010010", groups = new[] { new { sellerId, shippingOptionId = (Guid?)null, items = new[] { new { productId, variantId, quantity = 1 } } } } }, Json))
+            new { postalCode, groups = new[] { new { sellerId, shippingOptionId = (Guid?)null, items = new[] { new { productId, variantId, quantity = 1 } } } } }, Json))
             .Content.ReadFromJsonAsync<JsonElement>(Json);
 
         var placed = await client.PostAsJsonAsync("/api/orders", new

@@ -5,14 +5,17 @@ import type {
   ForgotPasswordRequest,
   GoogleAuthRequest,
   LoginRequest,
+  RefreshRequest,
   RegisterRequest,
   UpdateProfileRequest,
   UserProfileDto,
 } from "@marketplace/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
+import { requestGoogleCredential } from "@/lib/auth/google-identity";
 import { api } from "@/lib/api/http";
 import { queryKeys } from "@/lib/api/query-keys";
+import { env } from "@/lib/env";
 
 import { useAuthStore } from "../store";
 
@@ -21,10 +24,17 @@ export const authApi = {
   register: (body: RegisterRequest) => api.post<AuthResponseDto>("/auth/register", body),
   google: (body: GoogleAuthRequest) => api.post<AuthResponseDto>("/auth/google", body),
   forgotPassword: (body: ForgotPasswordRequest) => api.post<void>("/auth/forgot-password", body),
-  logout: () => api.post<void>("/auth/logout"),
+  /** O corpo leva o refresh token salvo; o backend também revoga o cookie httpOnly. */
+  logout: (body: RefreshRequest) => api.post<void>("/auth/logout", body),
   me: () => api.get<UserProfileDto>("/me"),
   updateProfile: (body: UpdateProfileRequest) => api.put<UserProfileDto>("/me", body),
 };
+
+/**
+ * Login com Google disponível? No mock sempre; fora dele só com NEXT_PUBLIC_GOOGLE_CLIENT_ID,
+ * caso contrário o botão fica oculto (não há como obter um ID token real).
+ */
+export const GOOGLE_LOGIN_ENABLED = env.apiMocking || Boolean(env.googleClientId);
 
 function useSessionSetter() {
   const setSession = useAuthStore((s) => s.setSession);
@@ -45,11 +55,19 @@ export function useRegister() {
   return useMutation({ mutationFn: authApi.register, onSuccess: set });
 }
 
-/** Login com Google (mock): na integração real, obter o idToken via Google Identity Services. */
+/**
+ * Login com Google: no mock envia um token fictício; fora dele obtém o `credential` real pelo
+ * Google Identity Services (prompt One Tap / FedCM) antes de chamar a API.
+ */
 export function useGoogleLogin() {
   const set = useSessionSetter();
   return useMutation({
-    mutationFn: () => authApi.google({ idToken: `mock-google-${Date.now()}` }),
+    mutationFn: async () => {
+      const idToken = env.apiMocking
+        ? `mock-google-${Date.now()}`
+        : await requestGoogleCredential(env.googleClientId ?? "");
+      return authApi.google({ idToken });
+    },
     onSuccess: set,
   });
 }
@@ -58,16 +76,15 @@ export function useForgotPassword() {
   return useMutation({ mutationFn: authApi.forgotPassword });
 }
 
+/** Sair: revoga o refresh token na API e limpa sessão + TODO o cache de queries (dados pessoais). */
 export function useLogout() {
   const signOut = useAuthStore((s) => s.signOut);
   const client = useQueryClient();
   return useMutation({
-    mutationFn: authApi.logout,
+    mutationFn: () => authApi.logout({ refreshToken: useAuthStore.getState().refreshToken }),
     onSettled: () => {
       signOut();
-      client.removeQueries({ queryKey: queryKeys.me.profile });
-      client.removeQueries({ queryKey: ["orders"] });
-      client.removeQueries({ queryKey: queryKeys.me.addresses });
+      client.clear();
     },
   });
 }

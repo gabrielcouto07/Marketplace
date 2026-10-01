@@ -188,7 +188,3 @@ export async function uploadImage(file: File): Promise<PresignedUploadDto> {
   await uploadFile(presigned.uploadUrl, file, presigned.headers);
   return presigned;
 }
-
-export function useUploadImage() {
-  return useMutation({ mutationFn: uploadImage });
-}

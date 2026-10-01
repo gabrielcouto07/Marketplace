@@ -19,6 +19,7 @@ import {
 } from "@/features/auth/components/form-field";
 import { useAuthStore } from "@/features/auth/store";
 import { useRouter } from "@/i18n/navigation";
+import { env } from "@/lib/env";
 import { loginSchema, type LoginFormValues } from "@/lib/validation/schemas";
 
 /** Link alternativo de acesso: /admin/entrar. Só contas com o papel Admin passam. */
@@ -59,7 +60,10 @@ export function AdminLoginView() {
       <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
         <p className="flex items-center gap-2 rounded-md bg-primary-soft/60 px-3 py-2 text-caption text-foreground-secondary">
           <ShieldCheck className="size-4 shrink-0 text-primary" strokeWidth={1.75} aria-hidden />
-          {t("loginRestricted")}
+          <span>
+            {t("loginRestricted")}
+            {env.apiMocking ? ` ${t("loginDemoHint")}` : null}
+          </span>
         </p>
         <ApiErrorNotice message={apiError} />
         <FormField label={tAuth("email")} error={fieldError(formState.errors, "email")}>

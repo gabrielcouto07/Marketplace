@@ -15,7 +15,7 @@
 │  lib/api/http.ts (fetch wrapper tipado)     ← única porta para a rede │
 │        │                                                              │
 │  ┌─────▼──────────────┐     ┌──────────────────────────────┐          │
-│  │ MSW (dev/mock)     │ ou  │ ASP.NET Core Web API (futuro)│          │
+│  │ MSW (dev/mock)     │ ou  │ ASP.NET Core Web API (.NET 10)│         │
 │  │ src/mocks/*        │     │ NEXT_PUBLIC_API_URL          │          │
 │  └────────────────────┘     └──────────────────────────────┘          │
 │                                                                       │
@@ -29,7 +29,7 @@
 ```
 marketplace-py/
 ├─ apps/web/                 Next.js (este projeto)
-├─ apps/api/                 reservado ao ASP.NET Core (README com sugestão de estrutura)
+├─ apps/api/                 ASP.NET Core Web API (.NET 10) — ver apps/api/README.md e docs/BACKEND_INTEGRATION.md
 ├─ packages/contracts/       DTOs TypeScript (@marketplace/contracts) — espelho do contrato REST
 ├─ docs/                     esta documentação
 ├─ pnpm-workspace.yaml       workspaces + allowBuilds (sharp, msw, esbuild, swc…)

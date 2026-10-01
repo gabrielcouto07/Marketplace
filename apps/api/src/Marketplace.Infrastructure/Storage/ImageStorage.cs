@@ -90,12 +90,38 @@ public sealed class LocalImageStorage(IOptions<StorageOptions> options, IDataPro
         return path.StartsWith(RootPath + Path.DirectorySeparatorChar, StringComparison.Ordinal) ? path : null;
     }
 
-    public async Task SaveAsync(string key, Stream content, CancellationToken ct)
+    /// <summary>Grava no máximo <paramref name="maxBytes"/> (o Content-Length não é confiável) e confere a assinatura do arquivo.</summary>
+    public async Task SaveAsync(string key, Stream content, long maxBytes, string expectedContentType, CancellationToken ct)
     {
         var path = ResolvePath(key) ?? throw new UnauthorizedAccessException();
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-        await using var file = File.Create(path);
-        await content.CopyToAsync(file, ct);
+        var buffer = new byte[64 * 1024];
+        long total = 0;
+        var header = new List<byte>(16);
+        try
+        {
+            await using var file = File.Create(path);
+            int read;
+            while ((read = await content.ReadAsync(buffer, ct)) > 0)
+            {
+                total += read;
+                if (total > maxBytes)
+                    throw new Application.Common.AppException(413, "PAYLOAD_TOO_LARGE", "Arquivo maior que o declarado.");
+                if (header.Count < 16) header.AddRange(buffer.Take(Math.Min(read, 16 - header.Count)));
+                await file.WriteAsync(buffer.AsMemory(0, read), ct);
+            }
+        }
+        catch
+        {
+            try { File.Delete(path); } catch { /* best effort */ }
+            throw;
+        }
+        if (!ImageSignatures.Matches(header, expectedContentType))
+        {
+            File.Delete(path);
+            throw new Application.Common.AppException(422, "VALIDATION_ERROR", "O arquivo não é uma imagem do tipo declarado.",
+                new Dictionary<string, string[]> { ["contentType"] = ["Conteúdo não corresponde ao tipo informado."] });
+        }
     }
 
     public Task DeleteAsync(string storageKey, CancellationToken ct)
@@ -103,6 +129,23 @@ public sealed class LocalImageStorage(IOptions<StorageOptions> options, IDataPro
         var path = Path.Combine(RootPath, storageKey.Replace('/', Path.DirectorySeparatorChar));
         if (path.StartsWith(RootPath, StringComparison.Ordinal) && File.Exists(path)) File.Delete(path);
         return Task.CompletedTask;
+    }
+}
+
+/// <summary>Assinaturas (magic bytes) dos formatos aceitos.</summary>
+public static class ImageSignatures
+{
+    public static bool Matches(IReadOnlyList<byte> header, string contentType)
+    {
+        bool StartsWith(params byte[] prefix) => header.Count >= prefix.Length && prefix.Select((b, i) => header[i] == b).All(x => x);
+        return contentType.ToLowerInvariant() switch
+        {
+            "image/jpeg" => StartsWith(0xFF, 0xD8, 0xFF),
+            "image/png" => StartsWith(0x89, 0x50, 0x4E, 0x47),
+            "image/webp" => StartsWith(0x52, 0x49, 0x46, 0x46) && header.Count >= 12 && header[8] == 0x57 && header[9] == 0x45 && header[10] == 0x42 && header[11] == 0x50,
+            "image/avif" => header.Count >= 12 && header[4] == 0x66 && header[5] == 0x74 && header[6] == 0x79 && header[7] == 0x70,
+            _ => false,
+        };
     }
 }
 

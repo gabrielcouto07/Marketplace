@@ -33,21 +33,7 @@ export function usePostalCodeLookup(cep: string) {
   });
 }
 
-/** Cotação de frete por CEP + vendedor. Usa query (cacheável) com chave derivada dos itens. */
-export function useShippingQuote(request: ShippingQuoteRequest | null) {
-  const digits = request ? onlyDigits(request.postalCode) : "";
-  const itemsKey = request
-    ? request.items.map((i) => `${i.productId}:${i.variantId ?? "-"}:${i.quantity}`).join("|")
-    : "";
-  return useQuery({
-    queryKey: queryKeys.shipping.quote(digits, request?.sellerId ?? "", itemsKey),
-    queryFn: () => shippingApi.quote(request!),
-    enabled: Boolean(request) && digits.length === 8 && (request?.items.length ?? 0) > 0,
-    staleTime: 10 * 60 * 1000,
-  });
-}
-
-/** Variante imperativa (ex.: botão "Calcular"). */
+/** Cotação de frete por CEP + vendedor, imperativa (botão "Calcular" na página do produto). */
 export function useShippingQuoteMutation() {
   return useMutation({ mutationFn: shippingApi.quote });
 }

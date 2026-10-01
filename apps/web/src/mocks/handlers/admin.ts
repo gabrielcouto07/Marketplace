@@ -1,5 +1,6 @@
 import type {
   AdminAuditLogDto,
+  AdminBlockRequest,
   AdminDisputeResolveRequest,
   AdminOrderDetailDto,
   AdminOrderListItemDto,
@@ -561,7 +562,7 @@ export const adminHandlers = [
     if (!person) return notFound("Usuário");
     if (person.user.id === db.user.id)
       return problem(409, "SELF_BLOCK", "Você não pode bloquear a própria conta.");
-    const body = (await request.json().catch(() => ({}))) as { reason?: string | null };
+    const body = (await request.json().catch(() => ({}))) as AdminBlockRequest;
     const state = db.userStates[person.user.id] ?? {
       blockedAt: null,
       blockedReason: null,
@@ -780,8 +781,10 @@ export const adminHandlers = [
         trackingCode: ["Informe o código de rastreio para marcar como enviado."],
       });
     if (body.trackingCode) order.trackingCode = body.trackingCode.trim().toUpperCase();
-    if (body.carrier)
+    if (body.carrier) {
+      order.carrier = body.carrier.trim();
       order.shippingOption = { ...order.shippingOption, carrier: body.carrier.trim() };
+    }
     advanceOrder(order, body.status as OrderStatus);
     if (body.note?.trim()) {
       const last = order.timeline[order.timeline.length - 1];
@@ -791,6 +794,7 @@ export const adminHandlers = [
       const payment = db.payments.find((p) => p.id === order.payment.id);
       if (payment && payment.status === "Aprovado") {
         payment.status = "Estornado";
+        payment.refundedAmount = { ...payment.amount };
         order.payment = { ...order.payment, status: "Estornado" };
       }
     }
@@ -815,7 +819,10 @@ export const adminHandlers = [
     }
     if (body.outcome === "Reembolsado") {
       const payment = db.payments.find((p) => p.id === order.payment.id);
-      if (payment) payment.status = "Estornado";
+      if (payment) {
+        payment.status = "Estornado";
+        payment.refundedAmount = { ...payment.amount };
+      }
       order.payment = { ...order.payment, status: "Estornado" };
     }
     log("dispute.resolve", `${order.number} → ${body.outcome}`);
@@ -861,6 +868,7 @@ export const adminHandlers = [
     if (payment.status !== "Aprovado")
       return problem(409, "NOT_REFUNDABLE", "Só pagamentos aprovados podem ser estornados.");
     payment.status = "Estornado";
+    payment.refundedAmount = { ...payment.amount };
     for (const order of db.orders) {
       if (
         order.purchaseId === payment.purchaseId &&

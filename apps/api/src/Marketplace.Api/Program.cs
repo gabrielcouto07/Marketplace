@@ -1,4 +1,4 @@
-using System.Text.Json;
+using System.Security.Claims;
 using System.Threading.RateLimiting;
 using Marketplace.Api.Endpoints;
 using Marketplace.Api.Infrastructure;
@@ -6,10 +6,12 @@ using Marketplace.Application;
 using Marketplace.Application.Abstractions;
 using Marketplace.Infrastructure;
 using Marketplace.Infrastructure.Auth;
+using Marketplace.Infrastructure.Payments;
 using Marketplace.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 using Scalar.AspNetCore;
 
@@ -20,12 +22,15 @@ var config = builder.Configuration;
 var jsonOptions = JsonSetup.Create();
 builder.Services.AddSingleton(jsonOptions);
 builder.Services.ConfigureHttpJsonOptions(o => JsonSetup.Configure(o.SerializerOptions));
+// Erros de binding (JSON inválido, tipo errado) viram exceção e saem como problem+json em todos os ambientes.
+builder.Services.Configure<RouteHandlerOptions>(o => o.ThrowOnBadRequest = true);
 
 // ----- Camadas -----
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUser, CurrentUser>();
+builder.Services.AddScoped<ICatalogCache, OutputCatalogCache>();
 builder.Services.AddApplication();
-builder.Services.AddInfrastructure(config);
+builder.Services.AddInfrastructure(config, builder.Environment);
 
 var keysPath = config["DataProtection:KeysPath"];
 if (!string.IsNullOrWhiteSpace(keysPath))
@@ -54,7 +59,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme).AddJw
         IssuerSigningKey = jwt.SigningKey,
         ValidateLifetime = true,
         ClockSkew = TimeSpan.FromSeconds(30),
-        RoleClaimType = System.Security.Claims.ClaimTypes.Role,
+        RoleClaimType = ClaimTypes.Role,
         NameClaimType = "name",
     };
     o.Events = new JwtBearerEvents
@@ -74,23 +79,32 @@ var origins = config.GetSection("Cors:Origins").Get<string[]>() ?? [];
 builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
     p.WithOrigins(origins).AllowAnyHeader().AllowAnyMethod().AllowCredentials().WithExposedHeaders("Location")));
 
-// ----- Rate limiting (auth e operações sensíveis) -----
+// ----- Rate limiting (auth, operações sensíveis, cotações anônimas e webhooks) -----
 builder.Services.AddRateLimiter(o =>
 {
     o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     o.OnRejected = (ctx, _) => new ValueTask(ApiProblems.WriteAsync(ctx.HttpContext, 429, "RATE_LIMITED", "Muitas tentativas. Aguarde um instante."));
     o.AddPolicy("auth", ctx => RateLimitPartition.GetFixedWindowLimiter(
-        ctx.Connection.RemoteIpAddress?.ToString() ?? "anon",
+        ClientIp(ctx),
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 20, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+    // Partição pelo id do usuário (claim sub), nunca pelo nome: nomes repetem e são editáveis.
     o.AddPolicy("sensitive", ctx => RateLimitPartition.GetFixedWindowLimiter(
-        ctx.User.Identity?.Name ?? ctx.Connection.RemoteIpAddress?.ToString() ?? "anon",
+        ctx.User.FindFirstValue(JwtRegisteredClaimNames.Sub) ?? ctx.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? ClientIp(ctx),
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 5, Window = TimeSpan.FromMinutes(10), QueueLimit = 0 }));
+    o.AddPolicy("quotes", ctx => RateLimitPartition.GetFixedWindowLimiter(
+        ClientIp(ctx),
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 60, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+    o.AddPolicy("webhooks", ctx => RateLimitPartition.GetFixedWindowLimiter(
+        ClientIp(ctx),
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 300, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
 });
+
+static string ClientIp(HttpContext ctx) => ctx.Connection.RemoteIpAddress?.ToString() ?? "anon";
 
 // ----- Cache de saída para catálogo (CDN-friendly) -----
 builder.Services.AddOutputCache(o =>
 {
-    o.AddPolicy("catalog", p => p.Expire(TimeSpan.FromSeconds(60)).SetVaryByQuery("*").Tag("catalog"));
+    o.AddPolicy("catalog", p => p.Expire(TimeSpan.FromSeconds(60)).SetVaryByQuery("*").Tag(OutputCatalogCache.Tag));
 });
 
 builder.Services.AddExceptionHandler<ApiProblems.ExceptionHandler>();
@@ -108,6 +122,8 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.UseExceptionHandler(_ => { });
+// 404/405/415 sem corpo viram problem+json como todo o resto da API.
+app.UseStatusCodePages(ctx => ApiProblems.WriteStatusAsync(ctx.HttpContext));
 app.UseForwardedHeaders();
 app.UseCors();
 app.UseRateLimiter();
@@ -115,16 +131,23 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.UseOutputCache();
 
-app.MapOpenApi();
-app.MapScalarApiReference(o => o.WithTitle("Marketplace PY API"));
+// OpenAPI/Scalar: sempre em Development; em produção só com OpenApi:Enabled=true.
+if (app.Environment.IsDevelopment() || config.GetValue<bool>("OpenApi:Enabled"))
+{
+    app.MapOpenApi();
+    app.MapScalarApiReference(o => o.WithTitle("Marketplace PY API"));
+}
 app.MapHealthChecks("/health");
+
+var paymentOptions = app.Services.GetRequiredService<IOptions<PaymentOptions>>().Value;
+var fakeGateway = paymentOptions.Provider.Equals(FakePaymentGateway.GatewayName, StringComparison.OrdinalIgnoreCase);
 
 var api = app.MapGroup("/api");
 api.MapCatalog();
 api.MapSellers();
 api.MapShipping();
 api.MapCheckoutAndOrders();
-api.MapPayments(allowSimulation: app.Environment.IsDevelopment() && (config["Payments:Provider"] ?? "Fake") == "Fake");
+api.MapPayments(allowSimulation: app.Environment.IsDevelopment() && fakeGateway);
 api.MapWebhooks();
 api.MapAuth();
 api.MapAccount();

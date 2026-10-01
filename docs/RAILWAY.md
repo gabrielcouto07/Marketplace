@@ -25,9 +25,15 @@ Auth__Jwt__Secret=<64+ caracteres aleatórios>
 Links__SiteUrl=https://${{web.RAILWAY_PUBLIC_DOMAIN}}
 Links__ApiUrl=https://${{web.RAILWAY_PUBLIC_DOMAIN}}/api
 Cors__Origins__0=https://${{web.RAILWAY_PUBLIC_DOMAIN}}
-Payments__Fake__WebhookSecret=<aleatório>
+Payments__Provider=MercadoPago
+Payments__MercadoPago__AccessToken=<APP_USR-...>
+Payments__MercadoPago__WebhookSecret=<segredo do painel de webhooks>
+Payments__MercadoPago__NotificationUrl=https://<domínio público da api>/api/webhooks/payments/mercadopago
 Tracking__WebhookSecret=<aleatório>
 ```
+
+`Payments__Provider=Fake` é recusado fora de Development (a API não sobe); para um ambiente de homologação sem
+dinheiro real use `Payments__AllowFakeOutsideDevelopment=true` e `Payments__Fake__WebhookSecret=<aleatório>`.
 
 **web** (usadas no build — mudar exige redeploy)
 

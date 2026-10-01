@@ -50,7 +50,8 @@ public interface ILinkBuilder
     string PaymentPage(Guid paymentId);
     string BoletoPdf(Guid paymentId);
     string PasswordReset(string token);
-    string Tracking(string trackingCode);
+    /// <summary>Página de rastreio na transportadora (null quando não há template para ela).</summary>
+    string? Tracking(string trackingCode, string? carrier);
     string PrivacyPolicy();
     string Terms();
 }

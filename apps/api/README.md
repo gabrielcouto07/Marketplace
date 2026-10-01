@@ -1,6 +1,6 @@
 # apps/api — ASP.NET Core Web API (.NET 10)
 
-Backend do marketplace Paraguai → Brasil. Implementa o contrato de [`../web/API_CONTRACTS.md`](../web/API_CONTRACTS.md)
+Backend do marketplace Paraguai → Brasil. Implementa o contrato de [`../../docs/CONTRACTS.md`](../../docs/CONTRACTS.md)
 (DTOs em [`../../packages/contracts`](../../packages/contracts)) com os mesmos IDs, regras e mensagens do mock do front,
 então o PWA funciona ponta a ponta sem alterar componentes.
 
@@ -54,16 +54,21 @@ tests/Marketplace.Tests/         xUnit: domínio + fluxo completo do comprador v
 | Seção | Chaves | Notas |
 | --- | --- | --- |
 | `ConnectionStrings:Postgres` | — | vazio = SQLite (`Database:SqlitePath`) |
-| `Database` | `SeedDemoData`, `InitializeOnStartup` | seed do catálogo roda sempre que o banco estiver vazio |
-| `Auth:Jwt` | `Secret` (≥ 32 chars, **obrigatório**), `Issuer`, `Audience`, `AccessTokenMinutes` | access token longo (7 d) até o front ter o interceptor 401→refresh; refresh token rotativo (30 d) em body e cookie httpOnly |
+| `Database` | `SeedDemoData`, `InitializeOnStartup`, `RecreateSqliteOnSchemaChange` | seed do catálogo roda sempre que o banco estiver vazio; o SQLite de dev é recriado sozinho quando as entidades mudam (hash do schema em `__schema_hash`) |
+| `Auth:Jwt` | `Secret` (≥ 32 chars, **obrigatório**), `Issuer`, `Audience`, `AccessTokenMinutes` | o front já renova em 401 (`lib/api/http.ts`), então `AccessTokenMinutes` pode ser curto (ex.: 15); refresh token rotativo (30 d) em body e cookie httpOnly |
 | `Auth:Google` | `ClientId` | vazio = `POST /auth/google` devolve 422 |
-| `Payments` | `Provider` = `Fake` \| `MercadoPago` | `MercadoPago:AccessToken`, `WebhookSecret`, `NotificationUrl` |
-| `Payments:Fake` | `AutoApproveAfterSeconds`, `DeclinedLast4`, `WebhookSecret` | demo; `POST /webhooks/payments` assinado com HMAC-SHA256 (`X-Signature`) |
+| `Payments` | `Provider` = `Fake` \| `MercadoPago`, `AllowFakeOutsideDevelopment` | todos os gateways ficam registrados; o provider só decide cobranças novas. Fake fora de Development só com `AllowFakeOutsideDevelopment=true` |
+| `Payments:MercadoPago` | `AccessToken`, `WebhookSecret`, `NotificationUrl`, `RequireSignature`, `SignatureToleranceMinutes` | webhook em `POST /webhooks/payments/mercadopago` |
+| `Payments:Fake` | `AutoApproveAfterSeconds`, `DeclinedLast4`, `WebhookSecret` | demo; `POST /webhooks/payments/fake` assinado com HMAC-SHA256 (`X-Signature`); segredo vazio = rejeitado |
+| `Shipping` | `Provider` = `Table` \| `<integração>`, `FallbackToTable`, `TimeoutSeconds` | cotação via `IShippingRateProvider`; a tabela própria é o fallback |
 | `PostalCodes` | `AllowOfflineFallback` | ViaCEP → BrasilAPI → (dev) cidade/UF pela zona do CEP |
-| `Tracking` | `Provider` = `None` \| `Fake`, `WebhookSecret` | `POST /webhooks/shipping` recebe eventos da transportadora |
+| `Tracking` | `Provider` = `None` \| `Fake` \| `<integração>`, `WebhookSecret`, `PollIntervalMinutes`, `PollBatchSize` | `POST /webhooks/shipping/{provider}` (parser `generic` assinado) e polling por transportadora |
+| `ExchangeRates` | `Provider` = `Manual` \| `<integração>`, `RefreshIntervalMinutes`, `ValidityHours`, `Pairs` | importação automática de cotações (job) |
+| `Housekeeping` | `IntervalMinutes`, `QuoteRetentionHours`, `TokenRetentionDays`, `WebhookRetentionDays` | limpeza de cotações, tokens e webhooks |
 | `Storage` | `Provider` = `Local` \| `R2`, `R2:*` | upload por URL pré-assinada (`POST /seller/uploads`) |
 | `Email` | `Provider` = `Log` \| `Smtp` | redefinição de senha |
-| `Links` | `SiteUrl`, `ApiUrl` | URLs públicas (e-mails, PDF do boleto, política) |
+| `Links` | `SiteUrl`, `ApiUrl`, `TrackingUrlTemplates`, `BoletoLinkDays` | URLs públicas; link do PDF do boleto é assinado (`?t=`) e expira |
+| `OpenApi` | `Enabled` | `/openapi/v1.json` e `/scalar` fora de Development (padrão: desligado) |
 | `Cors:Origins` | lista | origem do PWA quando não usar o proxy |
 | `DataProtection:KeysPath` | pasta | chaves que cifram CPF/documento do pagador — **faça backup em produção** |
 
@@ -76,16 +81,21 @@ tests/Marketplace.Tests/         xUnit: domínio + fluxo completo do comprador v
 - **Impostos de importação**: modo `Flat` (60 % sobre produtos + frete − desconto) ou `RemessaConforme`
   (20 % até US$ 50; 60 % − US$ 20 acima; ICMS 17 % por dentro). Sempre apresentado como estimativa. Parâmetros em
   `platform_settings` (linha única, editável pelo admin no futuro).
-- **Frete** por loja e zona do CEP (tabela `shipping_zones`), prazos em dias úteis; entrega estimada usa dias úteis +
-  prazo de preparação do produto. Frete grátis quando todos os itens da loja têm `freeShipping` e subtotal ≥ R$ 300.
-- **Pagamentos**: gateway atrás de `IPaymentGateway`. Cartão só por token (o PAN nunca chega à API). Webhooks
-  idempotentes (`webhook_events`). Pix expira em 30 min e boleto após o vencimento (job); cancelar pedido pago
-  solicita estorno e, quando todos os pedidos da compra caem, o pagamento vira `Estornado`.
+- **Frete** por loja via `IShippingRateProvider` (tabela própria por zona do CEP como padrão e fallback; integrações
+  recebem peso/dimensões/NCM dos produtos e CEP de origem da loja). Prazos em dias úteis + preparação. Frete grátis
+  (todos os itens da loja elegíveis e subtotal ≥ limite da plataforma) é aplicado pelo `ShippingService`. O pedido só
+  aceita o endereço com o CEP cotado; cupom aplicado conta em `used_count`.
+- **Pagamentos**: gateways atrás de `IPaymentGateway`/`IPaymentGatewayRegistry` (o pagamento guarda o gateway de origem).
+  Cartão só por token (o PAN nunca chega à API). Webhooks por gateway, idempotentes e reprocessáveis (`webhook_events`),
+  com conferência de valor. Pix expira em 30 min e boleto após o vencimento (o job confirma no gateway antes); pagamento
+  tardio é estornado automaticamente; cancelar pedido pago estorna via `RefundService` (idempotente por pedido) e, quando
+  todos os pedidos da compra caem, o pagamento vira `Estornado`. `GET /payments/{id}` exige o dono; o PDF do boleto usa
+  link assinado. Estoque reservado/devolvido com UPDATE atômico (sem oversell).
 - **Repasses**: ledger `payouts` por pedido (bruto − comissão − custo do meio de pagamento), agendado após o prazo de
   retenção; cancelado em estorno.
-- **Rastreio**: eventos normalizados (`POSTED`, `EXPORT`, `ARRIVED_BR`, `CUSTOMS`, `CUSTOMS_RELEASED`,
-  `OUT_FOR_DELIVERY`, `DELIVERED`) transitam `Enviado → EmTransitoInternacional → Entregue`; pedidos entregues são
-  concluídos automaticamente após `AutoCompleteDays`.
+- **Rastreio**: eventos normalizados (`Domain/Shipping/TrackingCodes.cs`) transitam
+  `Enviado → EmTransitoInternacional → Entregue`; provedores por transportadora (`ITrackingProvider`) e webhooks por
+  provedor (`ITrackingWebhookParser`); pedidos entregues são concluídos após `AutoCompleteDays` contados da entrega.
 - **LGPD**: consentimentos versionados no cadastro (`consents`), `GET /me/data-export` (portabilidade),
   `DELETE /me` (anonimização mantendo pedidos pelo prazo fiscal), trilha de auditoria (`audit_logs`), CPF e documento
   do pagador cifrados em repouso, nomes públicos abreviados ("Gabriel D.").
@@ -99,18 +109,21 @@ tests/Marketplace.Tests/         xUnit: domínio + fluxo completo do comprador v
 - **Admin** (`/admin/*`, papel Admin): visão geral (totais, vendas por dia, produtos a caminho), usuários (editar/bloquear/anonimizar),
   vendedores (aprovar/suspender/reputação), produtos, pedidos (transição forçada, disputas), pagamentos (estorno), repasses,
   cupons, câmbio, banners/categorias, configurações da plataforma e auditoria. Admin único criado do `Admin:Email/Password`
-  (dev: `admin@mktpy.com` / `admin123`); login alternativo no front em `/admin/entrar`. Detalhes em `GUIA_BACKEND.txt` (raiz).
+  (dev: `admin@mktpy.com` / `admin123`); login alternativo no front em `/admin/entrar`. Detalhes em [`docs/GUIA_BACKEND.txt`](../../docs/GUIA_BACKEND.txt).
 
 ## Endpoints além do contrato ✅
 
 `POST /products/{id}/reviews`, `POST /orders/{id}/confirm-receipt`, `GET /payments/{id}/boleto.pdf`,
 `POST /auth/reset-password`, `GET/PUT /me/favorites`, `GET/PUT /me/cart`, `GET/POST /me/consents`,
 `GET /me/data-export`, `DELETE /me`, `GET /privacy/policy`, `POST /seller/uploads`, `PUT /media/{key}`,
-`POST /webhooks/{payments|mercadopago|shipping}`.
+`POST /webhooks/payments/{gateway}`, `POST /webhooks/shipping/{provider}` (aliases: `/webhooks/payments`, `/webhooks/mercadopago`, `/webhooks/shipping`).
 
 ## Próximos passos
 
-1. Painel do vendedor (`/seller/*`: produtos, pedidos + postagem, perguntas, repasses) e admin (`/admin/*`).
-2. Integração real de rastreio (Correios/courier) no `ITrackingProvider`.
-3. Interceptor 401 → `POST /auth/refresh` no front e encurtar `AccessTokenMinutes`.
-4. Gerar `packages/contracts` a partir de `/openapi/v1.json` (`openapi-typescript`).
+1. Integrações reais: transportadora/agregador em `IShippingRateProvider` + `ITrackingProvider`/`ITrackingWebhookParser`
+   (ver `docs/BACKEND_INTEGRATION.md › Como adicionar uma integração`) e provedor de câmbio em `IExchangeRateProvider`.
+2. Perguntas e repasses no painel do vendedor (`/seller/questions`, `/seller/payouts`) e notificações (e-mail/WhatsApp)
+   de pagamento e envio.
+3. Esquema de segurança Bearer e `Produces` nos endpoints `IResult` do OpenAPI para gerar `packages/contracts`
+   (`openapi-typescript`).
+4. Rodar os jobs numa única instância (lock distribuído) ao escalar horizontalmente.

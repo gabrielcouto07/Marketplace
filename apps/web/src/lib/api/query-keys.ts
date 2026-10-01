@@ -23,7 +23,6 @@ export const queryKeys = {
   },
   products: {
     search: (query: ProductSearchQuery) => ["products", "search", query] as const,
-    suggestions: (q: string) => ["products", "suggestions", q] as const,
     detail: (slug: string) => ["products", "detail", slug] as const,
     reviews: (id: string) => ["products", id, "reviews"] as const,
     reviewSummary: (id: string) => ["products", id, "reviews", "summary"] as const,
@@ -36,13 +35,12 @@ export const queryKeys = {
   },
   shipping: {
     postalCode: (cep: string) => ["postal-codes", cep] as const,
-    quote: (cep: string, sellerId: string, itemsKey: string) =>
-      ["shipping", "quotes", cep, sellerId, itemsKey] as const,
     exchangeRates: ["exchange-rates"] as const,
   },
   orders: {
     list: (query: OrderListQuery) => ["orders", "list", query] as const,
     detail: (id: string) => ["orders", "detail", id] as const,
+    tracking: (id: string) => ["orders", "detail", id, "tracking"] as const,
     byPurchase: (purchaseId: string) => ["orders", "purchase", purchaseId] as const,
   },
   payments: {

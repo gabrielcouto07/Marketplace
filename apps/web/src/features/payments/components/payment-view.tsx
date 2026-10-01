@@ -2,6 +2,7 @@
 
 import type { PaymentDto, PaymentStatus } from "@marketplace/contracts";
 import { AlertCircle, Clock, Copy, CreditCard, Download, PlayCircle } from "lucide-react";
+import Image from "next/image";
 import { useFormatter, useTranslations } from "next-intl";
 import { QRCodeSVG } from "qrcode.react";
 import { useEffect, useRef, useState } from "react";
@@ -13,6 +14,7 @@ import { ErrorState } from "@/components/shared/states";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { cardBrandName } from "@/features/checkout/components/card-utils";
 import { usePayment, usePurchaseOrders, useSimulatePaymentApproval } from "@/features/orders/api";
 import { ResultHeader } from "@/features/orders/components/confirmation-view";
 import {
@@ -21,7 +23,8 @@ import {
 } from "@/features/orders/components/purchase-order-card";
 import { formatCountdown, useCountdown } from "@/hooks/use-countdown";
 import { Link, useRouter } from "@/i18n/navigation";
-import { downloadBlob } from "@/lib/api/http";
+import { downloadBlob, isApiUrl } from "@/lib/api/http";
+import { env } from "@/lib/env";
 import { formatMoney } from "@/lib/money";
 
 export function PaymentView({ paymentId }: { paymentId: string }) {
@@ -131,7 +134,7 @@ export function PaymentView({ paymentId }: { paymentId: string }) {
           <div className="flex min-w-0 flex-1 flex-col">
             <p className="text-body-sm font-medium text-foreground">{t("cardTitle")}</p>
             <p className="text-caption text-foreground-secondary tabular-nums">
-              {payment.card.brand} · {payment.card.installments}x{" "}
+              {cardBrandName(payment.card.brand)} · {payment.card.installments}x{" "}
               {formatMoney(payment.card.installmentAmount)}
             </p>
           </div>
@@ -154,7 +157,7 @@ export function PaymentView({ paymentId }: { paymentId: string }) {
         </section>
       )}
 
-      {payment.status === "Pendente" ? (
+      {env.apiMocking && payment.status === "Pendente" ? (
         <div className="flex flex-col items-start gap-2">
           <p className="text-caption text-foreground-secondary">{t("simulateHint")}</p>
           <Button
@@ -216,7 +219,7 @@ function useCopy() {
       await navigator.clipboard.writeText(value);
       toast.success(tc("copied"));
     } catch {
-      toast.error(tc("copy"));
+      toast.error(tc("copyFailed"));
     }
   };
 }
@@ -235,13 +238,25 @@ function PixCard({ payment, remaining }: { payment: PaymentDto; remaining: numbe
         {t("pixTitle")}
       </h2>
       <div className="rounded-md border border-border bg-surface p-3">
-        <QRCodeSVG
-          value={pix.qrCodePayload}
-          size={176}
-          level="M"
-          includeMargin={false}
-          aria-label={t("qrLabel")}
-        />
+        {pix.qrCodeImageUrl ? (
+          // O gateway real devolve o QR pronto (PNG em data URL): exibe sem passar pelo otimizador.
+          <Image
+            src={pix.qrCodeImageUrl}
+            alt={t("qrLabel")}
+            width={176}
+            height={176}
+            unoptimized
+            className="size-44"
+          />
+        ) : (
+          <QRCodeSVG
+            value={pix.qrCodePayload}
+            size={176}
+            level="M"
+            includeMargin={false}
+            aria-label={t("qrLabel")}
+          />
+        )}
       </div>
       <span className="inline-flex h-8 items-center gap-1 rounded-sm bg-surface-muted px-2 text-caption text-foreground-secondary tabular-nums">
         <Clock className="size-3.5" strokeWidth={1.75} aria-hidden />
@@ -289,6 +304,12 @@ function BoletoCard({ payment }: { payment: PaymentDto }) {
   const [downloading, setDownloading] = useState(false);
 
   const download = async () => {
+    // O gateway real pode devolver um PDF hospedado em outro domínio: abre em nova aba, sem fetch
+    // (CORS) e sem enviar nosso token para terceiros.
+    if (!isApiUrl(boleto.pdfUrl) && !boleto.pdfUrl.startsWith(window.location.origin)) {
+      window.open(boleto.pdfUrl, "_blank", "noopener");
+      return;
+    }
     setDownloading(true);
     try {
       await downloadBlob(boleto.pdfUrl, `boleto-${payment.id.slice(0, 8)}.pdf`);

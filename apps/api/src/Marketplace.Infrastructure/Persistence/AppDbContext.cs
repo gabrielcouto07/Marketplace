@@ -66,6 +66,8 @@ public sealed partial class AppDbContext(DbContextOptions<AppDbContext> options,
             e.Property(x => x.Slug).HasMaxLength(120);
             e.Property(x => x.Name).HasMaxLength(160);
             e.Property(x => x.Ruc).HasMaxLength(16);
+            e.Property(x => x.OriginPostalCode).HasMaxLength(16);
+            e.Property(x => x.Phone).HasMaxLength(32);
             e.Property(x => x.Country).HasMaxLength(2);
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(16);
         });
@@ -86,6 +88,7 @@ public sealed partial class AppDbContext(DbContextOptions<AppDbContext> options,
             e.Property(x => x.Slug).HasMaxLength(200);
             e.Property(x => x.Name).HasMaxLength(200);
             e.Property(x => x.SearchText).HasMaxLength(400);
+            e.Property(x => x.HsCode).HasMaxLength(16);
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(16);
             e.Property(x => x.VariantOptions).HasConversion(Json<List<VariantOption>>(), ListComparer<VariantOption>());
             e.Property(x => x.Attributes).HasConversion(Json<List<ProductAttribute>>(), ListComparer<ProductAttribute>());
@@ -192,7 +195,12 @@ public sealed partial class AppDbContext(DbContextOptions<AppDbContext> options,
             e.Property(x => x.State).HasMaxLength(2);
         });
 
-        b.Entity<CheckoutQuote>(e => e.HasIndex(x => x.LockedUntil));
+        b.Entity<CheckoutQuote>(e =>
+        {
+            e.HasIndex(x => x.LockedUntil);
+            e.Property(x => x.PostalCode).HasMaxLength(8);
+            e.Property(x => x.CouponCode).HasMaxLength(40);
+        });
 
         b.Entity<Purchase>(e =>
         {
@@ -208,7 +216,10 @@ public sealed partial class AppDbContext(DbContextOptions<AppDbContext> options,
             e.HasIndex(x => new { x.UserId, x.CreatedAt });
             e.HasIndex(x => new { x.SellerId, x.Status });
             e.HasIndex(x => x.PaymentId);
+            e.HasIndex(x => x.TrackingCode);
             e.Property(x => x.Number).HasMaxLength(24);
+            e.Property(x => x.TrackingCode).HasMaxLength(40);
+            e.Property(x => x.Carrier).HasMaxLength(80);
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(32);
             e.Property(x => x.ShippingAddress).HasConversion(JsonRecord<AddressSnapshot>());
             e.Property(x => x.ShippingOption).HasConversion(JsonRecord<ShippingOptionSnapshot>());
@@ -238,6 +249,7 @@ public sealed partial class AppDbContext(DbContextOptions<AppDbContext> options,
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(16);
             e.Property(x => x.Currency).HasConversion<string>().HasMaxLength(3);
             e.Property(x => x.Gateway).HasMaxLength(32);
+            e.Property(x => x.LastRefundId).HasMaxLength(64);
             e.Property(x => x.PayerDocument).HasConversion(encrypted).HasMaxLength(512);
             e.Ignore(x => x.Money).Ignore(x => x.IsFinal);
         });

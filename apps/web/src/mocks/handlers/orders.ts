@@ -1,23 +1,31 @@
-import type { OrderDto, OrderStatus, PaymentDto } from "@marketplace/contracts";
+import type { OrderDto, OrderStatus, OrderTrackingDto, PaymentDto } from "@marketplace/contracts";
 import { HttpResponse, http } from "msw";
 
 import { db, persistDb } from "../db";
 import { TIMELINE_DESCRIPTIONS } from "../fixtures/orders";
 import { buildBoletoPdf } from "../pdf";
-import { API, notFound, nowIso, num, paginate, simulateLatency, unauthorized } from "./utils";
+import {
+  API,
+  isAuthorized,
+  notFound,
+  nowIso,
+  num,
+  paginate,
+  problem,
+  simulateLatency,
+  unauthorized,
+} from "./utils";
 
 /** Pix/boleto pendentes são aprovados automaticamente após 20 s (demo de polling). */
 const AUTO_APPROVE_MS = 20_000;
 
-function isAuthorized(request: Request): boolean {
-  const auth = request.headers.get("authorization");
-  if (!auth) return false;
-  const token = auth.replace(/^Bearer\s+/i, "");
-  return db.tokens.includes(token);
+/** Página pública de rastreio (Correios) — o backend real monta a URL conforme a transportadora. */
+export function trackingUrlFor(code: string | null): string | null {
+  return code ? `https://rastreamento.correios.com.br/app/index.php?objetos=${code}` : null;
 }
 
 /** Avança o pedido de status registrando o evento na linha do tempo (painéis e webhooks simulados). */
-export function advanceOrder(order: OrderDto, status: OrderStatus): void {
+export function advanceOrder(order: OrderDto, status: OrderStatus, description?: string): void {
   const now = nowIso();
   order.status = status;
   order.updatedAt = now;
@@ -28,7 +36,7 @@ export function advanceOrder(order: OrderDto, status: OrderStatus): void {
   order.timeline.push({
     status,
     occurredAt: now,
-    description: TIMELINE_DESCRIPTIONS[status],
+    description: description ?? TIMELINE_DESCRIPTIONS[status],
     location: null,
   });
 }
@@ -87,7 +95,13 @@ export const orderHandlers = [
     if (!isAuthorized(request)) return unauthorized();
     const order = db.orders.find((o) => o.id === params.id);
     if (!order) return notFound("Pedido");
-    return HttpResponse.json({ trackingCode: order.trackingCode, events: order.trackingEvents });
+    const body: OrderTrackingDto = {
+      trackingCode: order.trackingCode,
+      carrier: order.carrier,
+      trackingUrl: trackingUrlFor(order.trackingCode),
+      events: order.trackingEvents,
+    };
+    return HttpResponse.json(body);
   }),
 
   http.post(`${API}/orders/:id/cancel`, async ({ params, request }) => {
@@ -96,16 +110,31 @@ export const orderHandlers = [
     const order = db.orders.find((o) => o.id === params.id);
     if (!order) return notFound("Pedido");
     if (!["AguardandoPagamento", "Pago", "EmPreparacao"].includes(order.status)) {
-      return HttpResponse.json(
-        {
-          status: 409,
-          code: "ORDER_NOT_CANCELLABLE",
-          message: "Este pedido não pode mais ser cancelado.",
-        },
-        { status: 409 },
-      );
+      return problem(409, "ORDER_NOT_CANCELLABLE", "Este pedido não pode mais ser cancelado.");
     }
     advanceOrder(order, "Cancelado");
+    persistDb();
+    return HttpResponse.json(order);
+  }),
+
+  /** Comprador confirma o recebimento: Entregue → Concluido. */
+  http.post(`${API}/orders/:id/confirm-receipt`, async ({ params, request }) => {
+    await simulateLatency();
+    if (!isAuthorized(request)) return unauthorized();
+    const order = db.orders.find((o) => o.id === params.id);
+    if (!order) return notFound("Pedido");
+    if (order.status !== "Entregue") {
+      return problem(
+        409,
+        "ORDER_NOT_DELIVERED",
+        "Só pedidos entregues podem ter o recebimento confirmado.",
+      );
+    }
+    advanceOrder(
+      order,
+      "Concluido",
+      "Recebimento confirmado pelo comprador. Obrigado pela compra!",
+    );
     persistDb();
     return HttpResponse.json(order);
   }),
@@ -120,10 +149,11 @@ export const orderHandlers = [
     return HttpResponse.json(order, { status: 201 });
   }),
 
-  // ----- Pagamentos -----
+  // ----- Pagamentos (todas exigem sessão, como na API real) -----
   /** PDF do boleto (demonstração): o gateway real devolve o arquivo pronto em `boleto.pdfUrl`. */
-  http.get(`${API}/payments/:id/boleto.pdf`, async ({ params }) => {
+  http.get(`${API}/payments/:id/boleto.pdf`, async ({ params, request }) => {
     await simulateLatency();
+    if (!isAuthorized(request)) return unauthorized();
     const payment = db.payments.find((p) => p.id === params.id);
     if (!payment?.boleto) return notFound("Boleto");
     return new HttpResponse(buildBoletoPdf(payment), {
@@ -134,16 +164,18 @@ export const orderHandlers = [
     });
   }),
 
-  http.get(`${API}/payments/:id`, async ({ params }) => {
+  http.get(`${API}/payments/:id`, async ({ params, request }) => {
     await simulateLatency();
+    if (!isAuthorized(request)) return unauthorized();
     settlePendingPayments();
     const payment = db.payments.find((p) => p.id === params.id);
     return payment ? HttpResponse.json(payment) : notFound("Pagamento");
   }),
 
   /** Endpoint de conveniência só do mock: força aprovação imediata (botão "Simular pagamento"). */
-  http.post(`${API}/payments/:id/simulate-approval`, async ({ params }) => {
+  http.post(`${API}/payments/:id/simulate-approval`, async ({ params, request }) => {
     await simulateLatency();
+    if (!isAuthorized(request)) return unauthorized();
     const payment = db.payments.find((p) => p.id === params.id);
     if (!payment) return notFound("Pagamento");
     payment.status = "Aprovado";

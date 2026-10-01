@@ -19,6 +19,7 @@
     "continue": "Continuar",
     "copy": "Copiar",
     "copied": "Copiado!",
+    "copyFailed": "Não foi possível copiar. Selecione o texto e copie manualmente.",
     "businessDays": "{min}–{max} dias úteis",
     "businessDaysShort": "{min} a {max} dias úteis",
     "optional": "opcional",
@@ -122,7 +123,11 @@
     "imagesMax": "Máximo de 8 fotos",
     "compareAtGreater": "O preço \"de\" deve ser maior que o preço atual",
     "handlingRange": "O máximo deve ser maior ou igual ao mínimo",
-    "trackingCodeLength": "Código de rastreio com 8 a 40 caracteres"
+    "trackingCodeLength": "Código de rastreio com 8 a 40 caracteres",
+    "weightRange": "Peso em gramas inteiro, até 100.000 g",
+    "dimensionRange": "Use centímetros inteiros, até 200 cm",
+    "dimensionsIncomplete": "Informe as três medidas ou deixe todas em branco",
+    "invalidPostalCode": "Código postal inválido (4 a 10 dígitos)"
   },
   "errors": {
     "genericTitle": "Algo deu errado",
@@ -504,7 +509,9 @@
     "exchangeRateLabel": "Câmbio travado",
     "summaryHint": "Impostos e frete já estão no total. Sem surpresa depois.",
     "newAddressHint": "Endereço no Brasil para entrega e cálculo do frete.",
-    "recommended": "Recomendado"
+    "recommended": "Recomendado",
+    "cardUnavailable": "Pagamento com cartão indisponível neste ambiente. Pague com Pix ou boleto.",
+    "orderValidationFailed": "Não foi possível confirmar o pedido: {message}"
   },
   "payment": {
     "title": "Pagamento",
@@ -617,7 +624,12 @@
     "trackOrder": "Acompanhar pedido",
     "ordersInPurchase": "{count, plural, one {# pedido} other {# pedidos}}",
     "quantityShort": "{count}×",
-    "detailTitle": "Detalhes do pedido"
+    "detailTitle": "Detalhes do pedido",
+    "trackingCodeAt": "Código de rastreio · {carrier}",
+    "trackAtCarrier": "Acompanhar na transportadora",
+    "confirmReceipt": "Confirmar recebimento",
+    "receiptConfirm": "Você recebeu o pedido e está tudo certo? Isso conclui a compra e libera o repasse ao vendedor.",
+    "receiptConfirmed": "Recebimento confirmado. Obrigado pela compra!"
   },
   "account": {
     "title": "Minha conta",
@@ -718,7 +730,8 @@
     "demoHint": "Demo · comprador: demo@mktpy.com · vendedor: loja@mktpy.com · admin: admin@mktpy.com (senha 123456)",
     "welcome": "Bem-vindo(a), {name}!",
     "loggedOut": "Você saiu da conta",
-    "loginError": "Não foi possível entrar. Verifique os dados."
+    "loginError": "Não foi possível entrar. Verifique os dados.",
+    "googleUnavailable": "Não foi possível abrir o login do Google. Tente de novo ou entre com seu e-mail."
   },
   "sellerPanel": {
     "title": "Painel do vendedor",
@@ -826,6 +839,13 @@
     "productHandlingMin": "Preparação (mín. dias)",
     "productHandlingMax": "Preparação (máx. dias)",
     "productHandlingHint": "Dias úteis até postar. Entra no prazo mostrado ao comprador.",
+    "productParcel": "Pacote",
+    "productParcelHint": "Peso e medidas do pacote fechado. Usamos na cotação do frete; sem eles, vale a tabela padrão.",
+    "productWeight": "Peso (g)",
+    "productDimensions": "Dimensões (cm)",
+    "productLength": "Comprimento",
+    "productWidth": "Largura",
+    "productHeight": "Altura",
     "productAttributes": "Características",
     "productAttributesHint": "Ficha técnica: cor, tela, capacidade, voltagem…",
     "attributeName": "Característica",
@@ -871,6 +891,10 @@
     "storePolicy": "Política de trocas",
     "storePolicyHint": "Se deixar em branco, usamos a política padrão de 30 dias.",
     "storePolicyPlaceholder": "Trocas e devoluções em até 30 dias…",
+    "storeOriginPostalCode": "CEP/código postal de origem",
+    "storeOriginPostalCodeHint": "Código postal de onde os pacotes saem. Melhora a cotação do frete.",
+    "storePhone": "Telefone",
+    "storePhoneHint": "Com DDI, ex.: +595 61 500 123. Usado pela transportadora e pelo suporte.",
     "registerTitle": "Vender no marketplace",
     "registerSubtitle": "Cadastre sua loja em poucos minutos e comece a vender para o Brasil.",
     "registerBenefitShipping": "Frete e rastreio ponta a ponta",
@@ -951,7 +975,8 @@
     "audit": "Auditoria",
     "loginTitle": "Acesso administrativo",
     "loginSubtitle": "Área restrita à equipe do marketplace.",
-    "loginRestricted": "Entre com uma conta que tenha o papel de administrador. Demo: admin@mktpy.com / 123456.",
+    "loginRestricted": "Entre com uma conta que tenha o papel de administrador.",
+    "loginDemoHint": "Demo: admin@mktpy.com / 123456.",
     "loginSubmit": "Entrar no painel",
     "loginNotAdmin": "Esta conta não tem permissão de administrador.",
     "loginWelcome": "Bem-vindo, {name}!",

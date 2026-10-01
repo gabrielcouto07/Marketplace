@@ -14,7 +14,8 @@ public sealed class AdminService(
     OrderService orders,
     PaymentService payments,
     PrivacyService privacy,
-    IPaymentGateway gateway,
+    RefundService refunds,
+    ICatalogCache catalogCache,
     ICurrentUser currentUser,
     TimeProvider clock)
 {
@@ -152,17 +153,31 @@ public sealed class AdminService(
         {
             if (!OrderStateMachine.CanTransition(order.Status, OrderStatus.Cancelado))
                 throw AppException.Conflict("ORDER_INVALID_TRANSITION", $"Não é possível cancelar um pedido {order.Status}.");
-            await orders.CancelInternalAsync(order, note ?? "Cancelado pela administração.", "admin", restoreStock: true, ct);
-        }
-        else
-        {
-            if (request.Status == OrderStatus.Enviado)
+            orders.MarkCancelled(order, note ?? "Cancelado pela administração.", "admin");
+            // Pedido já pago: estorna a parte dele no gateway (fora da transação) e cancela o repasse.
+            if (order.Payment.Status == PaymentStatus.Aprovado)
             {
-                if (!string.IsNullOrWhiteSpace(request.TrackingCode)) order.TrackingCode = request.TrackingCode.Trim().ToUpperInvariant();
-                if (!string.IsNullOrWhiteSpace(request.Carrier)) order.Carrier = request.Carrier.Trim();
+                var refunded = await refunds.RefundOrderAsync(order, order.Payment, ct);
+                order.Events[^1].Note += refunded ? " Estorno solicitado no meio de pagamento." : " Estorno pendente de processamento manual.";
             }
-            orders.Transition(order, request.Status, note, null, "admin");
+            Audit("admin.order.transition", order.Number, request.Status.ToString());
+            // Estoque devolvido + pedido + auditoria na mesma transação.
+            await orders.CommitCancellationAsync([order], ct);
+            return order.ToDto(currentUser.Locale);
         }
+
+        if (request.Status == OrderStatus.Enviado)
+        {
+            if (!string.IsNullOrWhiteSpace(request.TrackingCode)) order.TrackingCode = request.TrackingCode.Trim().ToUpperInvariant();
+            if (!string.IsNullOrWhiteSpace(request.Carrier)) order.Carrier = request.Carrier.Trim();
+        }
+        orders.Transition(order, request.Status, note, null, "admin");
+        if (request.Status == OrderStatus.Enviado && order.TrackingCode is not null && order.TrackingEvents.All(e => e.Code != Domain.Shipping.TrackingCodes.Posted))
+            order.TrackingEvents.Add(new TrackingEvent
+            {
+                OrderId = order.Id, Code = Domain.Shipping.TrackingCodes.Posted, Description = "Objeto postado", Location = $"{order.Seller.City}, PY",
+                OccurredAt = Now, ExternalId = $"seller:{order.TrackingCode}:posted",
+            });
         Audit("admin.order.transition", order.Number, request.Status.ToString());
         await db.SaveChangesAsync(ct);
         return order.ToDto(currentUser.Locale);
@@ -185,20 +200,10 @@ public sealed class AdminService(
 
     private async Task RefundOrderAsync(Order order, CancellationToken ct)
     {
-        var payment = order.Payment;
-        if (payment.Status != PaymentStatus.Aprovado) return;
         var payout = await db.Payouts.FirstOrDefaultAsync(p => p.OrderId == order.Id, ct);
-        if (payout is { Status: PayoutStatus.Agendado or PayoutStatus.Processando }) { payout.Status = PayoutStatus.Falhou; payout.FailureReason = "Pedido reembolsado."; }
-        try
-        {
-            if (payment.GatewayPaymentId is not null) await gateway.RefundAsync(payment.GatewayPaymentId, Money.Brl(order.TotalAmount), ct);
-        }
-        catch (Exception)
-        {
-            order.Events[^1].Note += " (estorno pendente de processamento manual)";
-        }
-        var others = await db.Orders.Where(o => o.PurchaseId == order.PurchaseId && o.Id != order.Id).Select(o => o.Status).ToListAsync(ct);
-        if (others.All(s => s is OrderStatus.Cancelado or OrderStatus.Reembolsado)) { payment.Status = PaymentStatus.Estornado; payment.UpdatedAt = Now; }
+        if (payout is { Status: PayoutStatus.Processando }) { payout.Status = PayoutStatus.Falhou; payout.FailureReason = "Pedido reembolsado."; }
+        var ok = await refunds.RefundOrderAsync(order, order.Payment, ct);
+        if (!ok) order.Events[^1].Note += " (estorno pendente de processamento manual)";
     }
 
     // ----- Usuários -----
@@ -373,6 +378,7 @@ public sealed class AdminService(
         if (request.IsOfficialStore is { } official) seller.IsOfficialStore = official;
         Audit("admin.seller.update", seller.Slug, request.Status?.ToString());
         await db.SaveChangesAsync(ct);
+        await catalogCache.InvalidateAsync(ct);
         return await GetSellerAsync(id, ct);
     }
 
@@ -408,6 +414,7 @@ public sealed class AdminService(
         product.UpdatedAt = Now;
         Audit("admin.product.update", product.Slug, request.Status?.ToString());
         await db.SaveChangesAsync(ct);
+        await catalogCache.InvalidateAsync(ct);
         return new AdminProductListItemDto(product.Id, product.Slug, product.Name, product.Thumbnail(), product.Price, product.Stock, product.Status, product.SellerId, product.Seller.Name, product.Category.Name, product.SoldCount, product.UpdatedAt);
     }
 
@@ -437,7 +444,8 @@ public sealed class AdminService(
     {
         var payment = await db.Payments.FirstOrDefaultAsync(p => p.Id == id, ct) ?? throw AppException.NotFound("Pagamento");
         if (payment.Status != PaymentStatus.Aprovado) throw AppException.Conflict("PAYMENT_NOT_REFUNDABLE", "Só pagamentos aprovados podem ser estornados.");
-        if (payment.GatewayPaymentId is not null) await gateway.RefundAsync(payment.GatewayPaymentId, payment.Money, ct);
+        if (!await refunds.RefundRemainingAsync(payment, ct))
+            throw AppException.BadGateway("REFUND_FAILED", "O gateway não aceitou o estorno. Tente novamente ou estorne manualmente no painel do gateway.");
         await payments.RefundAsync(payment, Now, ct);
         Audit("admin.payment.refund", payment.Id.ToString());
         await db.SaveChangesAsync(ct);
@@ -547,6 +555,7 @@ public sealed class AdminService(
         db.ExchangeRates.Add(rate);
         Audit("admin.rate.create", $"{input.From}->{input.To}", rate.DisplayRate);
         await db.SaveChangesAsync(ct);
+        await catalogCache.InvalidateAsync(ct);
         return rate.ToDto();
     }
 
@@ -597,6 +606,7 @@ public sealed class AdminService(
         db.Banners.Remove(banner);
         Audit("admin.banner.delete", banner.Title);
         await db.SaveChangesAsync(ct);
+        await catalogCache.InvalidateAsync(ct);
     }
 
     public async Task<CategoryDto> SaveCategoryAsync(Guid? id, CategoryInput input, CancellationToken ct)
@@ -664,6 +674,7 @@ public sealed class AdminService(
         s.UpdatedAt = Now;
         Audit("admin.settings.update", "platform_settings");
         await db.SaveChangesAsync(ct);
+        await catalogCache.InvalidateAsync(ct);
         return ToDto(s);
     }
 

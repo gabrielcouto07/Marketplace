@@ -2,7 +2,7 @@
  * @marketplace/contracts
  *
  * DTOs TypeScript que espelham a futura API REST em ASP.NET Core.
- * Convenções (ver docs/API_CONTRACTS.md):
+ * Convenções (ver docs/CONTRACTS.md):
  *  - camelCase em todas as propriedades (System.Text.Json default policy)
  *  - IDs como string (GUID)
  *  - datas em ISO 8601 UTC (string)
@@ -221,8 +221,21 @@ export interface QuestionDto {
 }
 
 export interface AskQuestionRequest {
-  productId: string;
   question: string;
+}
+
+export interface CreateReviewRequest {
+  /** 1 a 5. */
+  rating: number;
+  title?: string | null;
+  comment?: string | null;
+}
+
+/** Sugestão de busca (autocomplete). */
+export interface SearchSuggestionDto {
+  slug: string;
+  name: string;
+  thumbnailUrl: string;
 }
 
 export interface BannerDto {
@@ -316,6 +329,10 @@ export interface ShippingQuoteRequest {
 
 export interface ShippingOptionDto {
   id: string;
+  /** Provedor que cotou (ex.: "table" para a tabela interna). */
+  provider: string;
+  /** Código do serviço no provedor (ex.: "economy", "express"). */
+  serviceCode: string;
   carrier: string;
   service: string;
   price: Money;
@@ -387,6 +404,10 @@ export interface CheckoutGroupDto {
 
 export interface CheckoutQuoteDto {
   quoteId: string;
+  /** CEP cotado (somente dígitos). */
+  postalCode: string;
+  /** Cupom aplicado (normalizado) ou null quando nenhum desconto foi concedido. */
+  couponCode: string | null;
   groups: CheckoutGroupDto[];
   subtotal: Money;
   shippingTotal: Money;
@@ -519,6 +540,8 @@ export interface OrderDto {
   shippingAddress: AddressDto;
   shippingOption: ShippingOptionDto;
   trackingCode: string | null;
+  /** Transportadora informada na postagem (pode diferir da cotada). */
+  carrier: string | null;
   trackingEvents: TrackingEventDto[];
   estimatedDelivery: DateRange;
   totals: OrderTotalsDto;
@@ -529,6 +552,15 @@ export interface OrderDto {
 
 export interface OrderListQuery extends PagedQuery {
   status?: OrderStatus;
+}
+
+/** GET /orders/:id/tracking — eventos consultados na transportadora. */
+export interface OrderTrackingDto {
+  trackingCode: string | null;
+  carrier: string | null;
+  /** Página pública de rastreio na transportadora, quando houver. */
+  trackingUrl: string | null;
+  events: TrackingEventDto[];
 }
 
 // ---------------------------------------------------------------------------
@@ -562,6 +594,8 @@ export interface PaymentDto {
   method: PaymentMethod;
   status: PaymentStatus;
   amount: Money;
+  /** Total já estornado (zero quando não houve reembolso). */
+  refundedAmount: Money;
   createdAt: string;
   paidAt: string | null;
   pix: PixPaymentDto | null;
@@ -603,6 +637,11 @@ export interface GoogleAuthRequest {
   idToken: string;
 }
 
+/** POST /auth/refresh e /auth/logout (o backend também aceita o cookie httpOnly). */
+export interface RefreshRequest {
+  refreshToken: string | null;
+}
+
 export interface ForgotPasswordRequest {
   email: string;
 }
@@ -625,6 +664,28 @@ export interface UpdateProfileRequest {
   cpf: string | null;
 }
 
+/** DELETE /me — exclusão/anonimização da conta (LGPD). */
+export interface DeleteAccountRequest {
+  password?: string | null;
+  /** Texto de confirmação digitado pelo usuário. */
+  confirmation?: string | null;
+}
+
+export interface ConsentInput {
+  type: ConsentDto["type"];
+  granted: boolean;
+}
+
+/** GET /privacy-policy — versões vigentes e finalidades de tratamento (LGPD). */
+export interface PrivacyPolicyDto {
+  termsVersion: string;
+  privacyPolicyVersion: string;
+  termsUrl: string;
+  privacyPolicyUrl: string;
+  dataControllerEmail: string;
+  purposes: string[];
+}
+
 // ---------------------------------------------------------------------------
 // Favoritos (persistido no cliente; DTO para futura sincronização)
 // ---------------------------------------------------------------------------
@@ -635,18 +696,8 @@ export interface FavoriteDto {
 }
 
 // ---------------------------------------------------------------------------
-// Painel do vendedor (esqueleto — endpoints futuros)
+// Repasses
 // ---------------------------------------------------------------------------
-
-export interface SellerDashboardDto {
-  sellerId: string;
-  period: DateRange;
-  grossSales: Money;
-  ordersCount: number;
-  pendingShipments: number;
-  openQuestions: number;
-  reputationLevel: SellerSummaryDto["reputationLevel"];
-}
 
 export type PayoutStatus = "Agendado" | "Processando" | "Pago" | "Falhou";
 
@@ -713,6 +764,9 @@ export interface SellerProfileDto {
   productCount: number;
   memberSince: string;
   categories: Array<Pick<CategoryDto, "id" | "slug" | "name">>;
+  /** CEP/código postal de onde os pedidos saem (cotação de frete). */
+  originPostalCode: string | null;
+  phone: string | null;
 }
 
 export interface SellerProfileInput {
@@ -724,6 +778,8 @@ export interface SellerProfileInput {
   bannerUrl: string | null;
   exchangePolicy: string | null;
   categoryIds: string[];
+  originPostalCode?: string | null;
+  phone?: string | null;
 }
 
 export interface SellerRegisterRequest extends SellerProfileInput {
@@ -773,6 +829,13 @@ export interface SellerProductListItemDto {
   updatedAt: string;
 }
 
+/** Dimensões do pacote em centímetros (comprimento × largura × altura). */
+export interface ParcelDimensionsDto {
+  lengthCm: number;
+  widthCm: number;
+  heightCm: number;
+}
+
 export interface SellerProductDto {
   id: string;
   slug: string;
@@ -785,6 +848,11 @@ export interface SellerProductDto {
   freeShipping: boolean;
   warrantyMonths: number | null;
   handlingDays: DayRange;
+  /** Peso do pacote em gramas (cotação de frete). */
+  weightGrams: number | null;
+  dimensions: ParcelDimensionsDto | null;
+  /** Código NCM/HS para a declaração de importação. */
+  hsCode: string | null;
   attributes: ProductAttributeDto[];
   images: SellerProductImageDto[];
   status: ProductStatus;
@@ -806,6 +874,9 @@ export interface SellerProductInput {
   warrantyMonths: number | null;
   handlingDaysMin: number;
   handlingDaysMax: number;
+  weightGrams?: number | null;
+  dimensions?: ParcelDimensionsDto | null;
+  hsCode?: string | null;
   attributes: ProductAttributeDto[];
   images: SellerProductImageInput[];
   status: Exclude<ProductStatus, "Arquivado">;
@@ -942,6 +1013,11 @@ export interface AdminUserUpdateRequest {
   fullName?: string;
   phone?: string;
   roles?: UserRole[];
+}
+
+/** POST /admin/users/:id/block */
+export interface AdminBlockRequest {
+  reason?: string | null;
 }
 
 export interface AdminSellerListItemDto {

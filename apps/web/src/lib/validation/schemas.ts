@@ -94,6 +94,25 @@ export const cardSchema = z.object({
 });
 export type CardFormValues = z.input<typeof cardSchema>;
 
+/** Código postal de origem (PY tem 4 dígitos; aceita até 10) ou vazio. */
+const originPostalCodeSchema = z
+  .string()
+  .trim()
+  .refine((v) => v === "" || /^\d{4,10}$/.test(onlyDigits(v)), "invalidPostalCode")
+  .optional()
+  .default("");
+
+/** Telefone internacional (8 a 15 dígitos) ou vazio. */
+const optionalPhoneSchema = z
+  .string()
+  .trim()
+  .refine((v) => {
+    const d = onlyDigits(v);
+    return v === "" || (d.length >= 8 && d.length <= 15);
+  }, "invalidPhone")
+  .optional()
+  .default("");
+
 export const storeSchema = z.object({
   name: z.string().trim().min(3, "storeNameMin").max(80, "storeNameMax"),
   ruc: rucSchema,
@@ -103,9 +122,19 @@ export const storeSchema = z.object({
   bannerUrl: z.string().nullable().default(null),
   exchangePolicy: z.string().trim().max(1000, "descriptionMax").optional().default(""),
   categoryIds: z.array(z.string()).min(1, "categoryRequired"),
+  originPostalCode: originPostalCodeSchema,
+  phone: optionalPhoneSchema,
 });
 export type StoreFormValues = z.input<typeof storeSchema>;
 export type StoreFormOutput = z.output<typeof storeSchema>;
+
+const parcelSideSchema = z
+  .number()
+  .int("dimensionRange")
+  .min(0, "dimensionRange")
+  .max(200, "dimensionRange")
+  .nullable()
+  .default(null);
 
 export const productSchema = z
   .object({
@@ -120,6 +149,18 @@ export const productSchema = z
     warrantyMonths: z.number().int().min(0).max(120).nullable().default(null),
     handlingDaysMin: z.number().int().min(0).max(30).default(1),
     handlingDaysMax: z.number().int().min(0).max(30).default(3),
+    /** Gramas (inteiro) ou vazio. */
+    weightGrams: z
+      .number()
+      .int("weightRange")
+      .min(0, "weightRange")
+      .max(100_000, "weightRange")
+      .nullable()
+      .default(null),
+    /** Centímetros inteiros; todos vazios = sem dimensões. */
+    lengthCm: parcelSideSchema,
+    widthCm: parcelSideSchema,
+    heightCm: parcelSideSchema,
     attributes: z
       .array(z.object({ name: z.string().trim(), value: z.string().trim() }))
       .default([]),
@@ -142,7 +183,16 @@ export const productSchema = z
   .refine((v) => v.handlingDaysMax >= v.handlingDaysMin, {
     path: ["handlingDaysMax"],
     message: "handlingRange",
-  });
+  })
+  // Dimensões: ou as três medidas, ou nenhuma.
+  .refine(
+    (v) => {
+      const sides = [v.lengthCm, v.widthCm, v.heightCm];
+      const filled = sides.filter((s) => s !== null && s > 0).length;
+      return filled === 0 || filled === 3;
+    },
+    { path: ["heightCm"], message: "dimensionsIncomplete" },
+  );
 export type ProductFormValues = z.input<typeof productSchema>;
 export type ProductFormOutput = z.output<typeof productSchema>;
 

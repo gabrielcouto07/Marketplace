@@ -1,6 +1,8 @@
 import type { ApiErrorDto } from "@marketplace/contracts";
 
-import { ApiError, NetworkError } from "./errors";
+import { env } from "@/lib/env";
+
+import { ApiError, NetworkError, defaultHttpErrorMessage } from "./errors";
 
 export type QueryValue = string | number | boolean | null | undefined;
 export type QueryParams = Record<string, QueryValue | QueryValue[]>;
@@ -15,20 +17,29 @@ export interface RequestOptions {
   accessToken?: string | null;
   /** Não tentar renovar a sessão em 401 (usado internamente na repetição e nas rotas de auth). */
   skipRefresh?: boolean;
+  /** Tempo limite em ms (padrão 20 s). */
+  timeoutMs?: number;
 }
+
+/** Tempo limite padrão de uma requisição. */
+export const DEFAULT_TIMEOUT_MS = 20_000;
 
 /**
  * Base URL da API.
  * - No navegador: NEXT_PUBLIC_API_URL (padrão "/api", relativo à origem).
- * - No servidor (RSC / generateMetadata): precisa ser absoluta, então prefixa NEXT_PUBLIC_SITE_URL
+ * - No servidor (RSC / generateMetadata): precisa ser absoluta, então prefixa `env.siteUrl`
  *   quando NEXT_PUBLIC_API_URL for relativa.
  */
 export function getApiBaseUrl(): string {
-  const configured = process.env.NEXT_PUBLIC_API_URL ?? "/api";
-  if (/^https?:\/\//.test(configured)) return configured.replace(/\/$/, "");
-  if (typeof window !== "undefined") return configured.replace(/\/$/, "");
-  const site = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
-  return `${site}${configured.startsWith("/") ? "" : "/"}${configured.replace(/\/$/, "")}`;
+  const configured = env.apiUrl.replace(/\/$/, "");
+  if (/^https?:\/\//.test(configured)) return configured;
+  if (typeof window !== "undefined") return configured;
+  return `${env.siteUrl}${configured.startsWith("/") ? "" : "/"}${configured}`;
+}
+
+/** `true` quando a URL aponta para a própria API (relativa ou absoluta). */
+export function isApiUrl(url: string): boolean {
+  return url.startsWith("/") || url.startsWith(getApiBaseUrl());
 }
 
 export function buildQueryString(query?: QueryParams): string {
@@ -53,6 +64,16 @@ let tokenProvider: () => string | null = () => null;
 /** Permite que a camada de auth injete o token sem acoplar o client à store. */
 export function setAccessTokenProvider(provider: () => string | null): void {
   tokenProvider = provider;
+}
+
+let localeProvider: () => string | null = () => null;
+
+/**
+ * Locale ativo (`pt-BR` | `es-PY`) enviado em `Accept-Language`: a API responde mensagens de
+ * erro e textos localizados no idioma da interface. Registrado pela camada de providers.
+ */
+export function setLocaleProvider(provider: () => string | null): void {
+  localeProvider = provider;
 }
 
 /**
@@ -82,25 +103,63 @@ function refreshSession(): Promise<string | null> {
 }
 
 /**
+ * Combina o `signal` do chamador com um tempo limite. Usa `AbortSignal.any` quando existe;
+ * caso contrário, encadeia manualmente (Safari < 17.4).
+ */
+function withTimeout(signal: AbortSignal | undefined, timeoutMs: number): AbortSignal {
+  const timeout = AbortSignal.timeout(timeoutMs);
+  if (!signal) return timeout;
+  if (typeof AbortSignal.any === "function") return AbortSignal.any([signal, timeout]);
+  const controller = new AbortController();
+  const forward = (source: AbortSignal) => () => controller.abort(source.reason);
+  if (signal.aborted) controller.abort(signal.reason);
+  else signal.addEventListener("abort", forward(signal), { once: true });
+  timeout.addEventListener("abort", forward(timeout), { once: true });
+  return controller.signal;
+}
+
+function isTimeoutError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "TimeoutError";
+}
+
+function isAbortError(error: unknown): boolean {
+  return error instanceof DOMException && error.name === "AbortError";
+}
+
+/**
  * Fetch wrapper tipado. Componentes NUNCA chamam isto diretamente — use os hooks em features/<dominio>/api.
- * Lança ApiError (resposta HTTP com erro) ou NetworkError (falha de rede/offline).
+ * Lança ApiError (resposta HTTP com erro) ou NetworkError (falha de rede/offline/tempo limite).
+ * Sempre envia `credentials: "include"` para o cookie httpOnly do refresh token funcionar tanto pelo
+ * proxy (/api) quanto cross-origin (NEXT_PUBLIC_API_URL absoluta).
  */
 export async function http<TResponse>(
   path: string,
   options: RequestOptions = {},
 ): Promise<TResponse> {
-  const { method = "GET", body, query, signal, headers = {}, accessToken, skipRefresh } = options;
+  const {
+    method = "GET",
+    body,
+    query,
+    signal,
+    headers = {},
+    accessToken,
+    skipRefresh,
+    timeoutMs = DEFAULT_TIMEOUT_MS,
+  } = options;
   const url = `${getApiBaseUrl()}${path.startsWith("/") ? path : `/${path}`}${buildQueryString(query)}`;
 
   const token = accessToken === undefined ? tokenProvider() : accessToken;
+  const locale = localeProvider();
   // Só renova quando a requisição usou o token armazenado (não em login/refresh nem em repetições).
   const canRefresh =
     !skipRefresh && accessToken === undefined && Boolean(token) && !path.startsWith("/auth/");
   const init: RequestInit = {
     method,
-    signal,
+    signal: withTimeout(signal, timeoutMs),
+    credentials: "include",
     headers: {
       Accept: "application/json",
+      ...(locale ? { "Accept-Language": locale } : {}),
       ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...headers,
@@ -113,7 +172,8 @@ export async function http<TResponse>(
   try {
     response = await fetch(url, init);
   } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") throw error;
+    if (isTimeoutError(error)) throw new NetworkError(url, error, { timeout: true });
+    if (isAbortError(error)) throw error;
     throw new NetworkError(url, error);
   }
 
@@ -138,7 +198,8 @@ export async function http<TResponse>(
     throw new ApiError({
       status: response.status,
       code: problem?.code ?? `HTTP_${response.status}`,
-      message: problem?.message ?? response.statusText ?? "Erro inesperado",
+      // HTTP/2 não envia reason phrase: `statusText` vem vazio e a mensagem não pode ficar em branco.
+      message: problem?.message || response.statusText || defaultHttpErrorMessage(response.status),
       errors: problem?.errors,
       traceId: problem?.traceId,
     });
@@ -158,7 +219,12 @@ export async function uploadFile(
 ): Promise<void> {
   let response: Response;
   try {
-    response = await fetch(url, { method: "PUT", body: file, headers });
+    response = await fetch(url, {
+      method: "PUT",
+      body: file,
+      headers,
+      credentials: isApiUrl(url) ? "include" : "same-origin",
+    });
   } catch (error) {
     throw new NetworkError(url, error);
   }
@@ -173,14 +239,16 @@ export async function uploadFile(
 
 /**
  * Baixa um arquivo (ex.: PDF do boleto) e dispara o download no navegador. Usa o mesmo `fetch`
- * (o MSW intercepta em dev); URLs relativas resolvem na origem atual e levam o token da sessão.
+ * (o MSW intercepta em dev); URLs da própria API (relativas ou absolutas) levam o token da sessão.
  */
 export async function downloadBlob(url: string, filename: string): Promise<void> {
-  const token = url.startsWith("/") ? tokenProvider() : null;
+  const ownApi = isApiUrl(url);
+  const token = ownApi ? tokenProvider() : null;
   let response: Response;
   try {
     response = await fetch(url, {
       headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      credentials: ownApi ? "include" : "same-origin",
     });
   } catch (error) {
     throw new NetworkError(url, error);
@@ -213,6 +281,7 @@ export const api = {
     http<T>(path, { ...options, method: "PUT", body }),
   patch: <T>(path: string, body?: unknown, options?: Omit<RequestOptions, "method" | "body">) =>
     http<T>(path, { ...options, method: "PATCH", body }),
-  delete: <T>(path: string, options?: Omit<RequestOptions, "method" | "body">) =>
-    http<T>(path, { ...options, method: "DELETE" }),
+  /** Aceita corpo opcional (ex.: `DELETE /me` com senha e confirmação). */
+  delete: <T>(path: string, body?: unknown, options?: Omit<RequestOptions, "method" | "body">) =>
+    http<T>(path, { ...options, method: "DELETE", body }),
 };

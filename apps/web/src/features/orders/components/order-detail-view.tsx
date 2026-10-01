@@ -1,7 +1,15 @@
 "use client";
 
 import type { OrderDto, OrderStatus } from "@marketplace/contracts";
-import { AlertOctagon, Ban, Copy, CreditCard, RefreshCw } from "lucide-react";
+import {
+  AlertOctagon,
+  Ban,
+  Copy,
+  CreditCard,
+  ExternalLink,
+  PackageCheck,
+  RefreshCw,
+} from "lucide-react";
 import Image from "next/image";
 import { useFormatter, useTranslations } from "next-intl";
 import { useState, type ReactNode } from "react";
@@ -24,7 +32,13 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { LoginRequired } from "@/features/account/components/profile-view";
 import { useAuthStore, useCurrentUser } from "@/features/auth/store";
 import { useCartStore } from "@/features/cart/store";
-import { useCancelOrder, useOpenDispute, useOrder } from "@/features/orders/api";
+import {
+  useCancelOrder,
+  useConfirmReceipt,
+  useOpenDispute,
+  useOrder,
+  useOrderTracking,
+} from "@/features/orders/api";
 import { useStoreHydrated } from "@/hooks/use-store-hydrated";
 import { Link, useRouter } from "@/i18n/navigation";
 import { convert, formatMoney } from "@/lib/money";
@@ -105,19 +119,24 @@ function OrderDetail({ order }: { order: OrderDto }) {
   const router = useRouter();
   const cancel = useCancelOrder();
   const dispute = useOpenDispute();
+  const receipt = useConfirmReceipt();
+  const tracking = useOrderTracking(order.id, order.status, order.trackingCode);
   const addToCart = useCartStore((s) => s.add);
-  const [confirm, setConfirm] = useState<"cancel" | "dispute" | null>(null);
+  const [confirm, setConfirm] = useState<"cancel" | "dispute" | "receipt" | null>(null);
 
   const awaitingPayment = order.status === "AguardandoPagamento";
   const active = !isOrderDone(order.status);
+  const trackingCode = tracking.data?.trackingCode ?? order.trackingCode;
+  const carrier = tracking.data?.carrier ?? order.carrier;
+  const trackingUrl = tracking.data?.trackingUrl ?? null;
 
   const copyTracking = async () => {
-    if (!order.trackingCode) return;
+    if (!trackingCode) return;
     try {
-      await navigator.clipboard.writeText(order.trackingCode);
+      await navigator.clipboard.writeText(trackingCode);
       toast.success(tc("copied"));
     } catch {
-      toast.error(tc("copy"));
+      toast.error(tc("copyFailed"));
     }
   };
 
@@ -159,10 +178,19 @@ function OrderDetail({ order }: { order: OrderDto }) {
         onError: (e) => toast.error(e.message),
         onSettled: () => setConfirm(null),
       });
+    } else if (confirm === "receipt") {
+      receipt.mutate(id, {
+        onSuccess: () => toast.success(t("receiptConfirmed")),
+        onError: (e) => toast.error(e.message),
+        onSettled: () => setConfirm(null),
+      });
     }
   };
 
-  const events = [...order.trackingEvents].sort((a, b) => b.occurredAt.localeCompare(a.occurredAt));
+  // Eventos da transportadora (consulta ao vivo) com fallback para os gravados no pedido.
+  const events = [...(tracking.data?.events ?? order.trackingEvents)].sort((a, b) =>
+    b.occurredAt.localeCompare(a.occurredAt),
+  );
   const payMethod = t(`paymentMethod.${order.payment.method}`);
   const payStatus = t(`paymentStatus.${order.payment.status}`);
 
@@ -202,19 +230,31 @@ function OrderDetail({ order }: { order: OrderDto }) {
       <div className="flex flex-col gap-4">
         {/* Rastreio */}
         <Section title={t("trackingTitle")}>
-          {order.trackingCode ? (
+          {trackingCode ? (
             <>
               <div className="flex items-center justify-between gap-3 rounded-md bg-surface-muted p-3">
                 <span className="flex min-w-0 flex-col">
-                  <span className="text-caption text-foreground-muted">{t("trackingCode")}</span>
+                  <span className="text-caption text-foreground-muted">
+                    {carrier ? t("trackingCodeAt", { carrier }) : t("trackingCode")}
+                  </span>
                   <span className="truncate font-mono text-body-sm font-medium text-foreground tabular-nums">
-                    {order.trackingCode}
+                    {trackingCode}
                   </span>
                 </span>
                 <Button variant="secondary" size="sm" onClick={copyTracking}>
                   <Copy data-icon="inline-start" strokeWidth={1.75} /> {tc("copy")}
                 </Button>
               </div>
+              {trackingUrl ? (
+                <Button
+                  variant="secondary"
+                  fullWidth
+                  render={<a href={trackingUrl} target="_blank" rel="noopener noreferrer" />}
+                >
+                  <ExternalLink data-icon="inline-start" strokeWidth={1.75} />
+                  {t("trackAtCarrier")}
+                </Button>
+              ) : null}
               <ol className="flex flex-col divide-y divide-border">
                 {events.map((e, i) => (
                   <li
@@ -294,7 +334,7 @@ function OrderDetail({ order }: { order: OrderDto }) {
             </p>
           </div>
           <p className="border-t border-border pt-3 text-caption text-foreground-muted">
-            {order.shippingOption.carrier} · {order.shippingOption.service} ·{" "}
+            {carrier ?? order.shippingOption.carrier} · {order.shippingOption.service} ·{" "}
             {tc("businessDays", {
               min: order.shippingOption.estimatedDays.min,
               max: order.shippingOption.estimatedDays.max,
@@ -355,6 +395,11 @@ function OrderDetail({ order }: { order: OrderDto }) {
 
         {/* Ações */}
         <div className="flex flex-col gap-2">
+          {order.status === "Entregue" ? (
+            <Button variant="primary" fullWidth onClick={() => setConfirm("receipt")}>
+              <PackageCheck data-icon="inline-start" strokeWidth={1.75} /> {t("confirmReceipt")}
+            </Button>
+          ) : null}
           <Button variant="secondary" fullWidth onClick={buyAgain}>
             <RefreshCw data-icon="inline-start" strokeWidth={1.75} /> {t("buyAgain")}
           </Button>
@@ -374,9 +419,19 @@ function OrderDetail({ order }: { order: OrderDto }) {
       <Dialog open={confirm !== null} onOpenChange={(open) => !open && setConfirm(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{confirm === "cancel" ? t("cancelOrder") : t("openDispute")}</DialogTitle>
+            <DialogTitle>
+              {confirm === "cancel"
+                ? t("cancelOrder")
+                : confirm === "receipt"
+                  ? t("confirmReceipt")
+                  : t("openDispute")}
+            </DialogTitle>
             <DialogDescription>
-              {confirm === "cancel" ? t("cancelConfirm") : t("disputeConfirm")}
+              {confirm === "cancel"
+                ? t("cancelConfirm")
+                : confirm === "receipt"
+                  ? t("receiptConfirm")
+                  : t("disputeConfirm")}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -384,16 +439,22 @@ function OrderDetail({ order }: { order: OrderDto }) {
               {tc("cancel")}
             </Button>
             <Button
-              variant="destructive"
+              variant={confirm === "receipt" ? "primary" : "destructive"}
               onClick={runConfirm}
-              loading={cancel.isPending || dispute.isPending}
+              loading={cancel.isPending || dispute.isPending || receipt.isPending}
             >
               {confirm === "cancel" ? (
                 <Ban data-icon="inline-start" strokeWidth={1.75} />
+              ) : confirm === "receipt" ? (
+                <PackageCheck data-icon="inline-start" strokeWidth={1.75} />
               ) : (
                 <AlertOctagon data-icon="inline-start" strokeWidth={1.75} />
               )}
-              {confirm === "cancel" ? t("cancelOrder") : t("openDispute")}
+              {confirm === "cancel"
+                ? t("cancelOrder")
+                : confirm === "receipt"
+                  ? t("confirmReceipt")
+                  : t("openDispute")}
             </Button>
           </DialogFooter>
         </DialogContent>

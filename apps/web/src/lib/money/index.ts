@@ -20,8 +20,6 @@ export function money(amount: number, currency: CurrencyCode = "BRL"): Money {
   return { amount, currency };
 }
 
-export const ZERO_BRL: Money = { amount: 0, currency: "BRL" };
-
 function assertSameCurrency(a: Money, b: Money): void {
   if (a.currency !== b.currency) {
     throw new Error(`Moedas diferentes: ${a.currency} vs ${b.currency}`);
@@ -33,17 +31,6 @@ export function add(a: Money, b: Money): Money {
   return { amount: a.amount + b.amount, currency: a.currency };
 }
 
-export function subtract(a: Money, b: Money): Money {
-  assertSameCurrency(a, b);
-  return { amount: a.amount - b.amount, currency: a.currency };
-}
-
-export function multiply(m: Money, factor: number): Money {
-  if (!Number.isInteger(factor))
-    throw new TypeError("Use multiplyBasisPoints para fatores fracionários");
-  return { amount: m.amount * factor, currency: m.currency };
-}
-
 /** Aplica uma porcentagem em basis points (10000 = 100%) com arredondamento half-up. */
 export function multiplyBasisPoints(m: Money, basisPoints: number): Money {
   return { amount: Math.round((m.amount * basisPoints) / 10_000), currency: m.currency };
@@ -51,10 +38,6 @@ export function multiplyBasisPoints(m: Money, basisPoints: number): Money {
 
 export function sum(values: Money[], currency: CurrencyCode = "BRL"): Money {
   return values.reduce((acc, v) => add(acc, v), { amount: 0, currency });
-}
-
-export function isZero(m: Money): boolean {
-  return m.amount === 0;
 }
 
 export function compare(a: Money, b: Money): number {
@@ -72,10 +55,6 @@ export function convert(m: Money, rate: ExchangeRateDto): Money {
 
 export function toMajorUnits(m: Money): number {
   return m.amount / 10 ** CURRENCY_MINOR_DIGITS[m.currency];
-}
-
-export function fromMajorUnits(value: number, currency: CurrencyCode): Money {
-  return { amount: Math.round(value * 10 ** CURRENCY_MINOR_DIGITS[currency]), currency };
 }
 
 const LOCALE_BY_CURRENCY: Record<CurrencyCode, string> = {

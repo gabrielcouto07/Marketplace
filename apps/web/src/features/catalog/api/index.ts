@@ -11,6 +11,7 @@ import type {
   QuestionDto,
   ReviewDto,
   ReviewSummaryDto,
+  SearchSuggestionDto,
 } from "@marketplace/contracts";
 import {
   keepPreviousData,
@@ -24,12 +25,6 @@ import {
 import { api } from "@/lib/api/http";
 import { queryKeys } from "@/lib/api/query-keys";
 
-export interface SearchSuggestion {
-  slug: string;
-  name: string;
-  thumbnailUrl: string;
-}
-
 // ----- Endpoints (únicos pontos que conhecem as rotas) -----
 export const catalogApi = {
   home: () => api.get<HomeDto>("/home"),
@@ -37,8 +32,9 @@ export const catalogApi = {
   category: (slug: string) => api.get<CategoryDto>(`/categories/${slug}`),
   search: (query: ProductSearchQuery) =>
     api.get<ProductSearchResultDto>("/products", { query: { ...query } }),
+  /** Autocomplete da busca (a tela atual usa buscas recentes + "em alta"; fica para o futuro). */
   suggestions: (q: string) =>
-    api.get<SearchSuggestion[]>("/products/suggestions", { query: { q } }),
+    api.get<SearchSuggestionDto[]>("/products/suggestions", { query: { q } }),
   product: (slug: string) => api.get<ProductDetailDto>(`/products/${slug}`),
   reviews: (id: string, page = 1, pageSize = 5) =>
     api.get<PagedResult<ReviewDto>>(`/products/${id}/reviews`, { query: { page, pageSize } }),
@@ -96,16 +92,6 @@ export function useProductSearch(query: Omit<ProductSearchQuery, "page">) {
     getNextPageParam: (last) =>
       last.page * last.pageSize < last.totalCount ? last.page + 1 : undefined,
     placeholderData: keepPreviousData,
-  });
-}
-
-export function useSearchSuggestions(q: string) {
-  const term = q.trim();
-  return useQuery({
-    queryKey: queryKeys.products.suggestions(term),
-    queryFn: () => catalogApi.suggestions(term),
-    enabled: term.length >= 2,
-    staleTime: 60 * 1000,
   });
 }
 

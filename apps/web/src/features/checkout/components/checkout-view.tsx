@@ -39,6 +39,11 @@ import { useCountdown } from "@/hooks/use-countdown";
 import { Link, useRouter } from "@/i18n/navigation";
 import { isApiError } from "@/lib/api/errors";
 import { formatMoney, splitInstallments } from "@/lib/money";
+import {
+  CARD_PAYMENT_ENABLED,
+  isCardUnavailableError,
+  tokenizeCard,
+} from "@/lib/payments/card-token";
 import { onlyDigits } from "@/lib/validation/documents";
 import { cpfSchema } from "@/lib/validation/schemas";
 
@@ -207,16 +212,39 @@ export function CheckoutView() {
 
     let card: NonNullable<Parameters<typeof placeOrder.mutate>[0]["payment"]["card"]> | undefined;
     if (method === "Cartao") {
+      if (!CARD_PAYMENT_ENABLED) {
+        toast.error(t("cardUnavailable"));
+        return;
+      }
       const valid = await cardForm.trigger();
       if (!valid) return;
       const v = cardForm.getValues();
-      card = {
-        token: "tok_mock",
-        holderName: v.holderName,
-        brand: detectBrand(v.number) ?? "Cartão",
-        last4: onlyDigits(v.number).slice(-4),
-        installments: Number(v.installments),
-      };
+      // Bandeira pela tabela local quando conhecida; as demais (Diners, JCB, Cabal…) o SDK do gateway
+      // identifica na tokenização — só bloqueia se nem ele reconhecer.
+      const brand = detectBrand(v.number);
+      try {
+        // O PAN nunca vai à nossa API: só o token do gateway e o payment_method_id (bandeira).
+        const tokenized = await tokenizeCard({
+          number: v.number,
+          holderName: v.holderName,
+          expiry: v.expiry,
+          cvv: v.cvv,
+          payerDocument: cpf.data,
+          paymentMethodId: brand?.id ?? null,
+        });
+        card = {
+          token: tokenized.token,
+          holderName: v.holderName,
+          brand: tokenized.paymentMethodId,
+          last4: onlyDigits(v.number).slice(-4),
+          installments: Number(v.installments),
+        };
+      } catch (err) {
+        if (isCardUnavailableError(err)) toast.error(t("cardUnavailable"));
+        else if (isApiError(err)) cardForm.setError("number", { message: err.message });
+        else toast.error(t("orderFailed"));
+        return;
+      }
     }
 
     if (!idempotencyKey.current) idempotencyKey.current = crypto.randomUUID();
@@ -254,15 +282,24 @@ export function CheckoutView() {
           );
         },
         onError: (err) => {
-          idempotencyKey.current = null;
-          if (isApiError(err) && err.errors) {
-            for (const [field, messages] of Object.entries(err.errors)) {
-              if (field === "payerDocument") setPayerError(messages[0]);
-              else toast.error(`${field}: ${messages[0]}`);
-            }
-            if (err.errors.quoteId) refreshQuote();
+          // A chave fica: se o pedido chegou a ser criado (tempo limite, queda de rede depois do envio),
+          // repetir com a mesma chave devolve a mesma compra em vez de duplicá-la.
+          if (!isApiError(err)) {
+            toast.error(t("orderFailed"));
+            return;
           }
-          toast.error(isApiError(err) ? err.message : t("orderFailed"));
+          const fieldErrors = Object.entries(err.errors ?? {});
+          if (fieldErrors.length === 0) {
+            toast.error(err.message);
+            return;
+          }
+          // Erros por campo: CPF vai para o próprio campo; o restante vira um único aviso traduzido
+          // com a primeira mensagem da API (nunca o nome técnico do campo).
+          const payer = err.errors?.payerDocument?.[0];
+          if (payer) setPayerError(payer);
+          const other = fieldErrors.find(([field]) => field !== "payerDocument")?.[1][0];
+          if (other) toast.error(t("orderValidationFailed", { message: other }));
+          if (err.errors?.quoteId) refreshQuote();
         },
       },
     );
@@ -277,7 +314,8 @@ export function CheckoutView() {
     !quoting &&
     !quoteExpired &&
     !placeOrder.isPending &&
-    Boolean(selectedAddress);
+    Boolean(selectedAddress) &&
+    (method !== "Cartao" || CARD_PAYMENT_ENABLED);
 
   return (
     <>

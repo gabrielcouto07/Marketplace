@@ -12,6 +12,8 @@ import {
   type ReactNode,
 } from "react";
 
+import { noopSubscribe } from "@/hooks/use-store-hydrated";
+
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: "accepted" | "dismissed"; platform: string }>;
@@ -39,8 +41,6 @@ const DISABLE_SW =
   process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_SW_DEV !== "true";
 
 // ----- Fontes externas (useSyncExternalStore evita setState em effects e mismatch de hidratação) -----
-
-const noopSubscribe = () => () => {};
 
 function subscribeOnline(callback: () => void) {
   window.addEventListener("online", callback);

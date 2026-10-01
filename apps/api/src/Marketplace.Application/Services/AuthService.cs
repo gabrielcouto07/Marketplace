@@ -93,8 +93,9 @@ public sealed class AuthService(
                        ?? throw AppException.Validation("idToken", "Não foi possível validar o login com o Google.");
         var emailNorm = NormalizeEmail(identity.Email);
 
+        // Vincular a uma conta existente pelo e-mail só é seguro quando o Google atesta o e-mail (evita takeover).
         var user = await db.Users.FirstOrDefaultAsync(u => u.GoogleSubject == identity.Subject, ct)
-                   ?? await db.Users.FirstOrDefaultAsync(u => u.Email == emailNorm, ct);
+                   ?? (identity.EmailVerified ? await db.Users.FirstOrDefaultAsync(u => u.Email == emailNorm, ct) : null);
         var now = Now;
         if (user is null)
         {

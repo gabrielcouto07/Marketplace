@@ -1,15 +1,15 @@
 "use client";
 
-import type { AuthResponseDto, UserProfileDto } from "@marketplace/contracts";
+import type { AuthResponseDto, RefreshRequest, UserProfileDto } from "@marketplace/contracts";
+import type { QueryClient } from "@tanstack/react-query";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
 import { http, setAccessTokenProvider, setSessionRefresher } from "@/lib/api/http";
 
 /**
- * Sessão do usuário (mock). Na integração real:
- *  - accessToken curto em memória + refreshToken em cookie httpOnly (recomendado), ou
- *  - manter este store e trocar apenas os hooks em features/auth/api.
+ * Sessão do usuário. O access token curto vive aqui (persistido) e o refresh token também — o backend
+ * .NET aceita o refresh tanto no corpo quanto no cookie httpOnly enviado com `credentials: "include"`.
  */
 interface AuthState {
   user: UserProfileDto | null;
@@ -45,34 +45,49 @@ export const useAuthStore = create<AuthState>()(
   ),
 );
 
-// Injeta o token no client HTTP sem acoplar lib/api à store.
-setAccessTokenProvider(() => useAuthStore.getState().accessToken);
+let bridgeInstalled = false;
 
 /**
+ * Liga a store ao client HTTP: injeta o token nas requisições e registra a renovação de sessão.
+ * Chamado explicitamente pelos Providers (não depende de importações incidentais desta store).
+ *
  * 401 → tenta `POST /auth/refresh` com o refresh token salvo (o backend .NET também aceita o cookie
- * httpOnly) e atualiza a sessão; se não der, encerra a sessão para as telas mostrarem "Entre para
- * continuar" em vez de um erro genérico. Sessões antigas do mock se recuperam sozinhas.
+ * httpOnly) e atualiza a sessão; se não der, encerra a sessão E limpa todo o cache do TanStack Query,
+ * para nenhuma tela autenticada ficar com dados de outra pessoa ou de uma sessão expirada.
  */
-setSessionRefresher(async () => {
-  const { refreshToken, setSession, signOut } = useAuthStore.getState();
-  if (!refreshToken) {
-    signOut();
-    return null;
-  }
-  try {
-    const session = await http<AuthResponseDto>("/auth/refresh", {
-      method: "POST",
-      body: { refreshToken },
-      accessToken: null,
-      skipRefresh: true,
-    });
-    setSession(session);
-    return session.accessToken;
-  } catch {
-    signOut();
-    return null;
-  }
-});
+export function registerAuthHttpBridge(getQueryClient: () => QueryClient): void {
+  if (bridgeInstalled) return;
+  bridgeInstalled = true;
+
+  setAccessTokenProvider(() => useAuthStore.getState().accessToken);
+
+  const endSession = () => {
+    useAuthStore.getState().signOut();
+    getQueryClient().clear();
+  };
+
+  setSessionRefresher(async () => {
+    const { refreshToken, setSession } = useAuthStore.getState();
+    if (!refreshToken) {
+      endSession();
+      return null;
+    }
+    try {
+      const body: RefreshRequest = { refreshToken };
+      const session = await http<AuthResponseDto>("/auth/refresh", {
+        method: "POST",
+        body,
+        accessToken: null,
+        skipRefresh: true,
+      });
+      setSession(session);
+      return session.accessToken;
+    } catch {
+      endSession();
+      return null;
+    }
+  });
+}
 
 export function useIsAuthenticated(): boolean {
   return useAuthStore((s) => s.user !== null);

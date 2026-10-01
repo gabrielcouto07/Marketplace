@@ -10,4 +10,10 @@ public sealed class DatabaseOptions
     public bool InitializeOnStartup { get; set; } = true;
     /// <summary>Cria usuário demo e pedidos de exemplo (somente ambientes de desenvolvimento/teste).</summary>
     public bool SeedDemoData { get; set; }
+    /// <summary>
+    /// SQLite não usa migrations: quando as entidades mudam, o arquivo antigo fica sem as colunas novas e a API quebra
+    /// com "no such column". Com true (padrão), o banco de dev é apagado e recriado (o seed roda de novo); com false,
+    /// a inicialização falha com uma mensagem clara pedindo para apagar o arquivo.
+    /// </summary>
+    public bool RecreateSqliteOnSchemaChange { get; set; } = true;
 }

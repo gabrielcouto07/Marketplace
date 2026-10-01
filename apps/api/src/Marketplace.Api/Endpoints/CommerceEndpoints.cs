@@ -5,11 +5,6 @@ using Marketplace.Application.Contracts;
 using Marketplace.Application.Services;
 using Marketplace.Domain;
 using Marketplace.Domain.Common;
-using Marketplace.Infrastructure.Background;
-using Marketplace.Infrastructure.Payments;
-using Marketplace.Infrastructure.Shipping;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Options;
 
 namespace Marketplace.Api.Endpoints;
 
@@ -35,7 +30,8 @@ public static class CommerceEndpoints
     {
         var checkout = api.MapGroup("").WithTags("Checkout");
 
-        checkout.MapPost("/checkout/quotes", (CheckoutQuoteRequest body, CheckoutService svc, CancellationToken ct) => svc.QuoteAsync(body, ct));
+        checkout.MapPost("/checkout/quotes", (CheckoutQuoteRequest body, CheckoutService svc, CancellationToken ct) => svc.QuoteAsync(body, ct))
+            .RequireRateLimiting("quotes");
 
         checkout.MapPost("/orders", async (PlaceOrderRequest body, CheckoutService svc, CancellationToken ct) =>
             {
@@ -47,7 +43,7 @@ public static class CommerceEndpoints
         var orders = api.MapGroup("").WithTags("Pedidos").RequireAuthorization();
 
         orders.MapGet("/orders", (string? status, int? page, int? pageSize, OrderService svc, CancellationToken ct) =>
-            svc.ListAsync(Enum.TryParse<OrderStatus>(status, out var s) ? s : null, page, pageSize, ct));
+            svc.ListAsync(Enum.TryParse<OrderStatus>(status, true, out var s) ? s : null, page, pageSize, ct));
 
         orders.MapGet("/orders/{id}", (string id, OrderService svc, CancellationToken ct) => svc.GetAsync(id, ct));
 
@@ -69,14 +65,18 @@ public static class CommerceEndpoints
     {
         var g = api.MapGroup("/payments").WithTags("Pagamentos");
 
-        g.MapGet("/{id:guid}", (Guid id, PaymentService svc, CancellationToken ct) => svc.GetAsync(id, ct));
+        g.MapGet("/{id:guid}", (Guid id, PaymentService svc, CancellationToken ct) => svc.GetAsync(id, ct))
+            .RequireAuthorization();
 
-        g.MapGet("/{id:guid}/boleto.pdf", async (Guid id, PaymentService svc, IPaymentGateway gateway, CancellationToken ct) =>
+        // Aberto em nova aba/download: aceita o link assinado (t=) emitido na criação do boleto ou a sessão do dono.
+        g.MapGet("/{id:guid}/boleto.pdf", async (Guid id, string? t, PaymentService svc, IDownloadTokenService tokens, CancellationToken ct) =>
         {
-            var payment = await svc.RequireOwnedAsync(id, ct);
+            var payment = tokens.Validate(DownloadTokenPurposes.Boleto, id.ToString(), t)
+                ? await svc.FindAsync(id, ct)
+                : await svc.RequireOwnedAsync(id, ct);
             if (payment.Method != PaymentMethod.Boleto || payment.BoletoDigitableLine is null) throw AppException.NotFound("Boleto");
             // Gateways reais devolvem a URL do PDF; o fake gera um PDF simples com a linha digitável.
-            if (payment.Gateway != "fake" && !string.IsNullOrEmpty(payment.BoletoPdfUrl) && payment.BoletoPdfUrl.StartsWith("http"))
+            if (payment.Gateway != PaymentService.FakeGatewayName && !string.IsNullOrEmpty(payment.BoletoPdfUrl) && payment.BoletoPdfUrl.StartsWith("http"))
                 return Results.Redirect(payment.BoletoPdfUrl);
             var pdf = SimplePdf.Build(
             [
@@ -89,59 +89,57 @@ public static class CommerceEndpoints
                 "Este documento nao tem valor de cobranca.",
             ]);
             return Results.File(pdf, "application/pdf", $"boleto-{payment.Id.ToString()[..8]}.pdf");
-        });
+        }).AllowAnonymous();
 
         if (allowSimulation)
         {
             g.MapPost("/{id:guid}/simulate-approval", (Guid id, PaymentService svc, CancellationToken ct) => svc.SimulateApprovalAsync(id, ct))
+                .RequireAuthorization()
                 .WithDescription("Somente com o gateway fake (dev): aprova o pagamento imediatamente.");
         }
 
         return api;
     }
 
+    /// <summary>
+    /// Webhooks de pagamento (`/webhooks/payments/{gateway}`) e rastreio (`/webhooks/shipping/{provider}`). Cada
+    /// provedor valida a própria assinatura; o processamento é idempotente e registrado em webhook_events.
+    /// Resposta ≠ 2xx faz o provedor reenviar (inclusive 404 quando a cobrança/pedido ainda não existe).
+    /// </summary>
     public static RouteGroupBuilder MapWebhooks(this RouteGroupBuilder api)
     {
-        var g = api.MapGroup("/webhooks").WithTags("Webhooks");
+        var g = api.MapGroup("/webhooks").WithTags("Webhooks").AllowAnonymous().RequireRateLimiting("webhooks");
 
-        g.MapPost("/payments", async (HttpRequest request, PaymentService svc, CancellationToken ct) =>
-        {
-            var webhook = await ReadWebhookAsync(request, ct);
-            var handled = await svc.HandleWebhookAsync(webhook, ct);
-            return handled ? Results.Ok(new { received = true }) : Results.Ok(new { received = true, ignored = true });
-        });
+        g.MapPost("/payments/{gateway}", (string gateway, HttpRequest request, PaymentService svc, CancellationToken ct) =>
+            HandlePaymentAsync(gateway, request, svc, ct));
 
-        // Alias para o Mercado Pago (configure NotificationUrl com este caminho ou /webhooks/payments).
-        g.MapPost("/mercadopago", async (HttpRequest request, PaymentService svc, CancellationToken ct) =>
-        {
-            var webhook = await ReadWebhookAsync(request, ct);
-            await svc.HandleWebhookAsync(webhook, ct);
-            return Results.Ok();
-        });
+        // Rotas legadas: gateway padrão e alias do Mercado Pago.
+        g.MapPost("/payments", (HttpRequest request, PaymentService svc, IPaymentGatewayRegistry gateways, CancellationToken ct) =>
+            HandlePaymentAsync(gateways.Default.Name, request, svc, ct));
+        g.MapPost("/mercadopago", (HttpRequest request, PaymentService svc, CancellationToken ct) =>
+            HandlePaymentAsync("mercadopago", request, svc, ct));
 
-        g.MapPost("/shipping", async (HttpRequest request, IAppDbContext db, OrderService orders, IConfiguration config, CancellationToken ct) =>
-        {
-            var webhook = await ReadWebhookAsync(request, ct);
-            var secret = config["Tracking:WebhookSecret"];
-            if (string.IsNullOrEmpty(secret) || !WebhookSignature.IsValid(secret, webhook.Body, webhook.Headers.GetValueOrDefault("x-signature")))
-                throw new UnauthorizedAccessException();
-            var evt = System.Text.Json.JsonSerializer.Deserialize<ShippingWebhookDto>(webhook.Body, JsonSetupOptions.Value)
-                      ?? throw AppException.Validation("body", "Corpo inválido.");
-            var order = await orders.FullOrders().FirstOrDefaultAsync(o => o.TrackingCode == evt.TrackingCode, ct)
-                        ?? throw AppException.NotFound("Pedido");
-            var changed = TrackingSync.Apply(order, evt.Events.Select(e => new CarrierTrackingEvent(e.Id ?? $"{e.Code}:{e.OccurredAt:O}", e.Code, e.Description, e.Location ?? "", e.OccurredAt)).ToList(), orders);
-            if (changed) await db.SaveChangesAsync(ct);
-            return Results.Ok(new { received = true, changed });
-        });
+        g.MapPost("/shipping/{provider}", (string provider, HttpRequest request, TrackingService svc, CancellationToken ct) =>
+            HandleShippingAsync(provider, request, svc, ct));
+        g.MapPost("/shipping", (HttpRequest request, TrackingService svc, CancellationToken ct) =>
+            HandleShippingAsync("generic", request, svc, ct));
 
         return api;
     }
 
-    private static readonly Lazy<System.Text.Json.JsonSerializerOptions> JsonSetupOptions = new(Infrastructure.JsonSetup.Create);
+    private static async Task<IResult> HandlePaymentAsync(string gateway, HttpRequest request, PaymentService svc, CancellationToken ct)
+    {
+        var webhook = await ReadWebhookAsync(request, ct);
+        var handled = await svc.HandleWebhookAsync(gateway, webhook, ct);
+        return handled ? Results.Ok(new { received = true }) : Results.Ok(new { received = true, ignored = true });
+    }
 
-    public sealed record ShippingWebhookDto(string TrackingCode, List<ShippingWebhookEventDto> Events);
-
-    public sealed record ShippingWebhookEventDto(string? Id, string Code, string Description, string? Location, DateTime OccurredAt);
+    private static async Task<IResult> HandleShippingAsync(string provider, HttpRequest request, TrackingService svc, CancellationToken ct)
+    {
+        var webhook = await ReadWebhookAsync(request, ct);
+        var (received, changed) = await svc.HandleWebhookAsync(provider, webhook, ct);
+        return received ? Results.Ok(new { received = true, changed }) : Results.Ok(new { received = true, ignored = true });
+    }
 
     private static async Task<WebhookRequest> ReadWebhookAsync(HttpRequest request, CancellationToken ct)
     {

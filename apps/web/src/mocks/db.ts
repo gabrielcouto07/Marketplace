@@ -5,6 +5,7 @@ import type {
   DayRange,
   ExchangeRateDto,
   OrderDto,
+  ParcelDimensionsDto,
   PaymentDto,
   PayoutStatus,
   PlatformSettingsDto,
@@ -42,6 +43,10 @@ export interface ProductOverride {
   freeShipping?: boolean;
   warrantyMonths?: number | null;
   handlingDays?: DayRange;
+  /** Dados de envio (só o painel do vendedor vê; a vitrine não expõe). */
+  weightGrams?: number | null;
+  dimensions?: ParcelDimensionsDto | null;
+  hsCode?: string | null;
   attributes?: ProductAttributeDto[];
   images?: SellerProductImageDto[];
   updatedAt: string;
@@ -59,6 +64,9 @@ export interface SellerOverride {
   bannerUrl?: string | null;
   exchangePolicy?: string;
   categoryIds?: string[];
+  /** Só no perfil do painel (SellerProfileDto); não aparece na vitrine. */
+  originPostalCode?: string | null;
+  phone?: string | null;
 }
 
 export interface PayoutOverride {
@@ -107,9 +115,18 @@ interface MockDb {
   customRates: ExchangeRateDto[];
   settings: PlatformSettingsDto;
   audit: AdminAuditLogDto[];
+  /** Último sequencial de número de pedido (PY-2026-NNNNNN); persistido para não colidir entre reloads. */
+  orderSeq: number;
 }
 
 const STORAGE_KEY = "mktpy.mockdb.v2";
+/** Os pedidos seed usam 100100–100110; os criados pelo usuário começam em 100201. */
+const ORDER_SEQ_START = 100200;
+
+function orderSeqOf(number: string): number {
+  const n = Number(number.split("-").pop());
+  return Number.isFinite(n) ? n : 0;
+}
 
 function defaultCoupons(): CouponDto[] {
   const in30d = new Date();
@@ -229,6 +246,7 @@ function defaults(): MockDb {
     customRates: [],
     settings: defaultSettings(),
     audit: defaultAudit(),
+    orderSeq: ORDER_SEQ_START,
   };
 }
 
@@ -262,8 +280,13 @@ function load(): MockDb {
       payoutOverrides: parsed.payoutOverrides ?? {},
       coupons: parsed.coupons ?? base.coupons,
       customRates: parsed.customRates ?? [],
-      settings: parsed.settings ?? base.settings,
+      settings: { ...base.settings, ...(parsed.settings ?? {}) },
       audit: parsed.audit?.length ? parsed.audit : base.audit,
+      // Bancos antigos (sem orderSeq) recuperam o contador a partir do maior número já emitido.
+      orderSeq: Math.max(
+        parsed.orderSeq ?? ORDER_SEQ_START,
+        ...userOrders.map((o) => orderSeqOf(o.number)),
+      ),
     };
   } catch {
     return defaults();
@@ -271,6 +294,12 @@ function load(): MockDb {
 }
 
 export const db: MockDb = load();
+
+/** Próximo número legível de pedido; o contador é persistido junto com o banco. */
+export function nextOrderNumber(): string {
+  db.orderSeq += 1;
+  return `PY-2026-${String(db.orderSeq).padStart(6, "0")}`;
+}
 
 export function persistDb(): void {
   if (typeof window === "undefined") return;
@@ -285,9 +314,4 @@ export function persistDb(): void {
       /* ignora */
     }
   }
-}
-
-export function resetDb(): void {
-  Object.assign(db, defaults());
-  persistDb();
 }

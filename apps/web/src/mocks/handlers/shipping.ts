@@ -5,8 +5,9 @@ import type {
 } from "@marketplace/contracts";
 import { HttpResponse, http } from "msw";
 
-import { EXCHANGE_RATES, sellerById } from "../fixtures/base";
-import { findProductRecord } from "../catalog-state";
+import { findProductRecord, findSellerById } from "../catalog-state";
+import { db } from "../db";
+import { EXCHANGE_RATES } from "../fixtures/base";
 import { lookupPostalCode, quoteShipping } from "../fixtures/shipping";
 import { API, notFound, serverError, simulateLatency, validation } from "./utils";
 
@@ -26,12 +27,13 @@ export const shippingHandlers = [
     const cep = body.postalCode?.replace(/\D/g, "") ?? "";
     if (cep.length !== 8) return validation({ postalCode: ["CEP inválido."] });
     if (cep === "00000000") return notFound("CEP");
-    const seller = sellerById(body.sellerId);
+    // Mesmo catálogo "vivo" do checkout: lojas cadastradas no painel também são cotadas.
+    const seller = findSellerById(body.sellerId);
     if (!seller) return notFound("Loja");
     const destination = lookupPostalCode(cep);
     if (!destination) return notFound("CEP");
 
-    // Frete grátis quando todos os itens da loja têm freeShipping e subtotal >= R$ 300
+    // Frete grátis quando todos os itens da loja têm freeShipping e o subtotal atinge o piso configurado.
     const products = body.items.map((i) => findProductRecord(i.productId)?.detail).filter(Boolean);
     const subtotal = body.items.reduce((acc, i) => {
       const p = findProductRecord(i.productId)?.detail;
@@ -39,7 +41,9 @@ export const shippingHandlers = [
       return acc + (variant?.price.amount ?? p?.price.amount ?? 0) * i.quantity;
     }, 0);
     const freeShipping =
-      products.length > 0 && products.every((p) => p!.freeShipping) && subtotal >= 30000;
+      products.length > 0 &&
+      products.every((p) => p!.freeShipping) &&
+      subtotal >= db.settings.freeShippingThresholdAmount;
 
     const quote: ShippingQuoteDto = {
       postalCode: cep,

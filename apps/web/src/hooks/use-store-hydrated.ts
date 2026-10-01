@@ -7,6 +7,9 @@ interface PersistApi {
   onFinishHydration(callback: () => void): () => void;
 }
 
+/** `subscribe` vazio para `useSyncExternalStore` com fontes que nunca mudam após a hidratação. */
+export const noopSubscribe = () => () => {};
+
 /**
  * `true` depois que uma store Zustand com `persist` reidratou do localStorage.
  * Seguro no SSR: no servidor o middleware não expõe `persist` (sem localStorage) e o snapshot é `false`,

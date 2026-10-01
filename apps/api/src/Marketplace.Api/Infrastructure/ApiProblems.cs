@@ -3,6 +3,7 @@ using System.Text.Json;
 using Marketplace.Application.Common;
 using Marketplace.Application.Contracts;
 using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.EntityFrameworkCore;
 
 namespace Marketplace.Api.Infrastructure;
 
@@ -18,6 +19,20 @@ public static class ApiProblems
         context.Response.StatusCode = status;
         context.Response.ContentType = ContentType;
         return context.Response.WriteAsync(JsonSerializer.Serialize(new ApiErrorDto(status, code, message, errors, traceId), json), context.RequestAborted);
+    }
+
+    /// <summary>Status sem corpo (404 de rota, 405, 415...) no mesmo formato.</summary>
+    public static Task WriteStatusAsync(HttpContext context)
+    {
+        var status = context.Response.StatusCode;
+        var (code, message) = status switch
+        {
+            404 => ("NOT_FOUND", "Rota não encontrada."),
+            405 => ("METHOD_NOT_ALLOWED", "Método não permitido nesta rota."),
+            415 => ("UNSUPPORTED_MEDIA_TYPE", "Envie o corpo como application/json."),
+            _ => ($"HTTP_{status}", "Requisição não atendida."),
+        };
+        return WriteAsync(context, status, code, message);
     }
 
     public sealed class ExceptionHandler(ILogger<ExceptionHandler> logger, IHostEnvironment env) : IExceptionHandler
@@ -39,6 +54,21 @@ public static class ApiProblems
                     await WriteAsync(context, 401, "UNAUTHORIZED", "Assinatura ou credencial inválida.");
                     return true;
                 case OperationCanceledException when context.RequestAborted.IsCancellationRequested:
+                    return true;
+                case DbUpdateConcurrencyException:
+                    await WriteAsync(context, 409, "CONCURRENCY_CONFLICT", "Os dados mudaram enquanto você editava. Tente novamente.");
+                    return true;
+                case DbUpdateException dbEx:
+                    logger.LogWarning(dbEx, "Conflito ao salvar em {Method} {Path}", context.Request.Method, context.Request.Path);
+                    await WriteAsync(context, 409, "DATA_CONFLICT", "Conflito ao salvar os dados. Tente novamente.");
+                    return true;
+                case HttpRequestException httpEx:
+                    logger.LogError(httpEx, "Serviço externo falhou em {Method} {Path}", context.Request.Method, context.Request.Path);
+                    await WriteAsync(context, 502, "UPSTREAM_UNAVAILABLE", "Serviço externo indisponível. Tente novamente em instantes.");
+                    return true;
+                case TimeoutException or TaskCanceledException:
+                    logger.LogError(exception, "Tempo esgotado em {Method} {Path}", context.Request.Method, context.Request.Path);
+                    await WriteAsync(context, 504, "UPSTREAM_TIMEOUT", "Serviço externo demorou demais. Tente novamente.");
                     return true;
                 default:
                     logger.LogError(exception, "Erro não tratado em {Method} {Path}", context.Request.Method, context.Request.Path);

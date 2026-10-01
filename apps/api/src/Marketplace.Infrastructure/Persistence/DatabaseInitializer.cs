@@ -1,9 +1,14 @@
+using System.Security.Cryptography;
+using System.Text;
 using Marketplace.Application.Abstractions;
+using Marketplace.Application.Common;
+using Marketplace.Application.Services;
 using Marketplace.Domain.Common;
 using Marketplace.Domain.Entities;
 using Marketplace.Infrastructure.Persistence.Seed;
 using Marketplace.Infrastructure.Shipping;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -33,10 +38,60 @@ public sealed class DatabaseInitializer(
         else
         {
             var path = db.Database.GetConnectionString();
-            await db.Database.EnsureCreatedAsync(ct);
+            await EnsureSqliteSchemaAsync(path, ct);
             logger.LogInformation("SQLite em {Connection}", path);
         }
         await SeedAsync(ct);
+    }
+
+    private const string SchemaHashTable = "__schema_hash";
+
+    /// <summary>
+    /// SQLite é só para desenvolvimento e usa EnsureCreated (sem migrations). Para o banco não ficar "velho" depois de
+    /// uma mudança nas entidades, guardamos um hash do modelo (tabelas, colunas, índices) na tabela __schema_hash e,
+    /// quando ele diverge, recriamos o arquivo (ou falhamos com uma mensagem clara, conforme RecreateSqliteOnSchemaChange).
+    /// </summary>
+    private async Task EnsureSqliteSchemaAsync(string? path, CancellationToken ct)
+    {
+        var created = await db.Database.EnsureCreatedAsync(ct);
+        var expected = ComputeSchemaHash(db.Model);
+        await db.Database.ExecuteSqlRawAsync($"CREATE TABLE IF NOT EXISTS {SchemaHashTable} (hash TEXT NOT NULL)", ct);
+
+        if (!created)
+        {
+            var stored = (await db.Database.SqlQueryRaw<string>($"SELECT hash AS \"Value\" FROM {SchemaHashTable}").ToListAsync(ct)).FirstOrDefault();
+            if (stored == expected) return;
+            if (!options.Value.RecreateSqliteOnSchemaChange)
+                throw new InvalidOperationException(
+                    $"O schema do SQLite em {path} está desatualizado em relação às entidades. Apague o arquivo (o seed recria tudo) " +
+                    "ou ligue Database:RecreateSqliteOnSchemaChange.");
+            logger.LogWarning("Schema mudou desde que {Connection} foi criado: recriando o banco SQLite (dados de desenvolvimento descartados; o seed roda de novo)", path);
+            await db.Database.EnsureDeletedAsync(ct);
+            await db.Database.EnsureCreatedAsync(ct);
+            await db.Database.ExecuteSqlRawAsync($"CREATE TABLE IF NOT EXISTS {SchemaHashTable} (hash TEXT NOT NULL)", ct);
+        }
+
+        await db.Database.ExecuteSqlRawAsync($"DELETE FROM {SchemaHashTable}", ct);
+        await db.Database.ExecuteSqlAsync($"INSERT INTO __schema_hash (hash) VALUES ({expected})", ct);
+    }
+
+    /// <summary>Hash estável de tabelas, colunas (nome, tipo, nulidade) e índices do modelo relacional.</summary>
+    private static string ComputeSchemaHash(IModel model)
+    {
+        var sb = new StringBuilder();
+        foreach (var entity in model.GetEntityTypes().OrderBy(e => e.GetTableName(), StringComparer.Ordinal))
+        {
+            var table = entity.GetTableName();
+            if (table is null) continue;
+            var store = StoreObjectIdentifier.Table(table, entity.GetSchema());
+            sb.Append(table).Append('\n');
+            foreach (var property in entity.GetProperties().OrderBy(p => p.GetColumnName(store), StringComparer.Ordinal))
+                sb.Append("  ").Append(property.GetColumnName(store)).Append(':').Append(property.GetColumnType(store))
+                    .Append(property.IsColumnNullable(store) ? "?" : "").Append('\n');
+            foreach (var index in entity.GetIndexes().OrderBy(i => i.GetDatabaseName(store), StringComparer.Ordinal))
+                sb.Append("  ix ").Append(index.GetDatabaseName(store)).Append(index.IsUnique ? " unique" : "").Append('\n');
+        }
+        return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(sb.ToString())));
     }
 
     public async Task SeedAsync(CancellationToken ct)
@@ -126,8 +181,8 @@ public sealed class DatabaseInitializer(
             (seller, cep, units, free) =>
             {
                 var prefix = cep[..1];
-                return TableShippingRateProvider.Compute(seller.Id, prefix, zones[prefix], units, free)
-                    .Select(o => new ShippingOptionSnapshot(o.Id, o.Carrier, o.Service, o.Price.Amount, o.EstimatedDays.Min, o.EstimatedDays.Max, o.Description))
+                return ShippingService.ApplyFreeShipping(TableShippingRateProvider.Compute(seller.Id, prefix, zones[prefix], units), free, settings.FreeShippingThresholdAmount)
+                    .Select(o => o.ToSnapshot())
                     .ToList();
             },
             settings.ImportTaxBasisPoints,

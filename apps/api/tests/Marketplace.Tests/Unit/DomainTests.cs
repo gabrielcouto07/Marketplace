@@ -1,6 +1,9 @@
 using Marketplace.Domain;
 using Marketplace.Domain.Common;
 using Marketplace.Domain.Entities;
+using Marketplace.Application.Services;
+using Marketplace.Domain.Shipping;
+using Marketplace.Infrastructure.Payments;
 using Marketplace.Infrastructure.Shipping;
 
 namespace Marketplace.Tests.Unit;
@@ -148,8 +151,10 @@ public class ShippingTableTests
     public void Economy_SaoPaulo_SingleUnit_MatchesMock()
     {
         var zone = new ShippingZone { Prefix = "0", State = "SP", City = "São Paulo", SurchargeAmount = 0, ExtraDays = 0 };
-        var options = TableShippingRateProvider.Compute(Guid.Empty, "0", zone, 1, false);
+        var options = TableShippingRateProvider.Compute(Guid.Empty, "0", zone, 1);
         Assert.Equal(2490, options[0].Price.Amount);
+        Assert.Equal("table", options[0].Provider);
+        Assert.Equal("economy", options[0].ServiceCode);
         Assert.Equal(new DayRange(12, 25), options[0].EstimatedDays);
         Assert.Equal(5990, options[1].Price.Amount);
         Assert.Equal(new DayRange(5, 10), options[1].EstimatedDays);
@@ -159,7 +164,7 @@ public class ShippingTableTests
     public void Curitiba_TwoUnits_WithNegativeSurcharge()
     {
         var zone = new ShippingZone { Prefix = "8", State = "PR", City = "Curitiba", SurchargeAmount = -400, ExtraDays = -2 };
-        var options = TableShippingRateProvider.Compute(Guid.Empty, "8", zone, 2, false);
+        var options = TableShippingRateProvider.Compute(Guid.Empty, "8", zone, 2);
         Assert.Equal((long)Math.Round((2490 - 400) * 1.35), options[0].Price.Amount);
         Assert.Equal(new DayRange(10, 23), options[0].EstimatedDays);
         Assert.Equal(new DayRange(5, 10), options[1].EstimatedDays);
@@ -169,9 +174,12 @@ public class ShippingTableTests
     public void FreeShipping_ZeroesEconomyOnly()
     {
         var zone = new ShippingZone { Prefix = "0", State = "SP", City = "São Paulo" };
-        var options = TableShippingRateProvider.Compute(Guid.Empty, "0", zone, 1, true);
+        var options = ShippingService.ApplyFreeShipping(TableShippingRateProvider.Compute(Guid.Empty, "0", zone, 1), eligible: true, thresholdAmount: 30000);
         Assert.Equal(0, options[0].Price.Amount);
         Assert.True(options[1].Price.Amount > 0);
+        Assert.Equal("Frete grátis acima de R$ 300 nesta loja", options[0].Description);
+        var paid = ShippingService.ApplyFreeShipping(TableShippingRateProvider.Compute(Guid.Empty, "0", zone, 1), eligible: false, thresholdAmount: 30000);
+        Assert.Equal(2490, paid[0].Price.Amount);
     }
 
     [Fact]
@@ -179,6 +187,60 @@ public class ShippingTableTests
     {
         var zone = new ShippingZone { Prefix = "0", State = "SP", City = "São Paulo" };
         var seller = Guid.NewGuid();
-        Assert.Equal(TableShippingRateProvider.Compute(seller, "0", zone, 1, false)[0].Id, TableShippingRateProvider.Compute(seller, "0", zone, 3, true)[0].Id);
+        Assert.Equal(TableShippingRateProvider.Compute(seller, "0", zone, 1)[0].Id, TableShippingRateProvider.Compute(seller, "0", zone, 3)[0].Id);
+    }
+}
+
+public class TrackingCodesTests
+{
+    [Theory]
+    [InlineData("delivered", "DELIVERED")]
+    [InlineData(" arrived-br ", "ARRIVED_BR")]
+    [InlineData("something else", "INFO")]
+    [InlineData(null, "INFO")]
+    public void Normalize_MapsToKnownCodes(string? raw, string expected) => Assert.Equal(expected, TrackingCodes.Normalize(raw));
+
+    [Fact]
+    public void TargetStatus_FollowsJourney()
+    {
+        Assert.Null(TrackingCodes.TargetStatus(TrackingCodes.Posted));
+        Assert.Equal(OrderStatus.EmTransitoInternacional, TrackingCodes.TargetStatus(TrackingCodes.Customs));
+        Assert.Equal(OrderStatus.Entregue, TrackingCodes.TargetStatus(TrackingCodes.Delivered));
+        Assert.True(TrackingCodes.IsTerminal(TrackingCodes.Delivered));
+        Assert.False(TrackingCodes.IsTerminal(TrackingCodes.InTransit));
+    }
+}
+
+public class PaymentFormatTests
+{
+    [Fact]
+    public void BoletoDigitableLine_FromBarcode44()
+    {
+        var line = BoletoFormats.DigitableLine("34191971200000500001790001043510049102015000");
+        Assert.Equal("34191.79001 01043.510047 91020.150008 1 97120000050000", line);
+    }
+
+    [Fact]
+    public void BoletoDigitableLine_Formats47AndKeepsOthers()
+    {
+        Assert.Equal("34191.79001 01043.510047 91020.150008 1 97120000050000", BoletoFormats.DigitableLine("34191790010104351004791020150008197120000050000"));
+        Assert.Equal("123", BoletoFormats.DigitableLine("123"));
+    }
+
+    [Theory]
+    [InlineData("Mastercard", "master")]
+    [InlineData("visa", "visa")]
+    [InlineData("American Express", "amex")]
+    [InlineData("hipercard", "hipercard")]
+    public void MercadoPago_MapsBrandToPaymentMethodId(string brand, string expected) =>
+        Assert.Equal(expected, MercadoPagoGateway.MapPaymentMethodId(brand));
+
+    [Fact]
+    public void WebhookSignature_RejectsEmptySecret()
+    {
+        var body = "{}";
+        Assert.False(WebhookSignature.IsValid("", body, WebhookSignature.Compute("", body)));
+        Assert.True(WebhookSignature.IsValid("s3cret", body, WebhookSignature.Compute("s3cret", body)));
+        Assert.True(WebhookSignature.IsValid("s3cret", body, "sha256=" + WebhookSignature.Compute("s3cret", body)));
     }
 }

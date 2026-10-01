@@ -38,6 +38,10 @@ public class CheckoutQuote
     public Guid ExchangeRateId { get; set; }
     public required string PayloadJson { get; set; }
     public long TotalAmount { get; set; }
+    /// <summary>CEP cotado (somente dígitos): o pedido só pode usar um endereço com este CEP.</summary>
+    public string? PostalCode { get; set; }
+    /// <summary>Cupom aplicado (normalizado) quando houve desconto.</summary>
+    public string? CouponCode { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime LockedUntil { get; set; }
     public DateTime? ConsumedAt { get; set; }
@@ -126,7 +130,9 @@ public record ShippingOptionSnapshot(
     long PriceAmount,
     int EstimatedDaysMin,
     int EstimatedDaysMax,
-    string? Description);
+    string? Description,
+    string? Provider = null,
+    string? ServiceCode = null);
 
 public class OrderItem
 {
@@ -187,6 +193,10 @@ public class Payment
     /// <summary>CPF do pagador (somente dígitos; cifrado em repouso).</summary>
     public string? PayerDocument { get; set; }
     public string? FailureReason { get; set; }
+    /// <summary>Total já estornado (pode ser parcial: um pedido da compra por vez).</summary>
+    public long RefundedAmount { get; set; }
+    public string? LastRefundId { get; set; }
+    public DateTime? RefundedAt { get; set; }
 
     public string? PixPayload { get; set; }
     public string? PixQrCodeImageUrl { get; set; }
@@ -235,6 +245,8 @@ public class WebhookEvent
     public DateTime ReceivedAt { get; set; }
     public DateTime? ProcessedAt { get; set; }
     public string? Error { get; set; }
+    /// <summary>Tentativas de processamento (o provedor reenvia enquanto não recebe 2xx).</summary>
+    public int Attempts { get; set; }
 }
 
 /// <summary>Parâmetros da plataforma (linha única). Editáveis pelo admin.</summary>

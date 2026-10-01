@@ -286,6 +286,11 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("consumed_at");
 
+                    b.Property<string>("CouponCode")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("coupon_code");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
@@ -302,6 +307,11 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("payload_json");
+
+                    b.Property<string>("PostalCode")
+                        .HasMaxLength(8)
+                        .HasColumnType("character varying(8)")
+                        .HasColumnName("postal_code");
 
                     b.Property<long>("TotalAmount")
                         .HasColumnType("bigint")
@@ -498,7 +508,8 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
                         .HasColumnName("id");
 
                     b.Property<string>("Carrier")
-                        .HasColumnType("text")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
                         .HasColumnName("carrier");
 
                     b.Property<DateTime>("CreatedAt")
@@ -576,7 +587,8 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
                         .HasColumnName("total_reference_amount");
 
                     b.Property<string>("TrackingCode")
-                        .HasColumnType("text")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
                         .HasColumnName("tracking_code");
 
                     b.Property<DateTime>("UpdatedAt")
@@ -602,6 +614,9 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("PurchaseId")
                         .HasDatabaseName("ix_orders_purchase_id");
+
+                    b.HasIndex("TrackingCode")
+                        .HasDatabaseName("ix_orders_tracking_code");
 
                     b.HasIndex("SellerId", "Status")
                         .HasDatabaseName("ix_orders_seller_id_status");
@@ -821,6 +836,11 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("installments");
 
+                    b.Property<string>("LastRefundId")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("last_refund_id");
+
                     b.Property<string>("Method")
                         .IsRequired()
                         .HasMaxLength(16)
@@ -851,6 +871,14 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("PurchaseId")
                         .HasColumnType("uuid")
                         .HasColumnName("purchase_id");
+
+                    b.Property<long>("RefundedAmount")
+                        .HasColumnType("bigint")
+                        .HasColumnName("refunded_amount");
+
+                    b.Property<DateTime?>("RefundedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("refunded_at");
 
                     b.Property<string>("Status")
                         .IsRequired()
@@ -1064,6 +1092,19 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("handling_days_min");
 
+                    b.Property<int?>("HeightCm")
+                        .HasColumnType("integer")
+                        .HasColumnName("height_cm");
+
+                    b.Property<string>("HsCode")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("hs_code");
+
+                    b.Property<int?>("LengthCm")
+                        .HasColumnType("integer")
+                        .HasColumnName("length_cm");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -1129,6 +1170,14 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
                     b.Property<int?>("WarrantyMonths")
                         .HasColumnType("integer")
                         .HasColumnName("warranty_months");
+
+                    b.Property<int?>("WeightGrams")
+                        .HasColumnType("integer")
+                        .HasColumnName("weight_grams");
+
+                    b.Property<int?>("WidthCm")
+                        .HasColumnType("integer")
+                        .HasColumnName("width_cm");
 
                     b.HasKey("Id")
                         .HasName("pk_products");
@@ -1515,9 +1564,19 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("on_time_shipping_percent");
 
+                    b.Property<string>("OriginPostalCode")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("origin_postal_code");
+
                     b.Property<Guid?>("OwnerUserId")
                         .HasColumnType("uuid")
                         .HasColumnName("owner_user_id");
+
+                    b.Property<string>("Phone")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("phone");
 
                     b.Property<int>("PositiveRatingPercent")
                         .HasColumnType("integer")
@@ -1771,6 +1830,10 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
                         .HasColumnName("id");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("integer")
+                        .HasColumnName("attempts");
 
                     b.Property<string>("Error")
                         .HasColumnType("text")

@@ -7,6 +7,7 @@ import { useMemo } from "react";
 import { Controller, useWatch, type UseFormReturn } from "react-hook-form";
 
 import { FormField } from "@/components/shared/form-field";
+import { ErrorState } from "@/components/shared/states";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { RadioGroup } from "@/components/ui/radio-group";
@@ -25,7 +26,9 @@ import {
   type CardOnlyOutput,
 } from "@/features/checkout/components/card-utils";
 import { CheckoutSection, OptionCard } from "@/features/checkout/components/checkout-section";
+import { env } from "@/lib/env";
 import { formatMoney } from "@/lib/money";
+import { CARD_PAYMENT_ENABLED } from "@/lib/payments/card-token";
 import { formatCpf, onlyDigits } from "@/lib/validation/documents";
 
 const METHODS = [
@@ -98,7 +101,11 @@ export function PaymentSection({
         <p className="text-body-sm text-foreground-secondary">{t("boletoNote")}</p>
       ) : null}
       {method === "Cartao" ? (
-        <CardForm form={cardForm} installmentValues={installmentValues} />
+        CARD_PAYMENT_ENABLED ? (
+          <CardForm form={cardForm} installmentValues={installmentValues} />
+        ) : (
+          <ErrorState compact title={t("cardUnavailable")} />
+        )
       ) : null}
 
       <FormField
@@ -150,7 +157,7 @@ function CardForm({
         id="card-number"
         label={t("cardNumber")}
         error={errors.number?.message}
-        hint={t("testCardHint")}
+        hint={env.apiMocking ? t("testCardHint") : undefined}
       >
         <div className="relative">
           <Controller
@@ -163,7 +170,13 @@ function CardForm({
                 autoComplete="cc-number"
                 placeholder="0000 0000 0000 0000"
                 aria-invalid={Boolean(errors.number)}
-                aria-describedby={errors.number ? "card-number-error" : "card-number-hint"}
+                aria-describedby={
+                  errors.number
+                    ? "card-number-error"
+                    : env.apiMocking
+                      ? "card-number-hint"
+                      : undefined
+                }
                 className={brand ? "pr-24" : undefined}
                 value={formatCardNumber(field.value ?? "")}
                 onChange={(e) => field.onChange(onlyDigits(e.target.value).slice(0, 19))}
@@ -175,9 +188,9 @@ function CardForm({
             <Badge
               variant="neutral"
               className="absolute top-1/2 right-3 -translate-y-1/2"
-              aria-label={t("cardBrand", { brand })}
+              aria-label={t("cardBrand", { brand: brand.name })}
             >
-              {brand}
+              {brand.name}
             </Badge>
           ) : null}
         </div>

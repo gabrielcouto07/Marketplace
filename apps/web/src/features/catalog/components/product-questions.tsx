@@ -34,6 +34,7 @@ export function ProductQuestions({
   const t = useTranslations("product");
   const tc = useTranslations("common");
   const tv = useTranslations("validation");
+  const tErrors = useTranslations("errors");
   const format = useFormatter();
   const isAuthenticated = useIsAuthenticated();
   const questions = useProductQuestions(productId);
@@ -48,7 +49,7 @@ export function ProductQuestions({
 
   const onSubmit = form.handleSubmit((values) => {
     ask.mutate(
-      { productId, question: values.question },
+      { question: values.question },
       {
         onSuccess: () => {
           form.reset();
@@ -57,7 +58,7 @@ export function ProductQuestions({
         onError: (error) => {
           const msg = isApiError(error)
             ? (error.errors?.question?.[0] ?? error.message)
-            : tc("loading");
+            : tErrors("genericTitle");
           toast.error(msg);
         },
       },

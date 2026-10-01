@@ -7,7 +7,9 @@ import { toast } from "sonner";
 import { BrandLogo } from "@/components/layout/brand-logo";
 import { ErrorState } from "@/components/shared/states";
 import { Button } from "@/components/ui/button";
-import { useGoogleLogin } from "@/features/auth/api";
+import { GOOGLE_LOGIN_ENABLED, useGoogleLogin } from "@/features/auth/api";
+import { GoogleIdentityError } from "@/lib/auth/google-identity";
+import { env } from "@/lib/env";
 
 import { useAuthRedirect } from "./use-auth-redirect";
 
@@ -48,8 +50,9 @@ export function ApiErrorNotice({ message }: { message: string | null }) {
   return <ErrorState compact title={message} />;
 }
 
-/** Caixa azul-suave com a dica de acesso à demo. */
+/** Caixa azul-suave com a dica de acesso à demo. Só existe no mock: a API real não tem contas demo. */
 export function DemoHint({ children }: { children: ReactNode }) {
+  if (!env.apiMocking) return null;
   return (
     <p role="note" className="rounded-md bg-primary-soft p-3 text-center text-caption text-primary">
       {children}
@@ -72,8 +75,21 @@ export function OrDivider() {
   );
 }
 
-/** Botão "Continuar com Google" (mock). Ícone genérico: círculo com a letra G. */
-export function GoogleButton() {
+/**
+ * Divisor "ou" + botão "Continuar com Google". Some por completo quando não há como obter um ID token
+ * (mock desligado e NEXT_PUBLIC_GOOGLE_CLIENT_ID ausente). Ícone genérico: círculo com a letra G.
+ */
+export function GoogleSignIn() {
+  if (!GOOGLE_LOGIN_ENABLED) return null;
+  return (
+    <>
+      <OrDivider />
+      <GoogleButton />
+    </>
+  );
+}
+
+function GoogleButton() {
   const t = useTranslations("auth");
   const login = useGoogleLogin();
   const redirect = useAuthRedirect();
@@ -93,7 +109,10 @@ export function GoogleButton() {
               toast.success(t("welcome", { name: session.user.fullName.split(" ")[0] }));
               redirect();
             },
-            onError: () => setError(t("loginError")),
+            onError: (err) =>
+              setError(
+                err instanceof GoogleIdentityError ? t("googleUnavailable") : t("loginError"),
+              ),
           });
         }}
       >

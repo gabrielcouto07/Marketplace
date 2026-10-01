@@ -23,6 +23,8 @@ export function useValidationMessage() {
 
 interface FormFieldProps {
   id: string;
+  /** Controle que o rótulo aciona quando o campo é um grupo (padrão: o próprio `id`). */
+  labelFor?: string;
   label: string;
   error?: string | null;
   hint?: string;
@@ -37,6 +39,7 @@ interface FormFieldProps {
  */
 export function FormField({
   id,
+  labelFor,
   label,
   error,
   hint,
@@ -49,7 +52,7 @@ export function FormField({
   const errorText = message(error);
   return (
     <div className={cn("flex flex-col gap-2", className)}>
-      <Label htmlFor={id}>
+      <Label htmlFor={labelFor ?? id}>
         {label}
         {optional ? (
           <span className="text-caption font-normal text-foreground-muted">({t("optional")})</span>

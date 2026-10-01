@@ -77,7 +77,7 @@ Legenda: ✅ pronto (UI + mock) · 🧪 mock/demonstração · 🧱 esqueleto ·
 
 ## Próximos passos sugeridos
 
-1. Backend .NET seguindo `apps/web/API_CONTRACTS.md` (ver `BACKEND_INTEGRATION.md`).
+1. Backend .NET seguindo `docs/CONTRACTS.md` (ver `BACKEND_INTEGRATION.md`).
 2. Unificar `components/shared/form-field.tsx` (frente checkout) e `features/auth/components/form-field.tsx` (frente auth) em um único componente.
 3. Prefetch server-side (`HydrationBoundary`) e metadata real quando a API existir.
 4. Testes: unitários de `lib/money` e `lib/validation` (Vitest) e e2e do fluxo de compra (Playwright) usando os mocks.

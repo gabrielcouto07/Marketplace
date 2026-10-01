@@ -52,7 +52,13 @@ export function lookupPostalCode(cep: string): PostalCodeLookupDto | null {
   };
 }
 
-/** Cotação de frete por vendedor: economia (correio internacional) e expresso (courier). */
+/** Transportadora padrão da opção econômica (os pedidos seed enviados usam esta). */
+export const DEFAULT_CARRIER = "Correo Paraguayo + Correios";
+
+/**
+ * Cotação de frete por vendedor: economia (correio internacional) e expresso (courier).
+ * `provider: "table"` = tabela interna (mesmo valor que a API devolve sem integração externa).
+ */
 export function quoteShipping(
   cep: string,
   sellerId: string,
@@ -73,7 +79,9 @@ export function quoteShipping(
   const options: ShippingOptionDto[] = [
     {
       id: guid(`ship:${sellerId}:${digits[0]}:economy`),
-      carrier: "Correo Paraguayo + Correios",
+      provider: "table",
+      serviceCode: "economy",
+      carrier: DEFAULT_CARRIER,
       service: "Internacional Econômico",
       price: { amount: freeShippingEligible ? 0 : economy, currency: "BRL" },
       estimatedDays: { min: 12 + region.extraDays, max: 25 + region.extraDays },
@@ -83,6 +91,8 @@ export function quoteShipping(
     },
     {
       id: guid(`ship:${sellerId}:${digits[0]}:express`),
+      provider: "table",
+      serviceCode: "express",
       carrier: "Courier Internacional",
       service: "Expresso",
       price: { amount: express, currency: "BRL" },

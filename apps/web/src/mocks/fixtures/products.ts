@@ -335,6 +335,3 @@ export function toSummary(p: ProductDetailDto): ProductSummaryDto {
   } = p;
   return summary;
 }
-
-export const productBySlug = (slug: string) => PRODUCT_RECORDS.find((r) => r.detail.slug === slug);
-export const productById = (id: string) => PRODUCT_RECORDS.find((r) => r.detail.id === id);

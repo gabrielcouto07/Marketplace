@@ -8,6 +8,7 @@ import type {
   QuestionDto,
   ReviewDto,
   ReviewSummaryDto,
+  SearchSuggestionDto,
 } from "@marketplace/contracts";
 import { HttpResponse, http } from "msw";
 
@@ -227,7 +228,7 @@ export const catalogHandlers = [
     const q = normalize(new URL(request.url).searchParams.get("q") ?? "");
     if (q.length < 2) return HttpResponse.json([]);
     const terms = q.split(/\s+/).filter(Boolean);
-    const names = catalogProducts()
+    const names: SearchSuggestionDto[] = catalogProducts()
       .map(toSummary)
       .map((p) => ({ p, score: relevanceScore(p, terms) }))
       .filter(({ score }) => score > 0)

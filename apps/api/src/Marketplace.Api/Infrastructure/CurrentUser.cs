@@ -28,15 +28,8 @@ public sealed class CurrentUser(IHttpContextAccessor accessor) : ICurrentUser
         Principal?.FindAll(ClaimTypes.Role).Select(c => Enum.TryParse<UserRole>(c.Value, out var r) ? r : (UserRole?)null)
             .Where(r => r is not null).Select(r => r!.Value).ToList() ?? [];
 
-    public string? IpAddress
-    {
-        get
-        {
-            var forwarded = Context?.Request.Headers["X-Forwarded-For"].FirstOrDefault();
-            if (!string.IsNullOrWhiteSpace(forwarded)) return forwarded.Split(',')[0].Trim();
-            return Context?.Connection.RemoteIpAddress?.ToString();
-        }
-    }
+    /// <summary>IP do cliente após UseForwardedHeaders (nunca o header X-Forwarded-For bruto, que qualquer cliente pode forjar).</summary>
+    public string? IpAddress => Context?.Connection.RemoteIpAddress?.ToString();
 
     public string? UserAgent => Context?.Request.Headers.UserAgent.FirstOrDefault();
 

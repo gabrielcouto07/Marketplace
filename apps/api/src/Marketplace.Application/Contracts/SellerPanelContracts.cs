@@ -22,7 +22,9 @@ public sealed record SellerProfileDto(
     int ReviewCount,
     int ProductCount,
     DateTime MemberSince,
-    IReadOnlyList<CategoryRefDto> Categories);
+    IReadOnlyList<CategoryRefDto> Categories,
+    string? OriginPostalCode,
+    string? Phone);
 
 public sealed record SellerRegisterRequest(
     string? Name,
@@ -33,7 +35,9 @@ public sealed record SellerRegisterRequest(
     string? BannerUrl,
     string? ExchangePolicy,
     IReadOnlyList<Guid>? CategoryIds,
-    bool? AcceptTerms);
+    bool? AcceptTerms,
+    string? OriginPostalCode = null,
+    string? Phone = null);
 
 public sealed record SellerProfileInput(
     string? Name,
@@ -43,7 +47,9 @@ public sealed record SellerProfileInput(
     string? LogoUrl,
     string? BannerUrl,
     string? ExchangePolicy,
-    IReadOnlyList<Guid>? CategoryIds);
+    IReadOnlyList<Guid>? CategoryIds,
+    string? OriginPostalCode = null,
+    string? Phone = null);
 
 /// <summary>Cadastro devolve a loja e uma nova sessão (o JWT passa a carregar o papel Vendedor).</summary>
 public sealed record SellerRegisterResponseDto(SellerProfileDto Seller, AuthResponseDto Session);
@@ -93,7 +99,10 @@ public sealed record SellerProductDto(
     double Rating,
     int ReviewCount,
     DateTime CreatedAt,
-    DateTime UpdatedAt);
+    DateTime UpdatedAt,
+    int? WeightGrams,
+    ParcelDimensionsDto? Dimensions,
+    string? HsCode);
 
 public sealed record SellerProductInput(
     string? Name,
@@ -108,6 +117,12 @@ public sealed record SellerProductInput(
     int? HandlingDaysMax,
     IReadOnlyList<ProductAttributeDto>? Attributes,
     IReadOnlyList<SellerProductImageInput>? Images,
-    ProductStatus? Status);
+    ProductStatus? Status,
+    int? WeightGrams = null,
+    ParcelDimensionsDto? Dimensions = null,
+    string? HsCode = null);
+
+/// <summary>Dimensões da embalagem em centímetros (cotação com transportadoras).</summary>
+public sealed record ParcelDimensionsDto(int LengthCm, int WidthCm, int HeightCm);
 
 public sealed record ShipOrderRequest(string? Carrier, string? TrackingCode);

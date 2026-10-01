@@ -12,19 +12,24 @@ import { http } from "./http";
  */
 const TIMEOUT_MS = 2000;
 
-async function tryGet<T>(path: string): Promise<T | null> {
+async function tryGet<T>(path: string, locale?: string): Promise<T | null> {
   try {
-    return await http<T>(path, { accessToken: null, signal: AbortSignal.timeout(TIMEOUT_MS) });
+    return await http<T>(path, {
+      accessToken: null,
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+      // No servidor não há provider de locale (ele é registrado no cliente): a página informa o seu.
+      headers: locale ? { "Accept-Language": locale } : undefined,
+    });
   } catch {
     return null;
   }
 }
 
-export const fetchProductForMetadata = (slug: string) =>
-  tryGet<ProductDetailDto>(`/products/${encodeURIComponent(slug)}`);
+export const fetchProductForMetadata = (slug: string, locale?: string) =>
+  tryGet<ProductDetailDto>(`/products/${encodeURIComponent(slug)}`, locale);
 
-export const fetchSellerForMetadata = (slug: string) =>
-  tryGet<SellerDto>(`/sellers/${encodeURIComponent(slug)}`);
+export const fetchSellerForMetadata = (slug: string, locale?: string) =>
+  tryGet<SellerDto>(`/sellers/${encodeURIComponent(slug)}`, locale);
 
 /** Primeira frase da descrição, limitada para meta description / Open Graph. */
 export function summarize(text: string, max = 160): string {

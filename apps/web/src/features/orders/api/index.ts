@@ -3,9 +3,10 @@
 import type {
   OrderDto,
   OrderListQuery,
+  OrderStatus,
+  OrderTrackingDto,
   PagedResult,
   PaymentDto,
-  TrackingEventDto,
 } from "@marketplace/contracts";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
@@ -17,14 +18,18 @@ export const ordersApi = {
     api.get<PagedResult<OrderDto>>("/orders", { query: { ...query } }),
   detail: (id: string) => api.get<OrderDto>(`/orders/${id}`),
   byPurchase: (purchaseId: string) => api.get<OrderDto[]>(`/purchases/${purchaseId}/orders`),
-  tracking: (id: string) =>
-    api.get<{ trackingCode: string | null; events: TrackingEventDto[] }>(`/orders/${id}/tracking`),
+  tracking: (id: string) => api.get<OrderTrackingDto>(`/orders/${id}/tracking`),
   cancel: (id: string) => api.post<OrderDto>(`/orders/${id}/cancel`),
+  confirmReceipt: (id: string) => api.post<OrderDto>(`/orders/${id}/confirm-receipt`),
   openDispute: (id: string) => api.post<OrderDto>(`/orders/${id}/disputes`),
   payment: (id: string) => api.get<PaymentDto>(`/payments/${id}`),
+  /** Só existe no mock (botão "Simular pagamento"). */
   simulatePaymentApproval: (id: string) =>
     api.post<PaymentDto>(`/payments/${id}/simulate-approval`),
 };
+
+/** Status em que a transportadora ainda gera eventos: vale consultar o rastreio periodicamente. */
+const IN_TRANSIT: readonly OrderStatus[] = ["Enviado", "EmTransitoInternacional"];
 
 export function useOrders(query: Omit<OrderListQuery, "page"> = {}) {
   const pageSize = query.pageSize ?? 10;
@@ -44,6 +49,26 @@ export function useOrder(id: string) {
     queryFn: () => ordersApi.detail(id),
     enabled: Boolean(id),
     staleTime: 30 * 1000,
+  });
+}
+
+/**
+ * Rastreio consultado na transportadora. Só há o que consultar quando o pedido tem código de
+ * rastreio; em trânsito (Enviado / EmTransitoInternacional) refaz a consulta a cada 60 s, nos
+ * demais status busca uma vez.
+ */
+export function useOrderTracking(
+  orderId: string,
+  status: OrderStatus | undefined,
+  trackingCode: string | null | undefined,
+) {
+  const inTransit = status !== undefined && IN_TRANSIT.includes(status);
+  return useQuery({
+    queryKey: queryKeys.orders.tracking(orderId),
+    queryFn: () => ordersApi.tracking(orderId),
+    enabled: Boolean(orderId) && Boolean(trackingCode),
+    refetchInterval: inTransit ? 60 * 1000 : false,
+    staleTime: inTransit ? 0 : 5 * 60 * 1000,
   });
 }
 
@@ -77,10 +102,10 @@ export function useSimulatePaymentApproval(paymentId: string) {
   });
 }
 
-export function useCancelOrder() {
+function useOrderMutation(mutationFn: (id: string) => Promise<OrderDto>) {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: ordersApi.cancel,
+    mutationFn,
     onSuccess: (order) => {
       client.setQueryData(queryKeys.orders.detail(order.id), order);
       void client.invalidateQueries({ queryKey: ["orders", "list"] });
@@ -88,13 +113,15 @@ export function useCancelOrder() {
   });
 }
 
+export function useCancelOrder() {
+  return useOrderMutation(ordersApi.cancel);
+}
+
+/** Comprador confirma que recebeu: Entregue → Concluido (libera o repasse ao vendedor). */
+export function useConfirmReceipt() {
+  return useOrderMutation(ordersApi.confirmReceipt);
+}
+
 export function useOpenDispute() {
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: ordersApi.openDispute,
-    onSuccess: (order) => {
-      client.setQueryData(queryKeys.orders.detail(order.id), order);
-      void client.invalidateQueries({ queryKey: ["orders", "list"] });
-    },
-  });
+  return useOrderMutation(ordersApi.openDispute);
 }

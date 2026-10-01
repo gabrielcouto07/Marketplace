@@ -11,11 +11,10 @@ namespace Marketplace.Application.Services;
 
 public sealed class OrderService(
     IAppDbContext db,
-    IPaymentGateway gateway,
-    PayoutService payouts,
+    RefundService refunds,
+    ILinkBuilder links,
     ICurrentUser currentUser,
-    TimeProvider clock,
-    ILogger<OrderService> logger)
+    TimeProvider clock)
 {
     private DateTime Now => clock.GetUtcNow().UtcDateTime;
 
@@ -64,7 +63,11 @@ public sealed class OrderService(
     public async Task<OrderTrackingDto> TrackingAsync(string idOrNumber, CancellationToken ct)
     {
         var order = await FindOwnedAsync(idOrNumber, asNoTracking: true, ct);
-        return new OrderTrackingDto(order.TrackingCode, order.TrackingEvents.OrderBy(e => e.OccurredAt).Select(e => e.ToDto()).ToList());
+        return new OrderTrackingDto(
+            order.TrackingCode,
+            order.Carrier,
+            order.TrackingCode is null ? null : links.Tracking(order.TrackingCode, order.Carrier),
+            order.TrackingEvents.OrderBy(e => e.OccurredAt).Select(e => e.ToDto()).ToList());
     }
 
     public async Task<OrderDto> CancelAsync(string idOrNumber, CancellationToken ct)
@@ -73,9 +76,10 @@ public sealed class OrderService(
         if (!order.CanBeCancelled)
             throw AppException.Conflict("ORDER_NOT_CANCELLABLE", "Este pedido não pode mais ser cancelado.");
         var wasPaid = order.Status != OrderStatus.AguardandoPagamento;
-        await CancelInternalAsync(order, "Cancelado pelo comprador.", "buyer", restoreStock: true, ct);
+        MarkCancelled(order, "Cancelado pelo comprador.", "buyer");
+        // O estorno fala com o gateway (rede): fica fora da transação para não segurar o lock do estoque.
         if (wasPaid) await RefundCancelledOrderAsync(order, ct);
-        await db.SaveChangesAsync(ct);
+        await CommitCancellationAsync([order], ct);
         return order.ToDto(currentUser.Locale);
     }
 
@@ -110,49 +114,50 @@ public sealed class OrderService(
         order.Events.Add(new OrderEvent { OrderId = order.Id, Status = to, OccurredAt = now, Note = note, Location = location, Actor = actor });
     }
 
-    public async Task CancelInternalAsync(Order order, string? note, string actor, bool restoreStock, CancellationToken ct)
-    {
+    /// <summary>Transita para Cancelado sem persistir. Conclua com <see cref="CommitCancellationAsync"/>.</summary>
+    public void MarkCancelled(Order order, string? note, string actor) =>
         Transition(order, OrderStatus.Cancelado, note, null, actor);
-        if (!restoreStock) return;
-        foreach (var item in order.Items)
+
+    /// <summary>
+    /// Devolve o estoque dos pedidos cancelados (UPDATE atômico, simétrico à reserva do checkout) e salva todas as
+    /// mudanças pendentes na MESMA transação: ou tudo entra, ou nada. Sem isso, uma falha entre o UPDATE e o
+    /// SaveChanges deixaria estoque devolvido com o pedido ainda aberto (e um retry devolveria de novo).
+    /// </summary>
+    public async Task CommitCancellationAsync(IReadOnlyCollection<Order> cancelled, CancellationToken ct)
+    {
+        if (db.Database.CurrentTransaction is not null)
         {
-            var product = await db.Products.Include(p => p.Variants).FirstOrDefaultAsync(p => p.Id == item.ProductId, ct);
-            if (product is null) continue;
-            if (item.VariantId is { } vid && product.Variants.FirstOrDefault(v => v.Id == vid) is { } variant)
-            {
-                variant.Stock += item.Quantity;
-                product.Stock = product.Variants.Sum(v => v.Stock);
-            }
-            else product.Stock += item.Quantity;
+            await RestoreStockAsync(cancelled, ct);
+            await db.SaveChangesAsync(ct);
+            return;
+        }
+        await using var tx = await db.Database.BeginTransactionAsync(ct);
+        await RestoreStockAsync(cancelled, ct);
+        await db.SaveChangesAsync(ct);
+        await tx.CommitAsync(ct);
+    }
+
+    private async Task RestoreStockAsync(IEnumerable<Order> cancelled, CancellationToken ct)
+    {
+        foreach (var item in cancelled.SelectMany(o => o.Items))
+        {
+            var quantity = item.Quantity;
+            if (item.VariantId is { } vid)
+                await db.ProductVariants.Where(v => v.Id == vid)
+                    .ExecuteUpdateAsync(s => s.SetProperty(v => v.Stock, v => v.Stock + quantity), ct);
+            await db.Products.Where(p => p.Id == item.ProductId)
+                .ExecuteUpdateAsync(s => s.SetProperty(p => p.Stock, p => p.Stock + quantity), ct);
         }
     }
 
-    /// <summary>
-    /// Estorno parcial do valor do pedido cancelado (o pagamento cobre N pedidos da compra). Quando todos os
-    /// pedidos da compra estiverem cancelados/reembolsados, o pagamento passa a Estornado.
-    /// </summary>
+    /// <summary>Estorno do valor do pedido cancelado (o pagamento cobre N pedidos da compra) via RefundService.</summary>
     private async Task RefundCancelledOrderAsync(Order order, CancellationToken ct)
     {
-        var payment = order.Payment;
-        if (payment.Status != PaymentStatus.Aprovado) return;
-        await payouts.CancelForOrderAsync(order.Id, ct);
-        try
-        {
-            if (payment.GatewayPaymentId is not null)
-                await gateway.RefundAsync(payment.GatewayPaymentId, Money.Brl(order.TotalAmount), ct);
-            order.Events[^1].Note = "Cancelado pelo comprador. Reembolso solicitado no meio de pagamento original.";
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Falha ao solicitar estorno do pedido {OrderNumber}", order.Number);
-            order.Events[^1].Note = "Cancelado pelo comprador. Reembolso pendente de processamento manual.";
-        }
-        var siblings = await db.Orders.Where(o => o.PurchaseId == order.PurchaseId && o.Id != order.Id).Select(o => o.Status).ToListAsync(ct);
-        if (siblings.All(s => s is OrderStatus.Cancelado or OrderStatus.Reembolsado))
-        {
-            payment.Status = PaymentStatus.Estornado;
-            payment.UpdatedAt = Now;
-        }
+        if (order.Payment.Status != PaymentStatus.Aprovado) return;
+        var ok = await refunds.RefundOrderAsync(order, order.Payment, ct);
+        order.Events[^1].Note = ok
+            ? "Cancelado pelo comprador. Reembolso solicitado no meio de pagamento original."
+            : "Cancelado pelo comprador. Reembolso pendente de processamento manual.";
     }
 
     private async Task<Order> FindOwnedAsync(string idOrNumber, bool asNoTracking, CancellationToken ct)

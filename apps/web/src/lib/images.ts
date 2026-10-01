@@ -1,3 +1,4 @@
+import { getApiBaseUrl } from "./api/http";
 import blurColors from "./image-blur.json";
 
 /**
@@ -35,17 +36,15 @@ export const BLUR_DATA_URL = solidSvg(FALLBACK);
 
 /**
  * Imagens que o otimizador do next/image não consegue buscar no servidor: uploads servidos pela
- * própria API (`/api/…`, inclusive o mock em dev) e URLs `blob:`/`data:` de pré-visualização.
- * Nesses casos o componente deve usar `unoptimized`.
+ * própria API (`/api/…` relativo ou a URL absoluta de NEXT_PUBLIC_API_URL, inclusive o mock em dev)
+ * e URLs `blob:`/`data:` de pré-visualização. Nesses casos o componente deve usar `unoptimized`.
  */
 export function isDirectImage(src: string | null | undefined): boolean {
-  return Boolean(
-    src && (src.startsWith("/api/") || src.startsWith("blob:") || src.startsWith("data:")),
+  if (!src) return false;
+  return (
+    src.startsWith("/api/") ||
+    src.startsWith("blob:") ||
+    src.startsWith("data:") ||
+    src.startsWith(`${getApiBaseUrl()}/`)
   );
-}
-
-/** Cor dominante conhecida de um asset local, ou `null`. Útil para fundos de tiles e capas. */
-export function dominantColorFor(src: string | null | undefined): string | null {
-  const key = src ? src.split("?")[0] : "";
-  return COLORS[key] ?? null;
 }

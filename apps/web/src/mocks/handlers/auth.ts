@@ -15,7 +15,16 @@ import { isValidCpf } from "@/lib/validation/documents";
 
 import { db, persistDb } from "../db";
 import { DEMO_ACCOUNTS, DEMO_PASSWORD } from "../fixtures/account";
-import { API, addDays, nowIso, notFound, simulateLatency, unauthorized, validation } from "./utils";
+import {
+  API,
+  addDays,
+  isAuthorized,
+  nowIso,
+  notFound,
+  simulateLatency,
+  unauthorized,
+  validation,
+} from "./utils";
 
 export function issueSession(user: UserProfileDto): AuthResponseDto {
   const accessToken = `mock.${crypto.randomUUID()}`;
@@ -27,12 +36,6 @@ export function issueSession(user: UserProfileDto): AuthResponseDto {
     expiresAt: addDays(nowIso(), 7),
     user,
   };
-}
-
-function isAuthorized(request: Request): boolean {
-  const auth = request.headers.get("authorization");
-  if (!auth) return false;
-  return db.tokens.includes(auth.replace(/^Bearer\s+/i, ""));
 }
 
 export const authHandlers = [

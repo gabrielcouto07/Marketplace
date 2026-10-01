@@ -1,0 +1,751 @@
+================================================================================
+GUIA DO BACKEND — Marketplace Paraguai → Brasil  (apps/api, .NET 10)
+================================================================================
+
+Este arquivo explica COMO o backend é organizado, POR QUE foi feito assim e as
+sintaxes de C#/.NET/EF Core que aparecem no código. Leia de cima para baixo na
+primeira vez; depois use o índice para voltar a um ponto específico.
+ 
+NOTA (2026-10-01): as integrações (gateways de pagamento, frete, rastreio, câmbio) usam
+catálogos de provedores e webhooks por provedor — ver a seção 11. O detalhe operacional
+(variáveis de ambiente, checklist de produção) está em docs/BACKEND_INTEGRATION.md e
+apps/api/README.md.
+
+ÍNDICE
+  1. Visão geral em 1 minuto
+  2. As quatro camadas (Domain, Application, Infrastructure, Api)
+  3. O caminho de uma requisição (do celular até o banco e de volta)
+  4. Banco de dados: EF Core, tabelas, migrations, SQLite x PostgreSQL
+  5. Dinheiro, câmbio e impostos (as regras que não podem errar)
+  6. Pedido: máquina de estados e ciclo de vida
+  7. Checkout e pagamento passo a passo
+  8. Autenticação (JWT + refresh token)
+  9. Painel do vendedor
+ 10. Jobs em background
+ 11. Integrações externas: portas e provedores (frete, rastreio, pagamento, câmbio)
+ 12. LGPD e segurança
+ 13. Configuração (appsettings) e ambientes
+ 14. Sintaxes de C# que aparecem o tempo todo (dicionário)
+ 15. Como fazer as tarefas mais comuns (receitas)
+ 16. Como depurar
+ 17. Glossário
+
+--------------------------------------------------------------------------------
+1. VISÃO GERAL EM 1 MINUTO
+--------------------------------------------------------------------------------
+
+- O front (Next.js, apps/web) fala com a API por HTTP/JSON em /api/*.
+- A API é ASP.NET Core "Minimal APIs": cada rota é uma linha `MapGet/MapPost`.
+- Os dados ficam em PostgreSQL (produção) ou SQLite (dev, sem instalar nada),
+  acessados via EF Core (o ORM da Microsoft: você escreve C#, ele gera SQL).
+- Regras de negócio ficam em "Services" (CatalogService, CheckoutService...).
+- Tudo que fala com o mundo externo (gateway de pagamento, CEP, storage de
+  imagens, e-mail) fica atrás de uma interface, com uma implementação "fake"
+  para desenvolvimento e uma real (Mercado Pago, ViaCEP, R2...).
+
+Rodar:  pnpm api   (http://localhost:5210, docs em /scalar)
+Testar: pnpm api:test
+
+--------------------------------------------------------------------------------
+2. AS QUATRO CAMADAS
+--------------------------------------------------------------------------------
+
+A solução (apps/api/Marketplace.slnx) tem 4 projetos + testes. A regra é:
+uma camada só conhece a de baixo, nunca a de cima.
+
+  Marketplace.Api            ← rotas HTTP, autenticação, CORS, JSON
+      ↓ usa
+  Marketplace.Infrastructure ← EF Core, seed, Mercado Pago, ViaCEP, R2, jobs
+      ↓ usa
+  Marketplace.Application    ← regras de negócio (Services), DTOs, interfaces
+      ↓ usa
+  Marketplace.Domain         ← entidades, enums, Money, máquina de estados
+
+Por que separar?
+- DaymentGateway, IPostalCodeLookup...) mas
+  não sabe quem as implementa. Isso permite trocar Mercado Pago por outro
+  gateway sem mexer no checkout.omain não depende de NADA (nem de EF Core). Dá para testar as regras de
+  dinheiro e imposto sem banco.
+- Application define INTERFACES (IP
+- Infrastructure implementa essas interfaces com as tecnologias reais.
+- Api é só "cola": recebe HTTP, chama um Service, devolve JSON.
+
+Pastas importantes:
+
+  Domain/
+    Common/Money.cs           valor monetário como INTEIRO (centavos)
+    Common/Documents.cs       validação de CPF, RUC, CEP, e-mail
+    Common/DeterministicId.cs gera os mesmos GUIDs que o mock do front
+    Entities/*.cs             classes que viram tabelas (Product, Order...)
+    Enums.cs                  OrderStatus, PaymentStatus, UserRole...
+    OrderStateMachine.cs      quais transições de status são permitidas
+    ImportTaxCalculator.cs    estimativa do imposto de importação
+
+  Application/
+    Abstractions/             PORTAS das integrações (IPaymentGateway, IShippingRateProvider,
+                              ITrackingProvider, IExchangeRateProvider...) + IAppDbContext
+    Contracts/                DTOs = o JSON que entra e sai (espelham
+                              packages/contracts do front)
+    Common/                   AppException, paginação, mappers, mensagens
+    Services/                 a lógica: CatalogService, ShippingService, CheckoutService,
+                              OrderService, PaymentService, RefundService, TrackingService,
+                              AuthService, AccountService, PrivacyService, SellerPanelService
+
+  Infrastructure/
+    Persistence/AppDbContext.cs   mapeamento entidade → tabela
+    Persistence/Migrations/       histórico do schema (PostgreSQL)
+    Persistence/Seed/             catálogo e usuário demo iniciais
+    Providers/ProviderCatalog.cs  registro nome → implementação das integrações (seção 11)
+    Payments/                     FakePaymentGateway, MercadoPagoGateway, PaymentGatewayRegistry
+    Shipping/                     PostalCodeLookup (CEP), tabela de frete + Composite (fallback),
+                                  rastreio (fake, webhook genérico, resolver por transportadora)
+    ExchangeRates/                provedores de câmbio (Manual = admin cadastra)
+    Storage/                      imagens: disco local ou Cloudflare R2
+    Auth/                         JWT, hash de senha, Google
+    Background/Jobs.cs            pagamentos (expiração), logística (rastreio/auto-conclusão),
+                                  câmbio (importação), limpeza (cotações/tokens/webhooks)
+    DependencyInjection.cs        registra tudo no container e escolhe os provedores ativos
+
+  Api/
+    Program.cs                    inicialização (o "main")
+    Endpoints/*.cs                as rotas
+    Infrastructure/               CurrentUser, tratamento de erros, JSON
+
+--------------------------------------------------------------------------------
+3. O CAMINHO DE UMA REQUISIÇÃO
+--------------------------------------------------------------------------------
+
+Exemplo: o celular pede GET /api/products/smart-tv-55-ele1
+
+  1. Kestrel (servidor web do .NET) recebe o HTTP.
+  2. Middlewares em ordem (Program.cs): tratamento de exceção → CORS →
+     rate limit → autenticação (lê o JWT se houver) → autorização →
+     output cache.
+  3. Roteamento encontra a rota em CatalogEndpoints.cs:
+
+        g.MapGet("/products/{slug}", (string slug, CatalogService svc,
+                                      CancellationToken ct)
+            => svc.ProductAsync(slug, ct));
+
+     Os parâmetros do lambda são preenchidos AUTOMATICAMENTE:
+       - `slug` vem da URL;
+       - `CatalogService svc` vem do container de injeção de dependência (DI);
+       - `CancellationToken ct` avisa se o cliente desconectou.
+     Para POST, um parâmetro de tipo complexo (ex.: `LoginRequest body`)
+     é lido do corpo JSON.
+
+  4. CatalogService.ProductAsync monta uma query LINQ:
+
+        var product = await db.Products.AsNoTracking()
+            .Include(p => p.Seller)
+            .Include(p => p.Images)
+            .FirstOrDefaultAsync(p => p.Slug == slug, ct)
+            ?? throw AppException.NotFound("Produto");
+
+     - `db.Products` é a tabela; `.Include` faz JOIN com loja e imagens;
+     - `AsNoTracking()` = só leitura (mais rápido);
+     - `FirstOrDefaultAsync` executa o SQL e devolve 1 registro ou null;
+     - `?? throw` = se for null, lança 404.
+
+  5. O mapper (Common/Mappers.cs) converte a entidade em DTO
+     (`product.ToDetail(...)`), calculando o preço em guaranis com a taxa.
+
+  6. O DTO volta pelo endpoint e vira JSON (camelCase, enums como texto,
+     datas em UTC com "Z") — regras em Api/Infrastructure/JsonSetup.cs.
+
+  Se algo der errado:
+  - `throw AppException.Validation("cpf", "CPF inválido.")` → HTTP 422 com
+    { status, code, message, errors: { cpf: ["CPF inválido."] } }
+  - `AppException.NotFound` → 404; `Conflict` → 409; `Unauthorized` → 401.
+  - Qualquer outra exceção → 500 sem vazar detalhes (fora de Development).
+  Tudo isso é feito em Api/Infrastructure/ApiProblems.cs. O front lê
+  `errors` e mostra a mensagem no campo certo do formulário.
+
+--------------------------------------------------------------------------------
+4. BANCO DE DADOS
+--------------------------------------------------------------------------------
+
+4.1 EF Core em 3 frases
+- Cada classe em Domain/Entities vira uma tabela; cada propriedade, uma coluna.
+- `AppDbContext` (Infrastructure/Persistence) é a "sessão" com o banco: tem
+  um `DbSet<T>` por tabela e o método `OnModelCreating` com o mapeamento fino.
+- Você consulta com LINQ (`db.Orders.Where(o => o.UserId == id)`) e grava com
+  `db.Add(x)` + `await db.SaveChangesAsync(ct)`.
+
+4.2 Tabelas (nomes em snake_case, convertidos automaticamente)
+  categories, sellers, seller_categories, products, product_images,
+  product_variants, reviews, questions, banners, coupons,
+  users, refresh_tokens, password_reset_tokens, addresses, favorites,
+  cart_items, consents, audit_logs,
+  exchange_rates, shipping_zones, checkout_quotes, purchases, orders,
+  order_items, order_events, tracking_events, payments, payouts,
+  webhook_events, platform_settings
+
+  Relações principais:
+    users 1─N addresses, refresh_tokens, consents
+    sellers 1─N products; products 1─N product_images, product_variants,
+                          reviews, questions
+    purchases 1─N orders; purchases 1─1 payments
+    orders 1─N order_items, order_events (timeline), tracking_events
+    orders N─1 sellers, exchange_rates, payments
+
+4.3 Detalhes de mapeamento que surpreendem (AppDbContext.cs)
+- Enums são gravados como TEXTO ("Pago", "Enviado") — `HasConversion<string>()`.
+  Fica legível no banco e igual ao JSON.
+- Listas/dicionários viram JSON em uma coluna de texto: `VariantOptions`,
+  `Attributes`, `Variant.Attributes`, `Order.ShippingAddress` (snapshot),
+  `Order.ShippingOption`. Isso é portável entre SQLite e PostgreSQL.
+- `User.Cpf` e `Payment.PayerDocument` são CIFRADOS antes de gravar
+  (Data Protection). Nunca faça `Where(u => u.Cpf == x)` — não funciona
+  cifrado, e não deveria mesmo.
+- Datas: sempre `DateTime` em UTC. Um conversor força Kind=Utc na leitura
+  (SQLite devolve "Unspecified" e o Npgsql exige Utc).
+- `Roles` do usuário é uma lista gravada como "Comprador,Vendedor".
+- Índices únicos: slug, e-mail, RUC, número do pedido, (userId, idempotencyKey),
+  (provider, externalId) dos webhooks. Violar índice único = exceção.
+
+4.4 SQLite x PostgreSQL
+- Sem `ConnectionStrings:Postgres` → SQLite em apps/api/src/Marketplace.Api/
+  .data/marketplace.dev.db, criado com `EnsureCreated()` (sem migrations).
+  Apagar o arquivo = banco novo com seed.
+- Na subida, DatabaseInitializer compara um hash do modelo (tabelas, colunas,
+  índices) com o guardado na tabela __schema_hash. Mudou alguma entidade? O
+  arquivo é apagado e recriado sozinho, e o seed roda de novo (dados de dev são
+  descartáveis). Database:RecreateSqliteOnSchemaChange=false troca isso por um
+  erro claro pedindo para apagar o arquivo.
+- Com Postgres → `Database.Migrate()` aplica as migrations em
+  Persistence/Migrations na inicialização.
+- Mudou uma entidade? Gere uma migration para o PostgreSQL (ver receitas,
+  seção 15). Em dev com SQLite não há o que fazer: o banco é recriado sozinho.
+
+4.5 Seed (Persistence/Seed)
+- SeedCatalog porta as fixtures do front: 8 categorias, 8 lojas, 64 produtos,
+  com os MESMOS GUIDs (DeterministicId = mesmo PRNG mulberry32 + FNV-1a do
+  mock). Carrinho/favoritos salvos no celular continuam válidos.
+- SeedDemo (só com Database:SeedDemoData=true): usuário demo@mktpy.com /
+  123456, 2 endereços, 11 pedidos (um por status) e a loja MegaStore Paraguay
+  como dele (para o painel do vendedor ter dados).
+- O seed roda em DatabaseInitializer só quando a tabela está vazia.
+
+--------------------------------------------------------------------------------
+5. DINHEIRO, CÂMBIO E IMPOSTOS
+--------------------------------------------------------------------------------
+
+5.1 Money (Domain/Common/Money.cs)
+    readonly record struct Money(long Amount, CurrencyCode Currency)
+
+- `Amount` é INTEIRO na menor unidade: BRL/USD em centavos, PYG em guaranis.
+  R$ 1.299,00 = 129900. Nunca use double/decimal para dinheiro.
+- Operações: Add, Subtract, Multiply(inteiro), MultiplyBasisPoints,
+  Convert(taxa), InstallmentAmount.
+- Basis points: 10000 = 100%. 6000 = 60%. 1000 = 10%. Evita "0.6" em float.
+- `RoundDiv` arredonda "half-up" (0,5 → 1), igual ao Math.round do JS, para
+  o backend bater centavo a centavo com o mock do front.
+- No banco, Money vira duas colunas (`price_amount` bigint + moeda implícita)
+  ou só o amount quando a moeda é fixa (catálogo é sempre BRL).
+
+5.2 Câmbio (ExchangeRate)
+- Taxa é FRAÇÃO EXATA: numerator/denominator. BRL→PYG = 1389/100 significa
+  1 centavo → 13,89 guaranis. Conversão: round(amount × num / den).
+- `ExchangeRateService.GetCurrentAsync` pega a mais recente não expirada.
+- No checkout a taxa é TRAVADA: o id vai na cotação, no pedido e no pagamento.
+  O comprador vê "R$ 1,00 = ₲ 1.389" e esse número não muda depois.
+
+5.3 Imposto de importação (ImportTaxCalculator)
+- Modo `Flat` (padrão): alíquota única de platform_settings
+  (ImportTaxBasisPoints = 6000 = 60%) sobre produtos + frete − desconto.
+- Modo `RemessaConforme`: até US$ 50 → 20%; acima → 60% com dedução de
+  US$ 20; depois ICMS 17% "por dentro" (base/(1−0,17) − base).
+- Sempre devolve também o `EffectiveBasisPoints` para o front exibir
+  "alíquota de X%". É ESTIMATIVA: a Receita pode cobrar diferente.
+- Parâmetros ficam na tabela platform_settings (linha única, id = 1).
+
+--------------------------------------------------------------------------------
+6. PEDIDO: MÁQUINA DE ESTADOS
+--------------------------------------------------------------------------------
+
+Status (enum OrderStatus, gravado como texto):
+
+  AguardandoPagamento → Pago → EmPreparacao → Enviado
+      → EmTransitoInternacional → Entregue → Concluido
+
+  Ramos: Cancelado (só até EmPreparacao)
+         EmDisputa (a partir de Enviado/EmTransito/Entregue)
+             → Devolvido → Reembolsado, ou → Concluido
+
+`OrderStateMachine.CanTransition(de, para)` é a única fonte de verdade.
+`OrderService.Transition(order, status, note, location, actor)`:
+  - valida a transição (409 ORDER_INVALID_TRANSITION se proibida);
+  - muda o status e `UpdatedAt`;
+  - adiciona uma linha em order_events (a timeline que o front desenha).
+
+Quem transita:
+  sistema/gateway: AguardandoPagamento→Pago (webhook), expiração → Cancelado
+  vendedor:        Pago→EmPreparacao→Enviado (painel: "Preparar"/"Enviar")
+  transportadora:  Enviado→EmTransitoInternacional→Entregue (eventos de rastreio)
+  comprador:       Cancelado (antes do envio), EmDisputa, Concluido (confirmar)
+  job:             Entregue→Concluido após AutoCompleteDays
+
+A descrição de cada evento NÃO é gravada: é gerada na leitura a partir do
+status e do idioma (Accept-Language pt-BR/es-PY) em Common/Messages.cs.
+Só `Note` (texto extra, ex.: "Reembolso solicitado") vai para o banco.
+
+--------------------------------------------------------------------------------
+7. CHECKOUT E PAGAMENTO PASSO A PASSO
+--------------------------------------------------------------------------------
+
+7.1 POST /checkout/quotes (CheckoutService.QuoteAsync)
+  1. Valida CEP (8 dígitos + existe no ViaCEP).
+  2. Para cada loja do carrinho: carrega produtos/variações
+     (ShippingService.ResolveLinesAsync — valida que o produto é daquela
+     loja, que a variação existe e que há estoque), soma o subtotal, cota o
+     frete (IShippingRateProvider — ver seção 11; o frete grátis é regra da
+     plataforma e é aplicado aqui, no ShippingService) e escolhe a opção pedida
+     (ou a primeira).
+  3. Cupom: se válido desconta; se inválido IGNORA (não dá erro, porque o
+     front recota a cada tecla).
+  4. Imposto estimado sobre (subtotal + frete − desconto); total; total em PYG.
+  5. Grava a cotação inteira como JSON em checkout_quotes (com o CEP e o cupom
+     aplicado) com validade de 15 min (QuoteLockMinutes) e devolve o `quoteId`.
+
+7.2 POST /orders (CheckoutService.PlaceOrderAsync)
+  1. Idempotência: se já existe purchase com a mesma `idempotencyKey` do
+     usuário, devolve a MESMA resposta (o front pode reenviar sem duplicar).
+  2. Recarrega a cotação: expirada/consumida/de outro usuário → 422 quoteId.
+     Se a opção de frete enviada difere da cotada → 422 (o imposto foi
+     calculado com a outra).
+  3. Valida endereço (do usuário e com o MESMO CEP da cotação — frete e imposto
+     foram calculados para ele), CPF do pagador, dados do cartão.
+  4. TRANSAÇÃO: cria Purchase, 1 Order por loja (número PY-AAAA-NNNNNN),
+     OrderItems, primeiro OrderEvent, Payment com status Pendente e RESERVA o
+     estoque com UPDATE atômico (`WHERE stock >= qtd`: duas compras ao mesmo
+     tempo não vendem a mesma unidade). Desconto e imposto são rateados entre as lojas de
+     modo que a soma dos pedidos = total da cotação. Commit.
+  5. FORA da transação: chama o gateway padrão (`IPaymentGatewayRegistry.Default`
+     → `CreatePaymentAsync`); o nome dele fica gravado em payments.gateway.
+     - Pix → devolve payload "copia e cola" + expiração 30 min
+     - Boleto → linha digitável, código de barras, PDF, vencimento 3 dias
+     - Cartão → aprovado (pedidos viram Pago) ou recusado (pedidos cancelados
+       e estoque devolvido)
+     Se o gateway EXPLODIR, o pagamento é marcado Recusado e os pedidos
+     cancelados — nunca fica pedido "fantasma" reservando estoque.
+  6. Devolve { purchaseId, orders[], payment }.
+
+7.3 Depois: webhooks e jobs (PaymentService + RefundService)
+  - POST /webhooks/payments/{gateway} (aliases: /webhooks/payments para o
+    gateway padrão e /webhooks/mercadopago): o gateway traduz o evento
+    (`ParseWebhookAsync` valida a assinatura), grava em webhook_events
+    (idempotente por id, com attempts/error) e aplica: Aprovado → pedidos Pago +
+    payouts agendados + soldCount; Recusado/Expirado → cancela; Estornado →
+    reembolsa. Valor diferente do cobrado NÃO aprova (fica registrado para
+    revisão manual). Pagamento ainda desconhecido responde 404 de propósito: o
+    gateway reenvia e a external_reference resolve na próxima tentativa.
+  - PaymentMaintenanceJob (a cada 5 s): expira Pix/boleto vencidos — antes
+    consulta o gateway (um Pix pago no último segundo não pode expirar; com o
+    gateway fora do ar, tenta de novo dali a 1 min). Com o gateway fake em dev,
+    aprova sozinho após 20 s (imita o mock).
+  - Pagamento confirmado DEPOIS de expirar/recusar (pedidos já cancelados) é
+    estornado automaticamente — o comprador não paga por nada.
+  - Cancelar pedido pago (comprador ou admin) → RefundService estorna só a parte
+    daquele pedido no gateway de ORIGEM (idempotente por pedido;
+    refunded_amount/last_refund_id no pagamento), cancela o repasse e, quando
+    todos os pedidos da compra caem, o pagamento vira Estornado. O estoque é
+    devolvido com UPDATE atômico na MESMA transação que grava o cancelamento.
+
+7.4 Repasses (PayoutService)
+  Ao aprovar, cria 1 payout por pedido: bruto (subtotal + frete − desconto)
+  − comissão (PlatformFeeBasisPoints sobre o subtotal) − custo do meio de
+  pagamento (PaymentFeeBasisPoints) = líquido, agendado para paidAt +
+  PayoutHoldDays. O imposto de importação NÃO vai ao vendedor (a plataforma
+  recolhe).
+
+--------------------------------------------------------------------------------
+8. AUTENTICAÇÃO
+--------------------------------------------------------------------------------
+
+- Login/registro devolvem `accessToken` (JWT HS256, claims sub/email/name/
+  roles) + `refreshToken` (aleatório; no banco só o SHA-256).
+- O front manda `Authorization: Bearer <accessToken>` em toda chamada.
+  `[Authorize]`/`.RequireAuthorization()` bloqueia sem token (401 em JSON).
+- `ICurrentUser` (Api/Infrastructure/CurrentUser.cs) lê o usuário do token
+  em qualquer Service: `currentUser.RequireUserId()` → Guid ou 401.
+- Refresh: POST /auth/refresh com o token (body ou cookie httpOnly
+  `mktpy_refresh`) → gira o token (o antigo é revogado). Reutilizar um token
+  já girado revoga TODOS (proteção contra roubo).
+- Access token dura 7 dias hoje porque o front ainda não renova sozinho.
+  Quando o interceptor 401→refresh existir, reduza `Auth:Jwt:AccessTokenMinutes`.
+- Senha: `PasswordHasher` do ASP.NET Identity (PBKDF2). Login errado → 422
+  no campo `password` sem dizer se o e-mail existe.
+- Google: valida o idToken com a biblioteca oficial; exige Auth:Google:ClientId.
+- Papéis (UserRole): Comprador, Vendedor, Admin. Virar vendedor REEMITE a
+  sessão (o JWT antigo não tinha o papel).
+
+--------------------------------------------------------------------------------
+9. PAINEL DO VENDEDOR (SellerPanelService + SellerEndpoints)
+--------------------------------------------------------------------------------
+
+- A loja é ligada ao usuário por `Seller.OwnerUserId`.
+- `RequireSellerAsync`: acha a loja do usuário logado; se não tem → 403 com
+  code SELLER_REQUIRED (o front redireciona para /vendedor/cadastro);
+  suspensa → 403 SELLER_SUSPENDED.
+- POST /seller/register: valida (nome, RUC módulo 11 e único, cidade,
+  descrição ≥ 20, ≥ 1 categoria, termos), cria a loja aprovada, adiciona o
+  papel Vendedor, grava consentimento e devolve loja + NOVA sessão.
+- Produtos: POST/PUT validam campo a campo (422 com `errors`), slug único
+  gerado do nome, `SearchText` (nome + loja sem acento) para a busca, imagens
+  reordenadas pela lista enviada (a primeira é a capa). DELETE = arquiva
+  (status Arquivado), nunca apaga — pedidos antigos referenciam o produto.
+- Só produtos `Ativo` de lojas `Aprovado` aparecem na vitrine (CatalogService
+  filtra sempre).
+- Pedidos: GET /seller/orders, POST .../prepare (Pago→EmPreparacao),
+  POST .../ship { carrier, trackingCode } (→ Enviado + evento POSTED).
+- Imagens: POST /seller/uploads assina uma URL; o navegador faz PUT direto.
+  Provider Local grava em .data/media e serve em GET /api/media/{key}
+  (com proteção contra "../"). Provider R2 gera URL pré-assinada S3.
+  As URLs são relativas ("/api/media/...") para passar pelo proxy do Next.
+
+--------------------------------------------------------------------------------
+10. JOBS EM BACKGROUND (Infrastructure/Background/Jobs.cs)
+--------------------------------------------------------------------------------
+
+`BackgroundService` = classe que roda um loop enquanto a API está de pé.
+Cada volta cria um "scope" (`scopes.CreateAsyncScope()`) para obter um
+DbContext novo — DbContext NÃO é thread-safe nem deve viver muito.
+
+Todos herdam de PeriodicJob (intervalo fixo; uma falha numa rodada é logada e
+o job continua).
+
+- PaymentMaintenanceJob (5 s): expira pagamentos vencidos (confirmando no
+  gateway antes); auto-aprova no fake.
+- LogisticsJob (Tracking:PollIntervalMinutes; 30 s no rastreio fake): chama
+  TrackingService.SyncAsync — para cada pedido Enviado/EmTransito com código,
+  escolhe o ITrackingProvider pela transportadora (Supports), adiciona
+  tracking_events novos (dedupe por ExternalId) e transita o status; conclui
+  pedidos entregues há mais de AutoCompleteDays (contados da entrega).
+- ExchangeRateRefreshJob (ExchangeRates:RefreshIntervalMinutes): importa
+  cotações do IExchangeRateProvider configurado para exchange_rates. Com o
+  provedor Manual (padrão) não faz nada; uma falha na primeira importação não
+  derruba a API.
+- HousekeepingJob (Housekeeping:IntervalMinutes): apaga cotações vencidas,
+  refresh/reset tokens expirados e webhooks já processados (retenções em
+  Housekeeping:*).
+
+--------------------------------------------------------------------------------
+11. INTEGRAÇÕES EXTERNAS: PORTAS E PROVEDORES
+--------------------------------------------------------------------------------
+
+Tudo que depende de um serviço de fora (gateway de pagamento, transportadora,
+CEP, câmbio, storage, e-mail) entra no sistema por uma PORTA: uma interface em
+Application/Abstractions. A regra de negócio (checkout, pedido, estoque) só
+conhece a porta; quem implementa é um PROVEDOR em Infrastructure. A API já está
+pronta para receber as integrações reais — plugar uma transportadora ou um
+gateway não toca no checkout nem nas rotas.
+
+Portas e provedores de hoje (arquivo da porta → implementações → chave de config):
+  IPaymentGateway (IPaymentGateway.cs)
+      fake (dev), mercadopago                        Payments:Provider
+      IPaymentGatewayRegistry mantém TODOS registrados: o padrão cria cobranças
+      novas; consulta, estorno e webhook usam o gateway gravado em payments.gateway
+      (trocar de provedor não quebra cobranças antigas).
+  IShippingRateProvider (Shipping.cs)
+      table (tabela própria por zona do CEP)         Shipping:Provider
+      CompositeShippingRateProvider chama o configurado e cai na tabela em
+      falha, timeout ou lista vazia (Shipping:FallbackToTable, TimeoutSeconds).
+  ITrackingProvider + ITrackingWebhookParser (Tracking.cs)
+      fake (simula a jornada PY→BR); parser generic   Tracking:Provider
+  IExchangeRateProvider (Integrations.cs)
+      manual (admin cadastra as taxas)               ExchangeRates:Provider
+  IPostalCodeLookup      ViaCEP → BrasilAPI com cache 24 h (PostalCodes:*)
+  IImageStorage          Local, R2                   Storage:Provider
+  IEmailSender           Log, Smtp                   Email:Provider
+
+Como um provedor é encontrado (Infrastructure/Providers/ProviderCatalog.cs):
+  services.AddProvider<IShippingRateProvider, MelhorEnvioRateProvider>("melhorenvio");
+registra a implementação sob um NOME. ProviderCatalog<T> resolve pelo nome que
+está na configuração (Shipping:Provider) ou no banco (payments.gateway). As
+rotas de webhook nascem do nome: POST /webhooks/payments/{gateway} e
+POST /webhooks/shipping/{provider} — cada provedor valida a própria assinatura
+(ParseWebhookAsync / ParseAsync) e o processamento é idempotente (webhook_events).
+
+O que cada porta recebe e devolve:
+  - Frete: ShippingQuoteContext = origem (loja: cidade, país e CEP de origem),
+    destino (CEP, cidade/UF), itens (peso em g, dimensões em cm e NCM vindos do
+    cadastro do produto; sem peso usa 500 g) e valor declarado. Devolve
+    ShippingRateOption com provider + serviceCode e um id ESTÁVEL
+    (ShippingRateOption.StableId) para o checkout reencontrar a opção ao
+    recotar. Preço cheio: o frete grátis é aplicado depois, no ShippingService.
+  - Rastreio: Supports(transportadora) diz se o provedor atende o nome que o
+    vendedor digitou no envio; GetEventsAsync devolve eventos com código
+    NORMALIZADO (Domain/Shipping/TrackingCodes.cs: POSTED, EXPORT, IN_TRANSIT,
+    ARRIVED_BR, CUSTOMS, TAX_PENDING, CUSTOMS_RELEASED, OUT_FOR_DELIVERY,
+    DELIVERY_FAILED, DELIVERED, RETURNED). TrackingService aplica (dedupe por
+    ExternalId) e transita o pedido; GET /orders/{id}/tracking devolve também
+    o link da transportadora (Links:TrackingUrlTemplates).
+  - Pagamento: CreatePaymentAsync (Pix/boleto/cartão por token — o PAN nunca
+    chega aqui), GetStatusAsync (status, valor, data, external_reference),
+    RefundAsync(valor, chave de idempotência), ParseWebhookAsync.
+  - Câmbio: FetchAsync(pares) → o ExchangeRateRefreshJob grava em exchange_rates.
+
+Passo a passo para plugar uma transportadora (ex.: Melhor Envio):
+  1. Infrastructure/Shipping/MelhorEnvioRateProvider.cs : IShippingRateProvider
+     (Name = "melhorenvio"), com HttpClient tipado + AddStandardResilienceHandler.
+  2. DependencyInjection.cs:
+       services.AddHttpClient<MelhorEnvioRateProvider>(c => ...);
+       services.AddProvider<IShippingRateProvider, MelhorEnvioRateProvider>(
+           "melhorenvio", registerImplementation: false);
+  3. Credenciais numa seção própria: AddOptions<MelhorEnvioOptions>().Bind(...)
+     .Validate(...).ValidateOnStart() (a API nem sobe se faltar a chave).
+  4. appsettings/variáveis: Shipping:Provider = "MelhorEnvio" (a tabela segue
+     como fallback).
+  5. Rastreio: implemente ITrackingProvider (polling) e/ou ITrackingWebhookParser
+     (webhook) e registre do mesmo jeito; a rota /webhooks/shipping/melhorenvio
+     passa a existir sozinha.
+A mesma receita vale para um gateway (IPaymentGateway) e para o câmbio
+(IExchangeRateProvider). Antes de cotar de verdade, cadastre peso/dimensões nos
+produtos e o CEP de origem nas lojas (campos já existem no painel do vendedor).
+
+--------------------------------------------------------------------------------
+12. LGPD E SEGURANÇA
+--------------------------------------------------------------------------------
+
+- consents: aceite dos termos/política com versão, data, IP e user-agent,
+  no cadastro e ao virar vendedor. GET/POST /me/consents.
+- GET /me/data-export: tudo do titular em JSON (portabilidade).
+- DELETE /me: anonimiza (nome, e-mail tombstone, CPF, telefone, endereços),
+  revoga sessões, mantém pedidos/pagamentos sem vínculo identificável
+  (obrigação fiscal). Bloqueia se houver pedido em andamento.
+- audit_logs: login, exportação, exclusão, alteração de perfil, cadastro de loja.
+- Cifragem de CPF/documento com Data Protection: as chaves ficam em
+  DataProtection:KeysPath (.data/keys). PERDER AS CHAVES = perder os CPFs.
+  Em produção, guarde em volume durável e faça backup.
+- Rate limit: /auth/* (20/min por IP) e /me/data-export (5 a cada 10 min).
+- Nomes públicos abreviados ("Gabriel D.") em perguntas e avaliações.
+- Cartão nunca chega à API: só o token do gateway.
+- Erros nunca vazam stack trace fora de Development.
+
+--------------------------------------------------------------------------------
+13. CONFIGURAÇÃO
+--------------------------------------------------------------------------------
+
+Arquivos: appsettings.json (base) + appsettings.Development.json (sobrescreve
+em dev). Qualquer chave pode virar variável de ambiente trocando ":" por "__":
+  Auth:Jwt:Secret  →  Auth__Jwt__Secret
+Segredos em dev: `dotnet user-secrets set "Auth:Jwt:Secret" "..."` no
+projeto Api (nunca commite segredo real).
+
+Chaves que importam:
+  ConnectionStrings:Postgres      vazio = SQLite
+  Database:SeedDemoData           true só em dev
+  Database:RecreateSqliteOnSchemaChange   true (padrão): SQLite de dev é recriado quando o schema muda
+  Auth:Jwt:Secret                 ≥ 32 caracteres, OBRIGATÓRIO
+  Auth:Jwt:AccessTokenMinutes     60 (o front renova em 401)
+  Payments:Provider               Fake | MercadoPago — quem cria cobranças NOVAS
+  Payments:AllowFakeOutsideDevelopment    false: fora de Development o fake é recusado na subida
+  Payments:MercadoPago:*          AccessToken, WebhookSecret, NotificationUrl
+                                  (…/api/webhooks/payments/mercadopago), RequireSignature
+  Payments:Fake:*                 AutoApproveAfterSeconds (20 em dev), WebhookSecret (vazio = rejeita)
+  Shipping:Provider               Table | <integração>; FallbackToTable, TimeoutSeconds
+  PostalCodes:AllowOfflineFallback  true em dev (sem internet, usa a zona do CEP)
+  Tracking:Provider               None | Fake | <integração>; WebhookSecret, PollIntervalMinutes, PollBatchSize
+  ExchangeRates:Provider          Manual | <integração>; RefreshIntervalMinutes, ValidityHours, Pairs
+  Housekeeping:*                  IntervalMinutes, QuoteRetentionHours, TokenRetentionDays, WebhookRetentionDays
+  Storage:Provider                Local | R2 (+ R2:*)  ; Storage:LocalPublicBase = "/api"
+  Email:Provider                  Log | Smtp
+  Links:SiteUrl / ApiUrl          URLs públicas para e-mails e PDF
+  Links:TrackingUrlTemplates      página de rastreio por transportadora ({code}); BoletoLinkDays
+  OpenApi:Enabled                 /openapi e /scalar fora de Development (padrão: desligado)
+  Cors:Origins                    origem do front quando não usar o proxy
+  DataProtection:KeysPath         pasta das chaves de cifragem
+
+Como as opções chegam ao código: `services.Configure<JwtOptions>(
+config.GetSection("Auth:Jwt"))` e depois `IOptions<JwtOptions> options`
+no construtor → `options.Value.Secret`.
+
+--------------------------------------------------------------------------------
+14. SINTAXES DE C# QUE APARECEM O TEMPO TODO
+--------------------------------------------------------------------------------
+
+Primary constructor (C# 12)
+    public sealed class CatalogService(IAppDbContext db, TimeProvider clock)
+  Os parâmetros viram campos disponíveis na classe inteira. É o jeito curto
+  de "receber dependências pelo construtor". Quem passa `db` e `clock` é o
+  container de DI (ver abaixo).
+
+record / record struct
+    public sealed record LoginRequest(string? Email, string? Password);
+  Cria uma classe imutável com construtor, propriedades, igualdade por valor
+  e `ToString`. Usado para DTOs. `with` cria uma cópia alterando campos:
+    order.ShippingAddress with { Phone = null }
+  `record struct` é a versão tipo-valor (Money).
+
+Nullable reference types (o `?`)
+    string? Phone     → pode ser null
+    string  Name      → o compilador AVISA se você deixar null
+  Operadores:
+    a ?? b            → a, ou b se a for null
+    a?.Prop           → null se a for null (sem exceção)
+    x!                → "confie em mim, não é null" (evite)
+    `required`        → a propriedade tem que ser preenchida na criação:
+                         new Product { Name = "..." }
+
+async / await / CancellationToken
+  Toda chamada ao banco/rede é `async Task<T> ...Async(..., ct)`. Sempre
+  `await`. O `ct` é repassado até o EF Core para cancelar se o cliente sumir.
+  `Task.FromResult(x)` embrulha um valor pronto em uma Task.
+
+LINQ (as consultas)
+    db.Orders.Where(o => o.UserId == id)
+             .OrderByDescending(o => o.CreatedAt)
+             .Skip(20).Take(10)
+             .ToListAsync(ct)
+  `o => o.UserId == id` é um lambda ("dado o, devolva ..."). Em cima de um
+  DbSet vira SQL; em cima de uma List roda em memória. `Select` projeta,
+  `Any` = EXISTS, `Count`, `Sum`, `GroupBy`, `Include` = JOIN de navegação.
+
+Pattern matching
+    if (order.Status is OrderStatus.Pago or OrderStatus.EmPreparacao) ...
+    if (input.PriceAmount is null or < 100) ...
+    var x = status switch { "approved" => PaymentStatus.Aprovado, _ => Pendente };
+    if (payment.BoletoDueDate is { } due)   → "não é null, guarde em due"
+
+Expressões-membro
+    public Money Price => Money.Brl(PriceAmount);
+  Propriedade calculada (não vai para o banco; o DbContext dá `Ignore`).
+
+Coleções (C# 12)
+    List<string> x = [];              → lista vazia
+    user.Roles = [.. user.Roles, UserRole.Vendedor];   → copia + adiciona
+    string[] a = ["a", "b"];
+
+Injeção de dependência (DI)
+  Em Infrastructure/DependencyInjection.cs e Application/DependencyInjection.cs:
+    services.AddScoped<CatalogService>();          1 por requisição
+    services.AddSingleton<IJwtTokenService, JwtTokenService>();   1 para sempre
+    services.AddHostedService<PaymentMaintenanceJob>();          job
+  Depois, qualquer construtor ou endpoint que peça `CatalogService` recebe a
+  instância pronta. Regra: DbContext e Services são Scoped; coisas sem
+  estado (JWT, hash, storage) são Singleton. Um Singleton NÃO pode receber um
+  Scoped no construtor (por isso os jobs criam scope na mão).
+
+Minimal APIs
+    var g = api.MapGroup("/orders").RequireAuthorization();
+    g.MapGet("/{id}", (string id, OrderService svc, CancellationToken ct)
+        => svc.GetAsync(id, ct));
+    g.MapPost("", async (PlaceOrderRequest body, ...) =>
+        Results.Created(url, await svc.PlaceOrderAsync(body, ct)));
+  Retornar o DTO direto = 200 JSON. `Results.Created/NoContent/File/Redirect`
+  para outros códigos. Regra do framework: GET e DELETE não inferem corpo —
+  use `[FromBody]` se precisar (ver DELETE /me).
+
+Exceções de negócio
+    throw AppException.Validation("email", "E-mail inválido.");
+    throw AppException.NotFound("Pedido");
+    throw AppException.Conflict("ORDER_NOT_CANCELLABLE", "...");
+  `ValidationErrors` acumula vários campos e `ThrowIfAny()` lança um 422 só.
+
+EF Core: gravar
+    db.Orders.Add(order);           // INSERT quando salvar
+    order.Status = X;               // UPDATE (entidade rastreada)
+    db.Addresses.Remove(a);         // DELETE
+    await db.SaveChangesAsync(ct);  // executa tudo em uma transação
+  Entidades carregadas com `AsNoTracking()` NÃO são atualizadas ao salvar.
+  Para transações explícitas: `await using var tx = await
+  db.Database.BeginTransactionAsync(ct); ... await tx.CommitAsync(ct);`
+
+TimeProvider
+  Em vez de `DateTime.UtcNow`, os Services usam `clock.GetUtcNow().UtcDateTime`
+  para os testes poderem "congelar o relógio".
+
+--------------------------------------------------------------------------------
+15. RECEITAS
+--------------------------------------------------------------------------------
+
+A) Criar um endpoint novo
+  1. DTOs em Application/Contracts (e o espelho TS em packages/contracts).
+  2. Método no Service certo (ou Service novo registrado em
+     Application/DependencyInjection.cs com AddScoped).
+  3. Rota em Api/Endpoints/*.cs (e `api.MapXxx()` em Program.cs se for grupo novo).
+  4. Se precisar de login: `.RequireAuthorization()`; se for de vendedor,
+     comece o método com `await RequireSellerAsync(ct)`.
+  5. Teste no /scalar ou com curl; adicione um teste em tests/.
+
+B) Adicionar uma coluna/tabela
+  1. Propriedade na entidade (Domain/Entities) ou classe nova + `DbSet` em
+     IAppDbContext e AppDbContext.
+  2. Mapeamento em OnModelCreating se precisar (índice, tamanho, conversão).
+  3. Migration (PostgreSQL):
+       cd apps/api
+       dotnet ef migrations add NomeDaMudanca --project src/Marketplace.Infrastructure --startup-project src/Marketplace.Api --output-dir Persistence/Migrations
+     Em dev com SQLite não precisa fazer nada: o banco é recriado sozinho (4.4).
+  4. Se a coluna aparece no JSON: DTO + mapper (Common/Mappers.cs).
+
+C) Adicionar um gateway de pagamento
+  Implemente IPaymentGateway (CreatePaymentAsync, GetStatusAsync, RefundAsync
+  com chave de idempotência, ParseWebhookAsync) e registre em Infrastructure/
+  DependencyInjection.cs com `services.AddProvider<IPaymentGateway, X>("nome")`.
+  `Payments:Provider` escolhe quem cria cobranças novas; as antigas seguem no
+  gateway de origem. O checkout não muda. (Detalhes na seção 11.)
+
+D) Ligar o Mercado Pago
+  appsettings (ou variáveis): Payments__Provider=MercadoPago,
+  Payments__MercadoPago__AccessToken=APP_USR-..., WebhookSecret, NotificationUrl
+  (URL pública + /api/webhooks/payments/mercadopago). No front,
+  NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY faz o SDK JS tokenizar o cartão e enviar
+  `card.token` + `brand` já como payment_method_id (ex.: "visa", "master").
+
+E) Mudar a alíquota de imposto / taxas
+  Tabela platform_settings (id = 1): import_tax_mode, import_tax_basis_points,
+  icms_basis_points, platform_fee_basis_points, payment_fee_basis_points,
+  free_shipping_threshold_amount, quote_lock_minutes, payout_hold_days...
+  (futuro endpoint de admin; hoje via SQL ou seed).
+
+F) Resetar o banco de dev
+  Pare a API, apague apps/api/src/Marketplace.Api/.data/marketplace.dev.db,
+  suba de novo: seed roda sozinho.
+
+G) Plugar transportadora, rastreio ou câmbio
+  Siga o passo a passo da seção 11 (porta + AddProvider + chave de config).
+  Teste de rastreio sem integração: POST /webhooks/shipping com
+  { trackingCode, events: [...] } assinado com Tracking:WebhookSecret
+  (ver tests/Marketplace.Tests/Integration/WebhookTests.cs).
+
+--------------------------------------------------------------------------------
+16. COMO DEPURAR
+--------------------------------------------------------------------------------
+
+- Logs no console: cada requisição aparece com método, rota, status e tempo.
+  Erros 500 vêm com stack trace.
+- /scalar: documentação interativa; dá para logar (POST /auth/login), copiar
+  o accessToken e chamar rotas autenticadas.
+- Ver o SQL gerado: em appsettings.Development.json mude
+  "Microsoft.EntityFrameworkCore.Database.Command" para "Information".
+- SQLite: abra o .db com "DB Browser for SQLite" ou a extensão SQLite do VS Code.
+- Testes: `pnpm api:test`. Os de integração (tests/Integration) sobem a API
+  inteira em memória com SQLite temporário e simulam o fluxo do comprador.
+- Erro "Body was inferred but the method does not allow inferred body":
+  endpoint GET/DELETE com parâmetro complexo → use [FromBody].
+- Erro de "Kind=Local/Unspecified" no Npgsql: alguma data não está em UTC.
+- 405 em uma rota que "existe": conflito de método/rota no roteamento
+  (foi o caso das imagens; por isso /media tem GET e PUT explícitos).
+
+--------------------------------------------------------------------------------
+17. GLOSSÁRIO
+--------------------------------------------------------------------------------
+
+DTO           objeto que só carrega dados entre API e cliente (o JSON).
+Entidade      classe que representa uma linha de tabela.
+DbContext     "conexão + rastreamento de mudanças" do EF Core.
+Migration     arquivo que descreve uma alteração de schema (CREATE/ALTER).
+Scoped/Singleton  tempo de vida de um serviço no container de DI.
+Middleware    etapa do pipeline HTTP (CORS, auth, cache...).
+JWT           token assinado com as informações do usuário (sem sessão no servidor).
+Refresh token token de longa duração usado só para obter um JWT novo.
+Idempotência  repetir a mesma requisição não cria efeito duplicado.
+Webhook       o gateway chama a nossa API quando algo muda (pagamento aprovado).
+Basis points  1/100 de 1% (10000 = 100%). Evita float em percentuais.
+Snapshot      cópia congelada (endereço/frete no pedido) que não muda se o
+              original for editado depois.
+Slug          identificador legível na URL ("smart-tv-55-ele1").
+Seed          dados iniciais inseridos no banco vazio.
+HMAC          assinatura do corpo do webhook com um segredo compartilhado.
+================================================================================

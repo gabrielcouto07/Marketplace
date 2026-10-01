@@ -1,7 +1,9 @@
 /**
  * Variáveis públicas com defaults seguros:
  *  - `siteUrl` cai na URL da Vercel (produção ou preview) quando NEXT_PUBLIC_SITE_URL não é definida;
- *  - o mock (MSW) vem de NEXT_PUBLIC_API_MOCKING (ver .env.production para o deploy sem backend).
+ *  - o mock (MSW) vem de NEXT_PUBLIC_API_MOCKING (ver .env.production para o deploy sem backend);
+ *  - `googleClientId` e `mercadoPagoPublicKey` só importam fora do mock: sem eles, o login com Google
+ *    fica oculto e o pagamento com cartão indisponível (Pix e boleto seguem funcionando).
  */
 function resolveSiteUrl(): string {
   const explicit = process.env.NEXT_PUBLIC_SITE_URL;
@@ -16,4 +18,8 @@ export const env = {
   apiMocking: process.env.NEXT_PUBLIC_API_MOCKING === "true",
   siteUrl: resolveSiteUrl(),
   isDev: process.env.NODE_ENV === "development",
+  /** Client ID OAuth do Google Identity Services (login social real). */
+  googleClientId: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || null,
+  /** Public key do Mercado Pago (tokenização de cartão no navegador). */
+  mercadoPagoPublicKey: process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY || null,
 } as const;

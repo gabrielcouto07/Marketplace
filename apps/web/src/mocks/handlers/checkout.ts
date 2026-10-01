@@ -13,19 +13,27 @@ import { HttpResponse, http } from "msw";
 import { convert, multiplyBasisPoints, sum } from "@/lib/money";
 import { isValidCpf } from "@/lib/validation/documents";
 
-import { db, persistDb } from "../db";
 import { findProductRecord, findSellerById } from "../catalog-state";
+import { db, nextOrderNumber, persistDb } from "../db";
 import { getRate, toSellerSummary } from "../fixtures/base";
 import {
-  IMPORT_TAX_BASIS_POINTS,
   TIMELINE_DESCRIPTIONS,
   buildOrderItems,
   buildPayment,
   computeTotals,
-  nextOrderNumber,
 } from "../fixtures/orders";
 import { lookupPostalCode, quoteShipping } from "../fixtures/shipping";
-import { API, addDays, addMinutes, notFound, nowIso, simulateLatency, validation } from "./utils";
+import {
+  API,
+  addDays,
+  addMinutes,
+  isAuthorized,
+  notFound,
+  nowIso,
+  simulateLatency,
+  unauthorized,
+  validation,
+} from "./utils";
 
 /** Cotações emitidas (para validar quoteId no place order). */
 const quotes = new Map<string, CheckoutQuoteDto>();
@@ -64,7 +72,7 @@ function buildGroups(
       body.postalCode,
       seller.id,
       g.items,
-      allFree && subtotal.amount >= 30000,
+      allFree && subtotal.amount >= db.settings.freeShippingThresholdAmount,
     );
     const selected = options.find((o) => o.id === g.shippingOptionId) ?? options[0];
     groups.push({
@@ -91,6 +99,7 @@ export const checkoutHandlers = [
     const result = buildGroups({ ...body, postalCode: cep });
     if ("error" in result) return result.error;
 
+    const settings = db.settings;
     const subtotal = sum(result.map((g) => g.subtotal));
     const shippingTotal = sum(result.map((g) => g.shipping));
     const code = body.couponCode?.trim().toUpperCase();
@@ -111,23 +120,25 @@ export const checkoutHandlers = [
       amount: subtotal.amount + shippingTotal.amount - discount.amount,
       currency: "BRL",
     };
-    const estimatedImportTax = multiplyBasisPoints(taxable, IMPORT_TAX_BASIS_POINTS);
+    const estimatedImportTax = multiplyBasisPoints(taxable, settings.importTaxBasisPoints);
     const total: Money = { amount: taxable.amount + estimatedImportTax.amount, currency: "BRL" };
     const rate = getRate("BRL", "PYG");
     const now = nowIso();
 
     const quote: CheckoutQuoteDto = {
       quoteId: crypto.randomUUID(),
+      postalCode: cep,
+      couponCode: coupon && discount.amount > 0 ? coupon.code : null,
       groups: result,
       subtotal,
       shippingTotal,
       estimatedImportTax,
-      importTaxRateBasisPoints: IMPORT_TAX_BASIS_POINTS,
+      importTaxRateBasisPoints: settings.importTaxBasisPoints,
       discount,
       total,
       totalReference: convert(total, rate),
       exchangeRate: { ...rate, quotedAt: now },
-      lockedUntil: addMinutes(now, 15),
+      lockedUntil: addMinutes(now, settings.quoteLockMinutes),
     };
     quotes.set(quote.quoteId, quote);
     return HttpResponse.json(quote);
@@ -135,6 +146,7 @@ export const checkoutHandlers = [
 
   http.post(`${API}/orders`, async ({ request }) => {
     await simulateLatency();
+    if (!isAuthorized(request)) return unauthorized();
     const body = (await request.json()) as PlaceOrderRequest;
 
     const cached = placed.get(body.idempotencyKey);
@@ -153,8 +165,16 @@ export const checkoutHandlers = [
     const purchaseId = crypto.randomUUID();
     const paymentId = crypto.randomUUID();
     const rate = quote.exchangeRate;
-    const cardApproved = body.payment.method === "Cartao" && body.payment.card?.last4 !== "0000";
-    const status: OrderDto["status"] = cardApproved ? "Pago" : "AguardandoPagamento";
+    const settings = db.settings;
+    const isCard = body.payment.method === "Cartao";
+    const cardApproved = isCard && body.payment.card?.last4 !== "0000";
+    const cardDeclined = isCard && !cardApproved;
+    // Cartão recusado: os pedidos nascem cancelados (nada fica "aguardando pagamento" para sempre).
+    const status: OrderDto["status"] = cardApproved
+      ? "Pago"
+      : cardDeclined
+        ? "Cancelado"
+        : "AguardandoPagamento";
 
     const orders: OrderDto[] = quote.groups.map((group) => {
       const groupInput = body.groups.find((g) => g.sellerId === group.seller.id);
@@ -168,7 +188,7 @@ export const checkoutHandlers = [
           variantId: l.variantId,
         })),
       );
-      const totals = computeTotals(items, shippingOption.price);
+      const totals = computeTotals(items, shippingOption.price, settings.importTaxBasisPoints);
       const timeline: OrderDto["timeline"] = [
         {
           status: "AguardandoPagamento",
@@ -184,6 +204,13 @@ export const checkoutHandlers = [
           description: TIMELINE_DESCRIPTIONS.Pago,
           location: null,
         });
+      if (status === "Cancelado")
+        timeline.push({
+          status: "Cancelado",
+          occurredAt: now,
+          description: "Pagamento recusado.",
+          location: null,
+        });
       return {
         id: crypto.randomUUID(),
         number: nextOrderNumber(),
@@ -196,6 +223,7 @@ export const checkoutHandlers = [
         shippingAddress: address,
         shippingOption,
         trackingCode: null,
+        carrier: null,
         trackingEvents: [],
         estimatedDelivery: {
           min: addDays(now, shippingOption.estimatedDays.min + 2),
@@ -206,7 +234,7 @@ export const checkoutHandlers = [
         payment: {
           id: paymentId,
           method: body.payment.method,
-          status: cardApproved ? "Aprovado" : "Pendente",
+          status: cardApproved ? "Aprovado" : cardDeclined ? "Recusado" : "Pendente",
         },
         timeline,
       };
@@ -218,13 +246,18 @@ export const checkoutHandlers = [
       method: body.payment.method,
       amount: quote.total,
       createdAt: now,
-      status: cardApproved
-        ? "Aprovado"
-        : body.payment.method === "Cartao"
-          ? "Recusado"
-          : "Pendente",
+      status: cardApproved ? "Aprovado" : cardDeclined ? "Recusado" : "Pendente",
       installments: body.payment.card?.installments ?? 1,
+      pixExpirationMinutes: settings.pixExpirationMinutes,
+      boletoDueDays: settings.boletoDueDays,
     });
+    if (payment.card && body.payment.card) {
+      payment.card = {
+        ...payment.card,
+        brand: body.payment.card.brand,
+        last4: body.payment.card.last4,
+      };
+    }
 
     db.orders.unshift(...orders);
     db.payments.unshift(payment);

@@ -166,11 +166,3 @@ export function findProductRecordBySlug(slug: string): ProductRecord | undefined
   const match = allProducts().find((p) => p.slug === slug);
   return match ? findProductRecord(match.id) : undefined;
 }
-
-/** Visível na vitrine? (ativo e loja não suspensa) */
-export function isProductVisible(id: string): boolean {
-  const product = findProduct(id);
-  return Boolean(
-    product && productStatus(id) === "Ativo" && sellerStatus(product.seller.id) !== "Suspenso",
-  );
-}
