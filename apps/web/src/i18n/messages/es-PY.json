@@ -205,7 +205,14 @@
     "quadCategoriesCta": "Ver todos los departamentos",
     "quadBestSellersCta": "Ver los más vendidos",
     "quadNewArrivalsCta": "Ver novedades",
-    "trustLabel": "Por qué comprar acá"
+    "trustLabel": "Por qué comprar acá",
+    "quadCategoriesTitleShort": "Departamentos",
+    "departmentsTitle": "Ofertas por departamento",
+    "categoryDealsTitle": "Ofertas en {name}",
+    "categoryDealsUpTo": "hasta {percent}% off",
+    "campaignTitle": "Recién llegado de Paraguay",
+    "heroPause": "Pausar banners",
+    "heroPlay": "Reanudar banners"
   },
   "catalog": {
     "searchTitle": "Búsqueda",

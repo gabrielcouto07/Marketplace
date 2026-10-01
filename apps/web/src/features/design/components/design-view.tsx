@@ -94,12 +94,13 @@ export function Demo({
   label: string;
   hint?: string;
   children: ReactNode;
+  /** Vai no bloco inteiro (rótulo + conteúdo), que é o item da grade: use para `md:col-span-*`. */
   className?: string;
   /** Sem moldura (para conteúdo que já é um card). */
   bare?: boolean;
 }) {
   return (
-    <div className="flex flex-col gap-2">
+    <div className={cn("flex flex-col gap-2", className)}>
       <div className="flex flex-col">
         <span className="text-caption font-medium text-foreground-secondary uppercase">
           {label}
@@ -107,10 +108,7 @@ export function Demo({
         {hint ? <span className="text-caption text-foreground-muted">{hint}</span> : null}
       </div>
       <div
-        className={cn(
-          !bare && "rounded-lg border border-border bg-surface p-4 shadow-xs",
-          className,
-        )}
+        className={cn(!bare && "flex-1 rounded-lg border border-border bg-surface p-4 shadow-xs")}
       >
         {children}
       </div>

@@ -29,7 +29,8 @@ interface ProductCardProps {
  *
  * O corpo tem estrutura fixa (título → avaliação → preço → rodapé) para que, lado a lado, títulos e
  * preços fiquem alinhados mesmo quando um card tem desconto ou frete grátis e o vizinho não.
- * Eleva de xs para sm no hover/press.
+ * Levanta 4 px e vai a shadow-md no hover; encolhe para 98 % no toque (propriedades `translate` e
+ * `scale`, que não brigam com animações de `transform` como o `reveal`).
  */
 export function ProductCard({ product, layout = "grid", priority, className }: ProductCardProps) {
   const t = useTranslations("catalog");
@@ -40,7 +41,7 @@ export function ProductCard({ product, layout = "grid", priority, className }: P
   return (
     <article
       className={cn(
-        "group relative flex pressable flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-xs transition-shadow hover:shadow-sm",
+        "group relative flex flex-col overflow-hidden rounded-lg border border-border bg-surface shadow-xs transition-[translate,scale,box-shadow] duration-200 ease-standard hover:-translate-y-1 hover:shadow-md active:scale-[0.98]",
         layout === "row" && "w-44 shrink-0",
         className,
       )}

@@ -95,6 +95,10 @@ tinta (neutro frio levemente azulado)
 papel (cinza do fundo e das bordas)
 50 #EAEDF0 (Papel) · 100 #E1E5E9 · 200 #D5DAE0 · 300 #BCC3CC
 
+roxo (campanha: vitrines temáticas, só preenchimento)
+50 #F8F5FF · 100 #EFE6FF · 200 #E1CFFF · 300 #CEB0FE · 400 #A866F5 · 500 #8B2FE0 (marca)
+600 #771FC3 · 700 #5F08A0 · 800 #4B0680 · 900 #36045C
+
 avulsos: Marinho claro #15284D (faixa de departamentos) · gold #FFA41C (estrela)
 
 ## Semânticos (light)
@@ -129,6 +133,7 @@ Para as superfícies vivas: ícones da faixa de confiança, faixas, wordmark, il
     --brand-verde / -soft       verde-500 / verde-100
     --brand-amarelo / -soft     amarelo-400 / amarelo-100
     --brand-laranja / -soft     laranja-400 / laranja-100
+    --brand-roxo / -soft        roxo-500 / roxo-100 (campanhas; branco por cima, 5,9:1)
     --brand-tile                amarelo-400 (tile do logo)
     --gold                      #FFA41C (estrelas; ícone, nunca texto)
 
@@ -160,8 +165,8 @@ Duas famílias, via `next/font/google` (variáveis `--font-figtree` e `--font-br
 
 - **Figtree** 300–700 (`font-sans`, padrão): interface, textos, títulos de seção, preços e
   números. Títulos de seção (`SectionHeader`) e de quad card em 700, como numa loja.
-- **Bricolage Grotesque 800** (`font-heading`): só o wordmark ("Paraguai") e as manchetes
-  dos banners do hero. Sempre com `font-extrabold` e tracking -0.02em. Nunca em preços,
+- **Bricolage Grotesque 800** (`font-heading`): só o wordmark ("Paraguai"), as manchetes
+  dos banners do hero e os títulos dos tiles de departamento. Sempre com `font-extrabold` e tracking -0.02em. Nunca em preços,
   quantidades, botões ou textos corridos.
 
 Números de preço, quantidade e rastreio usam `tabular-nums` (em Figtree). O "-25%" ao lado
@@ -228,6 +233,29 @@ Nenhuma sombra escura e pesada, em nenhum lugar.
 - Use a View Transitions API entre listagem e página de produto, quando suportada.
 - Respeitar `prefers-reduced-motion`: animações viram fade simples ou nada.
 
+## Animações de vitrine
+
+A home é a vitrine e pode ser viva. Estas animações CSS (keyframes em `globals.css`) são as
+únicas permitidas fora das regras acima, e só nos lugares listados:
+
+- **Autoplay do hero** (6 s por banner): ponto ativo enche (`animate-progress`), foto ativa em
+  zoom lento (`animate-ken-burns`) e texto subindo em sequência (`animate-rise` + delay).
+  Pausa no hover do mouse, no foco e pelo botão de pausa (WCAG 2.2.2).
+- **Entrada**: quad cards com `animate-rise` em sequência; tiles de departamento, vitrine de
+  campanha (≥ lg) e grade de mais vendidos com `reveal` (scroll-driven, sobe ao entrar na tela;
+  sem suporte a `animation-timeline` o elemento já aparece). Em listas com rolagem horizontal
+  use `lg:reveal`: a timeline pegaria o próprio carrossel.
+- **Reflexo** (`shine`): CTA de compra, selo "Oferta", chip vermelho do banner e contagem das
+  ofertas. Nada mais brilha.
+- **Contínuas**: fotos dos tiles de departamento flutuando fora de fase (`animate-float`), raio
+  das ofertas piscando (`animate-flash`), ícone da campanha balançando (`animate-wiggle`) e a
+  faixa de confiança correndo (`animate-marquee`, pausa no hover).
+- **Hover**: cards e tiles sobem 4 px (`hover:-translate-y-1`) com sombra maior; fotos de quad
+  card inclinam ±2°; molduras dos tiles endireitam e crescem. Use as propriedades `translate`,
+  `rotate` e `scale` (não `transform`) para não brigar com as animações de entrada.
+- Com `prefers-reduced-motion`: sem autoplay nem botão de pausa, marquee parada (sem a cópia
+  e rolável), reflexo escondido, `reveal` desligado; o resto cai na regra global (0,01 ms).
+
 # Iconografia e imagem
 
 - lucide-react, stroke 1.75, tamanhos 20 (inline) e 24 (navegação). Sem emojis
@@ -267,8 +295,8 @@ Todos em pill (`rounded-full`).
 - Parcelamento em caption.
 - "Frete grátis" em `success` com ícone de caminhão (texto, não chip).
 - Origem discreta: "Enviado de Ciudad del Este".
-- Dentro de uma caixa de vitrine o card perde borda e sombra (nada de card dentro de card).
-- Hover e press elevam de xs para sm.
+- Sobre uma caixa colorida (ofertas) o card mantém borda e fundo branco.
+- Hover levanta 4 px e vai a shadow-md; press encolhe para 98 % (`active:scale-[0.98]`).
 
 ## PriceTag
 
@@ -284,9 +312,9 @@ burocráticos:
 - SellerBadge (reputação em barra, tempo de envio).
 - "Compra garantida" com ícone de escudo.
 - Linha de impostos de importação estimados, sempre visível no checkout.
-- Faixa de confiança da home (caixa branca): rota PY → BR com as bandeiras da marca e
-  quatro diferenciais com o ícone num círculo chapado (Azul e Vermelho com ícone branco,
-  Verde e Amarelo com ícone `on-bright`).
+- Faixa de confiança da home (marquee em caixa branca): rota PY → BR com as bandeiras da
+  marca e quatro diferenciais em pills chapadas (Azul e Vermelho 600 com texto branco, Verde e
+  Amarelo com texto `on-bright`).
 - Prazo em faixa de dias úteis.
 
 ## Navegação
@@ -310,11 +338,14 @@ burocráticos:
   fluxos sem bottom nav (checkout, pagamento, login).
 - Hero da home: carrossel de banners de ponta a ponta (até 1500 px), scrim em
   `brand-deep`, chip do título no tom do banner, manchete em hero/hero-lg; setas laterais
-  no desktop, pontos no mobile. A partir de md a base da foto dissolve no fundo e os quatro
-  quad cards (Ofertas do dia, Compre por departamento, Mais vendidos, Novidades — grade 2×2
-  com foto e link "Ver …") sobem sobre ela.
-- Vitrines da home em caixas brancas (`bg-surface`, raio 8, sangrando até a borda no
-  mobile) sobre o Papel; grades com cards próprios (lojas, mais vendidos) ficam direto no fundo.
+  no desktop; pontos com progresso e pausa em todos os tamanhos. A partir de md a base da foto
+  dissolve no fundo e os quatro quad cards sobem sobre ela, cada um numa cor chapada:
+  Ofertas do dia (`deal`), Departamentos (`primary`), Mais vendidos (`cta`) e Novidades
+  (`brand-verde`), com fotos em moldura branca e link "Ver …" ("Ver tudo" no mobile).
+- Ordem da home: hero → quad cards → faixa de confiança → Ofertas do dia (caixa `deal` com
+  cards brancos) → Ofertas por departamento (tiles na matiz da categoria, `tint-bg-deep`, com
+  "até N% off" só quando a categoria tem oferta na home) → vitrine de campanha (`brand-roxo`)
+  → lojas em destaque → mais vendidos. Caixas com raio 8, sangrando até a borda no mobile.
 
 # Voz e texto
 
@@ -520,3 +551,10 @@ Imagens`). Regras derivadas:
       carrinho e favoritos de quem já usa o app.
     - Todos os pares texto/fundo novos estão em `/design › Cores` com a razão calculada; a única falha é o
       `gold` das estrelas (ícone decorativo; a nota e a contagem ao lado carregam a informação), como antes.
+11. **Vitrine viva (01/10/2026)**: a home ganhou cor e movimento a pedido (referência: blocos coloridos
+    de loja). Quad cards em cores chapadas, caixa de ofertas Vermelha, tiles de departamento na matiz
+    da categoria com foto flutuando, vitrine de campanha em **Roxo** (família nova, só preenchimento) e
+    a faixa de confiança em marquee; o ícone de categoria em grade saiu da home (o `variant="icon"` do
+    `CategoryTile` continua disponível). As animações e onde podem aparecer estão em Movimento ›
+    Animações de vitrine; o autoplay do hero foi verificado (troca a cada 6 s, pausa no botão) e o
+    reduced-motion também (sem autoplay, marquee parada, sem reflexo).
