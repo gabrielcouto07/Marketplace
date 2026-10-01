@@ -5,25 +5,28 @@ import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 /**
- * Botões (DESIGN.md › Padrões de componentes › Botões).
- * - `cta`: Coral com texto Tinta, 48 px, só um por tela (Comprar agora, Finalizar compra, Pagar).
- * - `primary` (padrão): Pervinca profunda com texto branco, ações principais sem conotação de compra.
- * - `secondary`: surface + borda (Adicionar ao carrinho, ao lado do CTA).
- * - `ghost`: só texto/ícone. `soft`: Pervinca suave (chips de ação). `link`: texto sublinhado.
- * - `destructive`: coral escuro sobre fundo suave (sempre acompanhado de ícone + texto).
+ * Botões em pill (DESIGN.md › Padrões de componentes › Botões).
+ * - `cta`: Laranja com texto Tinta, 48 px, só um por tela (Comprar agora, Finalizar compra, Pagar).
+ * - `cart`: Amarelo com texto Tinta (Adicionar ao carrinho, logo acima do CTA).
+ * - `primary` (padrão): Azul com texto branco, ações principais sem conotação de compra.
+ * - `secondary`: surface + borda com sombra leve (ações neutras).
+ * - `ghost`: só texto/ícone. `soft`: Azul claro (chips de ação). `link`: texto sublinhado.
+ * - `destructive`: vermelho escuro sobre fundo suave (sempre acompanhado de ícone + texto).
  * - `floating`: branco com sombra, para flutuar sobre imagens (galeria).
  * - `inverse`: escuro sobre claro / claro sobre escuro (barras e toasts).
  * Todos com `loading` (spinner mantendo a largura), `disabled` e foco visível; toque ≥ 44 px.
  */
 const buttonVariants = cva(
-  "group/button relative inline-flex shrink-0 items-center justify-center gap-2 rounded-md border border-transparent font-semibold whitespace-nowrap transition-colors select-none focus-ring pressable disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-danger [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-5",
+  "group/button relative inline-flex shrink-0 items-center justify-center gap-2 rounded-full border border-transparent font-semibold whitespace-nowrap transition-colors select-none focus-ring pressable disabled:pointer-events-none disabled:opacity-50 aria-invalid:border-danger [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-5",
   {
     variants: {
       variant: {
-        cta: "bg-cta text-cta-foreground hover:bg-cta-hover active:bg-cta-pressed",
+        cta: "bg-cta text-cta-foreground shadow-xs hover:bg-cta-hover active:bg-cta-pressed",
+        cart: "bg-cart text-cart-foreground shadow-xs hover:bg-cart-hover",
         default: "bg-primary text-primary-foreground hover:bg-primary-hover",
         primary: "bg-primary text-primary-foreground hover:bg-primary-hover",
-        secondary: "border-border-strong bg-surface text-foreground hover:bg-surface-muted",
+        secondary:
+          "border-border-strong bg-surface text-foreground shadow-xs hover:bg-surface-muted",
         ghost: "text-foreground hover:bg-surface-muted aria-expanded:bg-surface-muted",
         soft: "bg-primary-soft text-primary hover:bg-primary/15",
         link: "h-auto rounded-none px-0 text-primary underline-offset-4 hover:underline",
@@ -35,11 +38,11 @@ const buttonVariants = cva(
         default:
           "h-12 px-4 text-body-sm has-data-[icon=inline-end]:pr-3 has-data-[icon=inline-start]:pl-3",
         sm: "h-10 gap-1.5 px-3 text-body-sm has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2 [&_svg:not([class*='size-'])]:size-4",
-        xs: "h-8 gap-1 rounded-sm px-2 text-caption [&_svg:not([class*='size-'])]:size-4",
+        xs: "h-8 gap-1 px-3 text-caption [&_svg:not([class*='size-'])]:size-4",
         lg: "h-12 px-6 text-body has-data-[icon=inline-end]:pr-5 has-data-[icon=inline-start]:pl-5",
         icon: "size-11",
         "icon-sm": "size-10 [&_svg:not([class*='size-'])]:size-5",
-        "icon-xs": "size-8 rounded-sm [&_svg:not([class*='size-'])]:size-4",
+        "icon-xs": "size-8 [&_svg:not([class*='size-'])]:size-4",
         "icon-lg": "size-12 [&_svg:not([class*='size-'])]:size-6",
       },
       fullWidth: {

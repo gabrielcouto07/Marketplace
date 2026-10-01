@@ -5,8 +5,8 @@ com estratégias de cache, fallback offline, carrinho offline, prompt de instala
 
 ## Manifest — `src/app/manifest.ts` → `/manifest.webmanifest`
 
-`name` "Marketplace Paraguai", `short_name` "MktPY", `display: standalone`, `theme_color #0038A8`,
-`background_color #FFFFFF`, `start_url /?source=pwa`, ícones 192/512 + **maskable** 192/512 (`public/icons`),
+`name` "Paraguai Imports", `short_name` "PY Imports", `display: standalone`, `theme_color #0A1733` (Marinho do header),
+`background_color #EAEDF0`, `start_url /?source=pwa`, ícones 192/512 + **maskable** 192/512 (`public/icons`),
 atalhos (Buscar, Carrinho, Meus pedidos), screenshot 1200×630. Referenciado no `<head>` pelo `metadata.manifest` do
 layout raiz; `appleWebApp` + `apple-touch-icon` para iOS; `viewport-fit=cover`.
 

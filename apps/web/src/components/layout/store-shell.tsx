@@ -1,6 +1,7 @@
 import { Suspense, type ReactNode } from "react";
 
 import { BottomNav } from "@/components/layout/bottom-nav";
+import { Footer } from "@/components/layout/footer";
 import { Header, type HeaderProps } from "@/components/layout/header";
 import { InstallPrompt } from "@/components/layout/install-prompt";
 import { OfflineBanner } from "@/components/layout/offline-banner";
@@ -8,23 +9,24 @@ import { cn } from "@/lib/utils";
 
 interface StoreShellProps extends HeaderProps {
   children: ReactNode;
-  /** Remove a bottom nav (ex.: checkout, pagamento). */
+  /** Remove a bottom nav e o footer (ex.: checkout, pagamento, login). */
   hideBottomNav?: boolean;
 }
 
 /**
- * Casca padrão da vitrine: header sticky com a busca, conteúdo e bottom nav.
- * O padding inferior reserva espaço para a bottom nav + safe-area no mobile.
+ * Casca padrão da vitrine: header sticky com a busca, conteúdo, footer e bottom nav.
+ * O footer reserva no mobile o espaço da bottom nav + safe-area; sem bottom nav (fluxos de compra e
+ * login) não há footer e o próprio conteúdo reserva a safe-area.
  */
 export function StoreShell({ children, hideBottomNav, ...header }: StoreShellProps) {
-  // Reserva a altura do header enquanto ele hidrata: home mobile tem duas linhas (64 + 68 + fita).
+  // Reserva a altura do header enquanto ele hidrata: home mobile tem barra + busca + CEP (56 + 56 + 40).
   const homeBar = !header.title && !header.showBack && !header.hideSearch;
   const fallback = (
     <div
       aria-hidden
       className={cn(
-        "bg-surface md:h-(--header-height)",
-        header.hideMobileBar ? "max-md:hidden" : homeBar ? "h-34" : "h-17",
+        "bg-brand-deep md:h-(--header-height)",
+        header.hideMobileBar ? "max-md:hidden" : homeBar ? "h-38" : "h-14",
       )}
     />
   );
@@ -38,13 +40,14 @@ export function StoreShell({ children, hideBottomNav, ...header }: StoreShellPro
         id="main"
         className={cn(
           "flex-1",
-          hideBottomNav
-            ? "pb-[calc(var(--safe-bottom)+2rem)]"
-            : "pb-[calc(var(--bottom-nav-height)+var(--safe-bottom)+2rem)] md:pb-12",
+          hideBottomNav ? "pb-[calc(var(--safe-bottom)+2rem)]" : "pb-8 md:pb-12",
         )}
       >
         {children}
       </main>
+      {hideBottomNav ? null : (
+        <Footer className="pb-[calc(var(--bottom-nav-height)+var(--safe-bottom))] md:pb-0" />
+      )}
       {hideBottomNav ? null : <BottomNav />}
       <InstallPrompt />
     </>

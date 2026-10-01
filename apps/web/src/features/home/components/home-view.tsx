@@ -1,12 +1,23 @@
 "use client";
 
 import type { CategoryDto, ProductSummaryDto, SellerSummaryDto } from "@marketplace/contracts";
-import { ChevronRight, CreditCard, Package, ShieldCheck, Store, Zap } from "lucide-react";
+import {
+  ArrowRight,
+  ChevronRight,
+  CreditCard,
+  Package,
+  ShieldCheck,
+  Store,
+  Zap,
+} from "lucide-react";
+import Image from "next/image";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 
 import { PageContainer } from "@/components/layout/store-shell";
+import { CategoryIcon } from "@/components/shared/category-icon";
 import { CategoryTile } from "@/components/shared/category-tile";
+import { FlagBR, FlagPY } from "@/components/shared/flags";
 import { ProductCard, ProductCardSkeleton } from "@/components/shared/product-card";
 import { SellerBadge, SellerCardSkeleton } from "@/components/shared/seller-badge";
 import { ErrorState, HorizontalScroller, SectionHeader } from "@/components/shared/states";
@@ -14,14 +25,23 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useHome } from "@/features/catalog/api";
 import { formatCountdown, useCountdown } from "@/hooks/use-countdown";
 import { Link } from "@/i18n/navigation";
+import { blurDataUrlFor, isDirectImage } from "@/lib/images";
+import { discountPercent, formatMoney } from "@/lib/money";
+import { categoryHue, hueStyle } from "@/lib/palette";
 import { cn } from "@/lib/utils";
 
-import { HomeHero } from "./home-hero";
-import { PromoCarousel, PromoCarouselSkeleton } from "./promo-carousel";
+import { HomeHero, HomeHeroSkeleton } from "./home-hero";
+
+/** Seção em caixa branca sobre o fundo cinza; no mobile ocupa a largura toda (sem raio). */
+const BOX = "-mx-4 bg-surface p-4 shadow-xs sm:mx-0 sm:rounded-lg";
+
+/** Card de produto dentro de uma caixa: sem borda nem sombra (nada de card dentro de card). */
+const IN_BOX_CARD = "border-transparent shadow-none hover:shadow-none";
 
 /**
- * Home: cartão Céu de saudação, banners, chips de confiança nas quatro cores da marca, categorias
- * tintadas, rails de ofertas/novidades/lojas e grade de mais vendidos. Seções a 32 px uma da outra.
+ * Home em padrão de loja: hero em carrossel de ponta a ponta, quatro "quad cards" (ofertas,
+ * departamentos, mais vendidos, novidades) subindo sobre ele, a faixa de confiança com as cores
+ * da marca chapadas, vitrines em caixas brancas e a grade de mais vendidos.
  */
 export function HomeView() {
   const t = useTranslations("home");
@@ -29,32 +49,61 @@ export function HomeView() {
 
   if (isError) {
     return (
-      <>
-        <HomeHero />
-        <PageContainer className="py-8">
-          <ErrorState error={error} onRetry={() => refetch()} />
-        </PageContainer>
-      </>
+      <PageContainer className="py-8">
+        <ErrorState error={error} onRetry={() => refetch()} />
+      </PageContainer>
     );
   }
 
   return (
     <div className="flex flex-col">
-      <HomeHero />
+      {isPending ? <HomeHeroSkeleton /> : <HomeHero banners={data.banners} />}
 
-      <div className="flex flex-col gap-8 py-6">
-        <section aria-label={t("promoLabel")}>
-          {isPending ? <PromoCarouselSkeleton /> : <PromoCarousel banners={data.banners} />}
-        </section>
+      <PageContainer className="relative z-10 -mt-8 md:-mt-36 lg:-mt-44">
+        <div className="grid grid-cols-2 gap-3 md:gap-4 lg:grid-cols-4">
+          {isPending ? (
+            Array.from({ length: 4 }).map((_, i) => <QuadCardSkeleton key={i} />)
+          ) : (
+            <>
+              <QuadCard
+                title={t("offers")}
+                href="/busca?onlyOffers=true"
+                cta={t("quadOffersCta")}
+                items={data.offers
+                  .slice(0, 4)
+                  .map((p) => productItem(p, <DealLabel product={p} />))}
+              />
+              <QuadCard
+                title={t("quadCategoriesTitle")}
+                href="/categorias"
+                cta={t("quadCategoriesCta")}
+                items={data.categories.slice(0, 4).map(categoryItem)}
+              />
+              <QuadCard
+                title={t("bestSellers")}
+                href="/busca?sort=bestSelling"
+                cta={t("quadBestSellersCta")}
+                items={data.bestSellers
+                  .slice(0, 4)
+                  .map((p) =>
+                    productItem(p, <span className="tabular-nums">{formatMoney(p.price)}</span>),
+                  )}
+              />
+              <QuadCard
+                title={t("newArrivals")}
+                href="/busca?sort=newest"
+                cta={t("quadNewArrivalsCta")}
+                items={data.newArrivals.slice(0, 4).map((p) => productItem(p, p.name))}
+              />
+            </>
+          )}
+        </div>
+      </PageContainer>
 
-        <TrustChips />
+      <PageContainer className="flex flex-col gap-4 pt-4 md:gap-6 md:pt-6">
+        <TrustBand />
 
-        <PageContainer>
-          <SectionHeader title={t("categories")} action={<SeeAllLink href="/categorias" />} />
-          {isPending ? <CategoryGridSkeleton /> : <CategoryGrid categories={data.categories} />}
-        </PageContainer>
-
-        <PageContainer>
+        <section className={BOX}>
           <SectionHeader
             title={t("offers")}
             icon={Zap}
@@ -62,17 +111,23 @@ export function HomeView() {
             action={<SeeAllLink href="/busca?onlyOffers=true" />}
           />
           <ProductRail products={data?.offers} loading={isPending} />
-        </PageContainer>
+        </section>
 
-        <PageContainer>
+        <section className={BOX}>
+          <SectionHeader title={t("categories")} action={<SeeAllLink href="/categorias" />} />
+          {isPending ? <CategoryGridSkeleton /> : <CategoryGrid categories={data.categories} />}
+        </section>
+
+        <section className={BOX}>
           <SectionHeader
             title={t("newArrivals")}
             action={<SeeAllLink href="/busca?sort=newest" />}
           />
           <ProductRail products={data?.newArrivals} loading={isPending} />
-        </PageContainer>
+        </section>
 
-        <PageContainer>
+        {/* Os cards de loja já têm moldura própria: ficam direto no fundo, como a grade abaixo. */}
+        <section>
           <SectionHeader title={t("featuredSellers")} action={<SeeAllLink href="/lojas" />} />
           <HorizontalScroller>
             {isPending
@@ -81,20 +136,20 @@ export function HomeView() {
                 ))
               : data.featuredSellers.map((s) => <SellerRailItem key={s.id} seller={s} />)}
           </HorizontalScroller>
-        </PageContainer>
+        </section>
 
-        <PageContainer>
+        <section>
           <SectionHeader
             title={t("bestSellers")}
             action={<SeeAllLink href="/busca?sort=bestSelling" />}
           />
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:gap-4 lg:grid-cols-5">
             {isPending
               ? Array.from({ length: 4 }).map((_, i) => <ProductCardSkeleton key={i} />)
               : data.bestSellers.map((p) => <ProductCard key={p.id} product={p} />)}
           </div>
-        </PageContainer>
-      </div>
+        </section>
+      </PageContainer>
     </div>
   );
 }
@@ -112,37 +167,176 @@ function SeeAllLink({ href }: { href: string }) {
   );
 }
 
+/* ----------------------------- Quad cards ----------------------------- */
+
+interface QuadItem {
+  key: string;
+  href: string;
+  image: string | null;
+  /** Fotos de produto são quadradas (contain); capas de departamento preenchem (cover). */
+  fit: "contain" | "cover";
+  label: ReactNode;
+  /** Sem foto: ícone do departamento sobre a tinta da categoria. */
+  fallback?: ReactNode;
+}
+
+function productItem(p: ProductSummaryDto, label: ReactNode): QuadItem {
+  return {
+    key: p.id,
+    href: `/produto/${p.slug}`,
+    image: p.thumbnailUrl,
+    fit: "contain",
+    label,
+  };
+}
+
+function categoryItem(c: CategoryDto): QuadItem {
+  return {
+    key: c.id,
+    href: `/categoria/${c.slug}`,
+    image: c.imageUrl,
+    fit: "cover",
+    label: c.name,
+    fallback: (
+      <span
+        style={hueStyle(categoryHue(c.slug))}
+        className="flex size-full items-center justify-center tint-bg tint-fg"
+      >
+        <CategoryIcon iconKey={c.iconKey} className="size-6" />
+      </span>
+    ),
+  };
+}
+
+/** "-25%" chapado em Vermelho + "Oferta" em texto de oferta, como nas vitrines de loja. */
+function DealLabel({ product }: { product: ProductSummaryDto }) {
+  const t = useTranslations("catalog");
+  const discount = discountPercent(product.price, product.compareAtPrice ?? null);
+  return (
+    <span className="flex min-w-0 items-center gap-1">
+      {discount > 0 ? (
+        <span className="shrink-0 rounded-sm bg-deal px-1 font-semibold text-deal-foreground tabular-nums">
+          -{discount}%
+        </span>
+      ) : null}
+      {/* Nas colunas estreitas do mobile o selo "-25%" basta; a palavra entra a partir de sm. */}
+      <span className="hidden truncate font-semibold text-deal sm:inline">{t("dealBadge")}</span>
+    </span>
+  );
+}
+
+/** Card com título, grade 2×2 de atalhos com foto e o link "Ver …" no rodapé. */
+function QuadCard({
+  title,
+  href,
+  cta,
+  items,
+}: {
+  title: string;
+  href: string;
+  cta: string;
+  items: QuadItem[];
+}) {
+  return (
+    <section className="flex flex-col rounded-lg bg-surface p-3 shadow-sm md:p-4">
+      <h2 className="line-clamp-2 min-h-12 text-body leading-6 font-bold text-foreground md:min-h-0 md:text-title-3 md:font-bold">
+        {title}
+      </h2>
+      <ul className="mt-2 grid grid-cols-2 gap-x-2 gap-y-3 md:mt-3 md:gap-x-3">
+        {items.map((it) => (
+          <li key={it.key} className="min-w-0">
+            <Link href={it.href} className="group flex flex-col gap-1 rounded-sm focus-ring">
+              <span className="relative aspect-square overflow-hidden rounded-sm bg-surface-muted">
+                {it.image ? (
+                  <Image
+                    src={it.image}
+                    alt=""
+                    fill
+                    sizes="(max-width: 1024px) 25vw, 140px"
+                    placeholder="blur"
+                    blurDataURL={blurDataUrlFor(it.image)}
+                    unoptimized={isDirectImage(it.image)}
+                    className={cn(
+                      "transition-transform duration-300 ease-standard group-hover:scale-[1.04]",
+                      it.fit === "cover" ? "object-cover" : "object-contain",
+                    )}
+                  />
+                ) : (
+                  it.fallback
+                )}
+              </span>
+              <span className="line-clamp-1 text-caption text-foreground group-hover:underline">
+                {it.label}
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+      <Link
+        href={href}
+        className="mt-auto self-start rounded-sm pt-3 text-body-sm font-semibold text-pretty text-primary focus-ring hover:underline"
+      >
+        {cta}
+        <ArrowRight className="ml-1 inline size-4 align-[-3px]" strokeWidth={2} aria-hidden />
+      </Link>
+    </section>
+  );
+}
+
+function QuadCardSkeleton() {
+  return (
+    <div aria-hidden className="flex flex-col gap-3 rounded-lg bg-surface p-3 shadow-sm md:p-4">
+      <Skeleton className="h-5 w-3/4" />
+      <div className="grid grid-cols-2 gap-2 md:gap-3">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="aspect-square w-full rounded-sm" />
+        ))}
+      </div>
+      <Skeleton className="h-4 w-1/2" />
+    </div>
+  );
+}
+
 /* ------------------------------ Confiança ----------------------------- */
 
 /**
- * Linha rolável de chips com os diferenciais de confiança (rastreio, impostos, lojas, pagamento).
- * Cada ícone vive num círculo pastel de uma das cores da marca, como os atalhos do header.
+ * Faixa com os diferenciais (rastreio, impostos, lojas, pagamento) e a rota PY → BR. Cada ícone
+ * vive num círculo chapado de uma das cores da marca: branco sobre Azul/Vermelho, Tinta sobre
+ * Verde/Amarelo (todos ≥ 3:1 para ícone).
  */
-function TrustChips() {
+function TrustBand() {
   const t = useTranslations("home");
   const items = [
-    { icon: Package, label: t("trustShipping"), tone: "bg-brand-menta-soft" },
-    { icon: ShieldCheck, label: t("trustTax"), tone: "bg-brand-lilas" },
-    { icon: Store, label: t("trustSellers"), tone: "bg-brand-coral-soft" },
-    { icon: CreditCard, label: t("trustPayment"), tone: "bg-brand-manteiga-soft" },
+    { icon: Package, label: t("trustShipping"), tone: "bg-brand-azul text-white" },
+    { icon: ShieldCheck, label: t("trustTax"), tone: "bg-brand-verde text-on-bright" },
+    { icon: Store, label: t("trustSellers"), tone: "bg-brand-vermelho text-white" },
+    { icon: CreditCard, label: t("trustPayment"), tone: "bg-brand-amarelo text-on-bright" },
   ];
   return (
-    <ul className="mx-auto scrollbar-none flex w-full max-w-6xl gap-2 overflow-x-auto px-4">
-      {items.map(({ icon: Icon, label, tone }) => (
-        <li
-          key={label}
-          className="flex h-10 flex-none items-center gap-2 rounded-full border border-border bg-surface pr-4 pl-1.5 text-caption font-semibold whitespace-nowrap text-foreground"
-        >
-          <span
-            aria-hidden
-            className={cn("flex size-7 shrink-0 items-center justify-center rounded-full", tone)}
+    <section aria-label={t("trustLabel")} className={cn(BOX, "flex flex-col gap-4")}>
+      <p className="flex items-center gap-2 text-body-sm font-bold text-foreground">
+        <FlagPY className="rounded-[3px]" />
+        <ArrowRight className="size-3.5" strokeWidth={2.5} aria-hidden />
+        <FlagBR className="rounded-[3px]" />
+        {t("routeBadge")}
+      </p>
+      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {items.map(({ icon: Icon, label, tone }) => (
+          <li
+            key={label}
+            className="flex items-center gap-3 text-body-sm font-semibold text-foreground"
           >
-            <Icon className="size-4" strokeWidth={2} />
-          </span>
-          {label}
-        </li>
-      ))}
-    </ul>
+            <span
+              aria-hidden
+              className={cn("flex size-10 shrink-0 items-center justify-center rounded-full", tone)}
+            >
+              <Icon className="size-5" strokeWidth={2} />
+            </span>
+            {label}
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -183,7 +377,7 @@ function nextMidnightIso(): string {
   return d.toISOString();
 }
 
-/** Chip com contagem regressiva até a meia-noite local (só no cliente, após os dados). */
+/** Chip Vermelho com contagem regressiva até a meia-noite local (só no cliente, após os dados). */
 function DealsCountdown() {
   const t = useTranslations("home");
   const [untilIso] = useState(nextMidnightIso);
@@ -192,7 +386,7 @@ function DealsCountdown() {
   const time = `${String(hours).padStart(2, "0")}:${formatCountdown(seconds % 3600)}`;
   return (
     <span
-      className="inline-flex h-6 shrink-0 items-center rounded-sm bg-brand-manteiga-soft px-2 text-caption font-semibold text-foreground tabular-nums"
+      className="inline-flex h-6 shrink-0 items-center rounded-sm bg-deal px-2 text-caption font-semibold text-deal-foreground tabular-nums"
       aria-label={t("dealsEndIn", { time })}
       role="timer"
     >
@@ -206,7 +400,9 @@ function ProductRail({ products, loading }: { products?: ProductSummaryDto[]; lo
     <HorizontalScroller>
       {loading
         ? Array.from({ length: 4 }).map((_, i) => <ProductCardSkeleton key={i} layout="row" />)
-        : products?.map((p) => <ProductCard key={p.id} product={p} layout="row" />)}
+        : products?.map((p) => (
+            <ProductCard key={p.id} product={p} layout="row" className={IN_BOX_CARD} />
+          ))}
     </HorizontalScroller>
   );
 }

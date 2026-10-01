@@ -48,7 +48,8 @@ interface BottomNavProps {
 
 /**
  * Bottom nav (DESIGN.md › Navegação): 64 px + safe-area, surface translúcida com borda superior.
- * Ícone ativo em --primary com pill atrás; badge do carrinho em --cta. A busca vive no header.
+ * Item ativo em --primary com a barra indicadora de 3 px no topo; badge do carrinho em --cta.
+ * A busca vive no header.
  */
 export function BottomNav({ embedded, activeKey, className }: BottomNavProps) {
   const t = useTranslations("nav");
@@ -74,18 +75,18 @@ export function BottomNav({ embedded, activeKey, className }: BottomNavProps) {
                 href={href}
                 aria-current={active ? "page" : undefined}
                 className={cn(
-                  "flex min-w-0 flex-1 pressable flex-col items-center justify-center gap-1 px-1 text-caption focus-ring transition-colors",
+                  "relative flex min-w-0 flex-1 pressable flex-col items-center justify-center gap-1 px-1 text-caption focus-ring transition-colors",
                   active ? "text-primary" : "text-foreground-secondary hover:text-foreground",
                 )}
               >
+                <span
+                  aria-hidden
+                  className={cn(
+                    "absolute inset-x-3 top-0 h-[3px] rounded-b-sm bg-primary transition-opacity duration-200",
+                    active ? "opacity-100" : "opacity-0",
+                  )}
+                />
                 <span className="relative flex h-8 w-14 items-center justify-center">
-                  <span
-                    aria-hidden
-                    className={cn(
-                      "absolute inset-0 rounded-full bg-primary-soft transition-opacity duration-200",
-                      active ? "opacity-100" : "opacity-0",
-                    )}
-                  />
                   <Icon className="relative size-6" strokeWidth={active ? 2 : 1.75} aria-hidden />
                   {key === "cart" && hydrated ? (
                     <CartBadge count={count} className="-top-1 right-1" />

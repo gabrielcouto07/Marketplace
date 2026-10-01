@@ -14,7 +14,7 @@ interface PriceTagProps {
   /** `short`: "12x R$ 41,58" (cards) · `long`: "em até 12x de R$ 41,58 sem juros" (produto). */
   installments?: "short" | "long";
   installmentCount?: number;
-  /** Mostra o "-25%" ao lado do preço riscado (verde: desconto é ganho, não alerta). */
+  /** Mostra o "-25%" em Vermelho de oferta antes do preço, no mesmo tamanho (padrão de loja). */
   showDiscountBadge?: boolean;
 }
 
@@ -26,9 +26,9 @@ const SIZES = {
 } as const;
 
 /**
- * Preço em BRL sempre em destaque: inteiro grande em --text, centavos menores sobrescritos,
- * preço antigo riscado em muted, % de desconto em --success, parcelamento e referência em
- * guaranis em caption muted. Nunca recebe float: Money.amount é inteiro em unidades mínimas.
+ * Preço em BRL sempre em destaque: "-25%" em --deal (opcional) e o inteiro grande em --text com
+ * centavos sobrescritos; embaixo "De: R$ …" riscado em muted, parcelamento e referência em guaranis.
+ * Nunca recebe float: Money.amount é inteiro em unidades mínimas.
  */
 export function PriceTag({
   price,
@@ -52,33 +52,32 @@ export function PriceTag({
 
   return (
     <div className={cn("flex flex-col gap-0.5 tabular-nums", className)}>
-      {hasDiscount ? (
-        <span className={cn("flex items-center gap-2 text-foreground-muted", s.meta)}>
-          <span className="line-through">
-            <span className="sr-only">De </span>
-            {formatMoney(compareAtPrice!)}
+      <span className="flex items-start gap-2 leading-none">
+        {showDiscountBadge && hasDiscount ? (
+          <span className={cn("leading-none font-light text-deal", s.integer)}>-{discount}%</span>
+        ) : null}
+        <span
+          className="flex items-start leading-none text-foreground"
+          aria-label={formatMoney(price)}
+        >
+          <span className={cn("mt-[0.2em] mr-1 font-medium", s.minor)} aria-hidden>
+            {parts.symbol}
           </span>
-          {showDiscountBadge ? (
-            <span className="font-medium text-success">-{discount}%</span>
+          <span className={cn("leading-none", s.integer)} aria-hidden>
+            {parts.integer}
+          </span>
+          {parts.fraction ? (
+            <span className={cn("mt-[0.2em] ml-0.5 font-semibold", s.minor)} aria-hidden>
+              ,{parts.fraction}
+            </span>
           ) : null}
         </span>
-      ) : null}
-      <span
-        className="flex items-start leading-none text-foreground"
-        aria-label={formatMoney(price)}
-      >
-        <span className={cn("mt-[0.2em] mr-1 font-medium", s.minor)} aria-hidden>
-          {parts.symbol}
-        </span>
-        <span className={cn("leading-none", s.integer)} aria-hidden>
-          {parts.integer}
-        </span>
-        {parts.fraction ? (
-          <span className={cn("mt-[0.2em] ml-0.5 font-semibold", s.minor)} aria-hidden>
-            ,{parts.fraction}
-          </span>
-        ) : null}
       </span>
+      {hasDiscount ? (
+        <span className={cn("text-foreground-muted", s.meta)}>
+          {t("listPrice")} <span className="line-through">{formatMoney(compareAtPrice!)}</span>
+        </span>
+      ) : null}
       {installments === "long" ? (
         <span className={cn("font-medium text-success", s.meta)}>
           {t("installmentsLong", { count: installmentCount, amount: formatMoney(installment) })}

@@ -8,8 +8,8 @@ import { BrandLogo } from "@/components/layout/brand-logo";
 import { BrandMark } from "@/components/layout/brand-mark";
 import { CartBadge } from "@/components/layout/header";
 import { TricolorStripe } from "@/components/layout/tricolor-stripe";
+import { FlagBR, FlagPY } from "@/components/shared/flags";
 import { Button } from "@/components/ui/button";
-import { FlagBR, FlagPY, HeroIllustration } from "@/features/home/components/hero-illustration";
 import { contrastRatio, formatRatio, wcagLevel } from "@/lib/contrast";
 import { cn } from "@/lib/utils";
 
@@ -20,57 +20,70 @@ import { Demo } from "./design-view";
 /* Marca                                                                */
 /* ------------------------------------------------------------------ */
 
-const BRAND_PASTELS = [
-  { name: "Coral", strong: "bg-brand-coral", soft: "bg-brand-coral-soft", use: "CTA, busca, badge" },
+const BRAND_COLORS = [
   {
-    name: "Pervinca",
-    strong: "bg-brand-pervinca",
-    soft: "bg-brand-pervinca-soft",
-    use: "primary (600), fita do header",
+    name: "Vermelho",
+    strong: "bg-brand-vermelho",
+    soft: "bg-brand-vermelho-soft",
+    use: "ofertas (600), sacola",
   },
   {
-    name: "Menta",
-    strong: "bg-brand-menta",
-    soft: "bg-brand-menta-soft",
-    use: "success, etiqueta",
+    name: "Azul",
+    strong: "bg-brand-azul",
+    soft: "bg-brand-azul-soft",
+    use: "primary (600), links",
   },
   {
-    name: "Manteiga",
-    strong: "bg-brand-manteiga",
-    soft: "bg-brand-manteiga-soft",
+    name: "Verde",
+    strong: "bg-brand-verde",
+    soft: "bg-brand-verde-soft",
+    use: "success (700), etiqueta",
+  },
+  {
+    name: "Amarelo",
+    strong: "bg-brand-amarelo",
+    soft: "bg-brand-amarelo-soft",
     use: "tile do logo, carrinho",
+  },
+  {
+    name: "Laranja",
+    strong: "bg-brand-laranja",
+    soft: "bg-brand-laranja-soft",
+    use: "CTA de compra, busca",
   },
 ];
 
 export function BrandSection() {
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      <Demo label="Logo A · Etiqueta" hint="public/logo.svg · detalhe muda com o tamanho">
+      <Demo label="Logo · Etiqueta" hint="public/logo.svg · detalhe muda com o tamanho">
         <div className="flex flex-wrap items-end gap-6">
-          <BrandLogo size={96} title="Logo do Marketplace Paraguai" />
+          <BrandLogo size={96} title="Logo do Paraguai Imports" />
           <BrandLogo size={48} />
           <BrandLogo size={40} />
           <BrandLogo size={24} />
         </div>
         <p className="mt-4 text-body-sm text-foreground-secondary">
-          Sacola do Paraguai (Coral · branco com estrela · Pervinca) com a etiqueta do Brasil presa
-          na alça, sobre o tile Manteiga. ≥ 42 px completo; abaixo disso sai a estrela; &lt; 28 px
+          Sacola do Paraguai (Vermelho · branco com estrela · Azul) com a etiqueta do Brasil presa
+          na alça, sobre o tile Amarelo. ≥ 42 px completo; abaixo disso sai a estrela; &lt; 28 px
           saem barbante e círculo e a alça engrossa. Nunca recebe sombra, contorno ou recolorização.
         </p>
       </Demo>
-      <Demo label="Lockup" hint="md no header desktop · sm no mobile · tone dark sobre brand-deep">
+      <Demo
+        label="Lockup"
+        hint="tone dark (padrão) na barra Marinho · tone light em superfícies claras"
+      >
         <div className="flex flex-col gap-4">
-          <BrandMark />
-          <BrandMark size="sm" />
-          <div className="relative overflow-hidden rounded-lg bg-brand-deep p-4">
-            <TricolorStripe className="absolute inset-x-0 top-0" />
-            <BrandMark tone="dark" size="sm" className="mt-1" />
+          <div className="flex flex-col gap-3 rounded-lg bg-brand-deep p-4">
+            <BrandMark />
+            <BrandMark size="sm" />
           </div>
+          <BrandMark tone="light" size="sm" />
         </div>
       </Demo>
-      <Demo label="Paleta da marca" hint="pastel é fundo; o conteúdo por cima é sempre Tinta">
-        <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {BRAND_PASTELS.map((c) => (
+      <Demo label="Paleta da marca" hint="cores chapadas vivas em cima · tons claros embaixo">
+        <ul className="grid grid-cols-3 gap-3 sm:grid-cols-5">
+          {BRAND_COLORS.map((c) => (
             <li key={c.name} className="flex flex-col gap-2">
               <span className="flex h-20 flex-col overflow-hidden rounded-lg">
                 <span className={cn("flex-1", c.strong)} />
@@ -81,49 +94,29 @@ export function BrandSection() {
             </li>
           ))}
         </ul>
-        <div className="mt-4 flex gap-3">
-          <span className="flex h-10 flex-1 items-center rounded-md bg-brand-lilas px-3 text-caption font-semibold text-foreground">
-            Lilás · atalho da conta
-          </span>
-          <span className="flex h-10 flex-1 items-center rounded-md bg-brand-ceu px-3 text-caption font-semibold text-foreground">
-            Céu · hero
-          </span>
-        </div>
       </Demo>
       <Demo
-        label="Fita Pervinca e faixa das quatro cores"
-        hint="brand-ribbon (4 px) na base do header · brand-quartet em splash e OG"
+        label="Barra Marinho, tricolor e faixa das quatro cores"
+        hint="header e footer em brand-deep · tricolor no painel · brand-quartet na base do footer e na OG"
       >
         <div className="flex flex-col gap-4">
-          <div className="overflow-hidden rounded-lg border border-border bg-surface">
-            <div className="flex h-14 items-center px-4">
-              <BrandMark size="sm" compact />
+          <div className="overflow-hidden rounded-lg">
+            <div className="flex h-14 items-center bg-brand-deep px-3">
+              <BrandMark size="sm" />
             </div>
-            <div aria-hidden className="brand-ribbon" />
+            <div className="flex h-10 items-center bg-brand-deep-raised px-4 text-body-sm font-medium text-white">
+              Todos · Ofertas do dia · Mais vendidos
+            </div>
           </div>
           <div aria-hidden className="h-2.5 rounded-full brand-quartet" />
           <div className="overflow-hidden rounded-lg bg-brand-deep">
             <TricolorStripe />
-            <p className="p-4 text-caption text-white/70">
-              Tricolor (3 px) só sobre brand-deep: painel, footer, splash.
+            <p className="flex items-center gap-2 p-4 text-caption text-white/80">
+              <FlagPY className="rounded-[3px]" />
+              <FlagBR className="rounded-[3px]" />
+              Tricolor (3 px) só sobre brand-deep; bandeiras só na versão da marca.
             </p>
           </div>
-        </div>
-      </Demo>
-      <Demo
-        label="Arte do hero"
-        hint="Ponte da Amizade PY → BR · bandeiras na versão da marca (sem brasão)"
-        className="md:col-span-2"
-      >
-        <div className="flex flex-col overflow-hidden rounded-xl bg-brand-ceu md:flex-row md:items-center md:justify-between">
-          <div className="flex shrink-0 items-center gap-2 p-5 md:pl-8">
-            <FlagPY className="rounded-[3px]" />
-            <FlagBR className="rounded-[3px]" />
-            <span className="font-heading text-hero whitespace-nowrap text-foreground">
-              Boa tarde!
-            </span>
-          </div>
-          <HeroIllustration className="w-full md:w-1/2 md:self-end" />
         </div>
       </Demo>
     </div>
@@ -210,7 +203,7 @@ export function PaletteSection() {
 
       <Demo
         label="Proporção por tela"
-        hint="~80 % Papel e branco · ~15 % pastéis da marca · ~5 % Coral · um CTA coral por tela"
+        hint="~80 % Papel e branco · ~15 % cores vivas da marca · ~5 % Laranja · um CTA laranja por tela"
       >
         <div className="flex h-8 overflow-hidden rounded-sm">
           <span className="flex-[80] bg-background" />
@@ -230,7 +223,7 @@ export function TypographySection() {
   return (
     <Demo
       label="Escala mobile"
-      hint="Figtree na interface e nos números · Bricolage Grotesque 800 só em títulos (font-heading) · preços em tabular-nums"
+      hint="Figtree na interface, nos títulos de seção e nos números · Bricolage Grotesque 800 só no wordmark e nas manchetes (font-heading) · preços em tabular-nums"
     >
       <ul className="flex flex-col divide-y divide-border">
         {TYPE_SCALE.map((s) => (
@@ -255,11 +248,11 @@ export function TypographySection() {
 /* ------------------------------------------------------------------ */
 
 const RADII = [
-  { name: "sm · 8", className: "rounded-sm", use: "chips, badges" },
-  { name: "md · 12", className: "rounded-md", use: "botões, inputs" },
-  { name: "lg · 16", className: "rounded-lg", use: "cards, imagens" },
-  { name: "xl · 24", className: "rounded-xl", use: "bottom sheets" },
-  { name: "full", className: "rounded-full", use: "avatares, pills" },
+  { name: "sm · 4", className: "rounded-sm", use: "chips, badges" },
+  { name: "md · 6", className: "rounded-md", use: "inputs, busca" },
+  { name: "lg · 8", className: "rounded-lg", use: "cards, imagens" },
+  { name: "xl · 12", className: "rounded-xl", use: "bottom sheets" },
+  { name: "full", className: "rounded-full", use: "botões, avatares" },
 ];
 
 const SHADOWS = [

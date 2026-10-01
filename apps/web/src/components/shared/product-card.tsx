@@ -1,4 +1,5 @@
 import type { ProductSummaryDto } from "@marketplace/contracts";
+import { Truck } from "lucide-react";
 import Image from "next/image";
 import { useFormatter, useTranslations } from "next-intl";
 
@@ -9,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Link } from "@/i18n/navigation";
 import { blurDataUrlFor, isDirectImage } from "@/lib/images";
+import { discountPercent } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
 interface ProductCardProps {
@@ -20,9 +22,10 @@ interface ProductCardProps {
 }
 
 /**
- * Card de produto (DESIGN.md › ProductCard): foto 1:1 em object-contain sobre surface-muted (os
- * assets são quadrados, então preenchem o palco), coração em pill translúcida, título em 2 linhas,
- * preço com centavos sobrescritos e % em verde, parcelamento, "Frete grátis" e origem discreta.
+ * Card de produto (DESIGN.md › ProductCard), no padrão de loja: foto 1:1 em object-contain sobre
+ * surface-muted, selo "Oferta" em Vermelho chapado (ou "Novo" em Azul), coração em pill
+ * translúcida, título em 2 linhas que sublinha no hover, cinco estrelas com a contagem, preço com
+ * o "-25%" em --deal e o "De:" riscado, parcelamento, "Frete grátis" em verde e a origem discreta.
  *
  * O corpo tem estrutura fixa (título → avaliação → preço → rodapé) para que, lado a lado, títulos e
  * preços fiquem alinhados mesmo quando um card tem desconto ou frete grátis e o vizinho não.
@@ -32,7 +35,7 @@ export function ProductCard({ product, layout = "grid", priority, className }: P
   const t = useTranslations("catalog");
   const format = useFormatter();
   const soldOut = product.stock <= 0;
-  const hasMeta = product.reviewCount > 0 || product.soldCount > 0;
+  const onDeal = discountPercent(product.price, product.compareAtPrice ?? null) > 0;
 
   return (
     <article
@@ -63,8 +66,12 @@ export function ProductCard({ product, layout = "grid", priority, className }: P
               soldOut && "opacity-50 grayscale",
             )}
           />
-          {product.isNew && !soldOut ? (
-            <Badge variant="soft" className="absolute top-2 left-2 shadow-xs">
+          {soldOut ? null : onDeal ? (
+            <Badge variant="deal" className="absolute top-2 left-2">
+              {t("dealBadge")}
+            </Badge>
+          ) : product.isNew ? (
+            <Badge variant="primary" className="absolute top-2 left-2">
               {t("newBadge")}
             </Badge>
           ) : null}
@@ -76,27 +83,27 @@ export function ProductCard({ product, layout = "grid", priority, className }: P
         </div>
 
         <div className="flex flex-1 flex-col p-3">
-          <h3 className="line-clamp-2 min-h-10 text-body-sm font-medium text-foreground">
+          <h3 className="line-clamp-2 min-h-10 text-body-sm font-medium text-foreground decoration-1 underline-offset-2 group-hover:text-primary group-hover:underline">
             {product.name}
           </h3>
 
           {/* Linha de avaliação sempre presente (altura fixa) para alinhar os preços entre cards. */}
-          <p
-            className="mt-1 flex h-4 items-center gap-1 text-caption text-foreground-muted"
-            aria-hidden={!hasMeta}
-          >
+          <div className="mt-1 flex h-4 items-center gap-1 text-caption text-foreground-muted">
             {product.reviewCount > 0 ? (
-              <RatingStars value={product.rating} size="xs" variant="compact" />
-            ) : null}
-            {product.reviewCount > 0 && product.soldCount > 0 ? <span aria-hidden>·</span> : null}
-            {product.soldCount > 0 ? (
+              <RatingStars
+                value={product.rating}
+                count={product.reviewCount}
+                size="xs"
+                showValue={false}
+              />
+            ) : product.soldCount > 0 ? (
               <span className="truncate">
                 {t("soldCompact", {
                   count: format.number(product.soldCount, { notation: "compact" }),
                 })}
               </span>
             ) : null}
-          </p>
+          </div>
 
           <PriceTag
             price={product.price}
@@ -107,8 +114,13 @@ export function ProductCard({ product, layout = "grid", priority, className }: P
             className="mt-2"
           />
 
-          <div className="mt-auto flex flex-col items-start gap-1 pt-2">
-            {product.freeShipping ? <Badge variant="success">{t("freeShipping")}</Badge> : null}
+          <div className="mt-auto flex flex-col items-start gap-0.5 pt-2">
+            {product.freeShipping ? (
+              <p className="flex items-center gap-1 text-caption font-semibold text-success">
+                <Truck className="size-3.5" strokeWidth={2} aria-hidden />
+                {t("freeShipping")}
+              </p>
+            ) : null}
             <p className="max-w-full truncate text-caption text-foreground-muted">
               {t("shippedFrom", { city: product.seller.city })}
             </p>

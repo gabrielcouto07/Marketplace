@@ -66,8 +66,9 @@ import { Demo } from "./design-view";
 const VARIANTS = [
   { variant: "cta", label: "Comprar agora", hint: "primary-cta · um por tela" },
   { variant: "primary", label: "Continuar", hint: "primary · ações sem conotação de compra" },
-  { variant: "secondary", label: "Adicionar ao carrinho", hint: "surface + borda" },
-  { variant: "soft", label: "Ver loja", hint: "Pervinca suave" },
+  { variant: "cart", label: "Adicionar ao carrinho", hint: "cart · Amarelo, acima do CTA" },
+  { variant: "secondary", label: "Ver detalhes", hint: "surface + borda" },
+  { variant: "soft", label: "Ver loja", hint: "Azul claro" },
   { variant: "ghost", label: "Cancelar", hint: "só texto" },
   { variant: "link", label: "Ver política", hint: "link" },
   { variant: "destructive", label: "Remover item", hint: "sempre com ícone" },
@@ -134,11 +135,11 @@ export function ButtonsSection() {
         </Demo>
         <Demo
           label="CTA full-width no mobile"
-          hint="a linha de compra: CTA coral + secundário ao lado"
+          hint="a linha de compra: Adicionar ao carrinho (Amarelo) + Comprar agora (Laranja)"
           className="md:col-span-2"
         >
           <div className="flex flex-col gap-2 sm:flex-row">
-            <Button variant="secondary" className="sm:flex-1">
+            <Button variant="cart" className="sm:flex-1">
               Adicionar ao carrinho
             </Button>
             <Button variant="cta" className="sm:flex-1">

@@ -5,8 +5,8 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 /**
- * Badges: 24 px, texto caption (12/500), raio 8. Tons suaves por padrão — cor chapada só em
- * `cta` (oferta) e `primary` (estado ativo). `danger` sempre com ícone + texto.
+ * Badges: 24 px, texto caption (12/500), raio 4. Tons claros por padrão — cor chapada em `deal`
+ * (oferta: Vermelho com texto branco), `cta`, `cart` e `primary`. `danger` sempre com ícone + texto.
  */
 const badgeVariants = cva(
   "group/badge inline-flex h-6 w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-sm border border-transparent px-2 text-caption whitespace-nowrap transition-colors focus-ring [&>svg]:pointer-events-none [&>svg]:size-3.5",
@@ -15,6 +15,8 @@ const badgeVariants = cva(
       variant: {
         primary: "bg-primary text-primary-foreground",
         cta: "bg-cta text-cta-foreground",
+        cart: "bg-cart text-cart-foreground",
+        deal: "bg-deal font-semibold text-deal-foreground",
         soft: "bg-primary-soft text-primary",
         success: "bg-success-soft text-success",
         warning: "bg-warning-soft text-warning",

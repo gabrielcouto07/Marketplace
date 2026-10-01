@@ -6,87 +6,101 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ------------------------------------------------------------------ */
-/* Design tokens — Marketplace Paraguai                                */
+/* Design tokens — Paraguai Imports                                    */
 /* Fonte de verdade: DESIGN.md (raiz do repositório).                  */
-/* Identidade "Etiqueta": Coral, Pervinca, Menta e Manteiga em pastel, */
-/* Tinta para textos, Papel e Céu de fundo; Figtree + Bricolage         */
-/* Grotesque; grid de 8 px. Pastéis são preenchimento com texto Tinta; */
-/* tons 600+ da mesma cor fazem o papel de texto/ícone (contraste AA).  */
+/* Identidade viva: Vermelho e Azul (Paraguai), Verde e Amarelo        */
+/* (Brasil) em tons saturados, Laranja de compra, barra Marinho no     */
+/* topo, Tinta para textos e Papel cinza de fundo com cards brancos.   */
+/* Figtree + Bricolage Grotesque; grid de 8 px. Toda dupla texto/fundo  */
+/* foi validada (≥ 4,5:1 texto; ≥ 3:1 ícone) — ver /design › Cores.     */
 /* ------------------------------------------------------------------ */
 
 :root {
-  /* ---------- Escalas primitivas (400 = cor da identidade, 100 = tom suave) ---------- */
-  --coral-50: #feefec;
-  --coral-100: #ffe1db;
-  --coral-200: #fec7be;
-  --coral-300: #ffab9e;
-  --coral-400: #ff8b7b;
-  --coral-500: #ea7869;
-  --coral-600: #c45c4f;
-  --coral-700: #a0463b;
-  --coral-800: #7f362d;
-  --coral-900: #5d2821;
+  /* ---------- Escalas primitivas (vivas) ---------- */
+  /* Vermelho do Paraguai: 500 é a cor da marca; 600 é o tom de oferta (texto e fundo com branco). */
+  --vermelho-50: #fff1f2;
+  --vermelho-100: #ffe0e3;
+  --vermelho-200: #ffc2c8;
+  --vermelho-300: #ff94a0;
+  --vermelho-400: #ff5468;
+  --vermelho-500: #f2263e;
+  --vermelho-600: #d3102e;
+  --vermelho-700: #ad0b25;
+  --vermelho-800: #89051b;
+  --vermelho-900: #640311;
 
-  --pervinca-50: #eef2fe;
-  --pervinca-100: #e1e8ff;
-  --pervinca-200: #c0d0fe;
-  --pervinca-300: #a0b6fe;
-  --pervinca-400: #7f9bff;
-  --pervinca-500: #6e88ea;
-  --pervinca-600: #455bb3;
-  --pervinca-700: #364895;
-  --pervinca-800: #283775;
-  --pervinca-900: #1c2754;
+  /* Azul do Paraguai: 600 é o primary (texto e fundo com branco); 950 é o Marinho da barra do topo. */
+  --azul-50: #f0f5ff;
+  --azul-100: #e0ebff;
+  --azul-200: #c2d6ff;
+  --azul-300: #94b8ff;
+  --azul-400: #5c8fff;
+  --azul-500: #2e6bff;
+  --azul-600: #1552eb;
+  --azul-700: #0b44c8;
+  --azul-800: #0634a0;
+  --azul-900: #06267a;
+  --azul-950: #0a1733;
 
-  --menta-50: #ebfaf1;
-  --menta-100: #d6f4e4;
-  --menta-200: #abe9c6;
-  --menta-300: #81dcab;
-  --menta-400: #5dcb94;
-  --menta-500: #48b882;
-  --menta-600: #1e905f;
-  --menta-700: #0e764c;
-  --menta-800: #075c3a;
-  --menta-900: #0a432a;
+  /* Verde do Brasil: 500 é a cor da marca; 700 é o tom de texto (sucesso, frete grátis). */
+  --verde-50: #ebfff0;
+  --verde-100: #ccf8d8;
+  --verde-200: #9eedb4;
+  --verde-300: #5edb86;
+  --verde-400: #1fc762;
+  --verde-500: #00b852;
+  --verde-600: #038539;
+  --verde-700: #026f2f;
+  --verde-800: #065724;
+  --verde-900: #003f17;
 
-  --manteiga-50: #fffaee;
-  --manteiga-100: #fff1c9;
-  --manteiga-200: #ffe6ad;
-  --manteiga-300: #ffdc89;
-  --manteiga-400: #ffd15c;
-  --manteiga-500: #ebbd46;
-  --manteiga-600: #9f7a00;
-  --manteiga-700: #836400;
-  --manteiga-800: #684f00;
-  --manteiga-900: #4e3a00;
+  /* Amarelo do Brasil: 400 é a cor da marca e o botão "Adicionar ao carrinho" (texto Tinta). */
+  --amarelo-50: #fffbeb;
+  --amarelo-100: #fff3c2;
+  --amarelo-200: #ffe98a;
+  --amarelo-300: #ffdd47;
+  --amarelo-400: #ffd20a;
+  --amarelo-500: #f0be00;
+  --amarelo-600: #c79a00;
+  --amarelo-700: #8a6b00;
+  --amarelo-800: #6b5300;
+  --amarelo-900: #4d3b00;
 
-  /* Tinta: neutro frio levemente violeta, derivado do #26253A dos textos. */
+  /* Laranja de compra: 400 é o CTA "Comprar agora" (texto Tinta). */
+  --laranja-50: #fff6eb;
+  --laranja-100: #ffe8cc;
+  --laranja-200: #ffd199;
+  --laranja-300: #ffb55c;
+  --laranja-400: #ff9500;
+  --laranja-500: #f07e00;
+  --laranja-600: #c76400;
+  --laranja-700: #9c4d00;
+  --laranja-800: #7a3c00;
+  --laranja-900: #592b00;
+
+  /* Tinta: neutro frio levemente azulado (textos, superfícies e o modo escuro). */
   --tinta-0: #ffffff;
-  --tinta-50: #f7f7fc;
-  --tinta-100: #f1f0f8;
-  --tinta-200: #e2e2ec;
-  --tinta-300: #cacbd9;
-  --tinta-400: #9c9cb1;
-  --tinta-500: #6a6880;
-  --tinta-600: #5e5c72;
-  --tinta-700: #45445f;
-  --tinta-800: #35344c;
-  --tinta-900: #26253a;
-  --tinta-950: #171626;
+  --tinta-50: #f7f8fa;
+  --tinta-100: #eff1f4;
+  --tinta-200: #e1e5ea;
+  --tinta-300: #cdd3da;
+  --tinta-400: #98a1ad;
+  --tinta-500: #5a6575;
+  --tinta-600: #4a5563;
+  --tinta-700: #353f4d;
+  --tinta-800: #1f2937;
+  --tinta-900: #0f1729;
+  --tinta-950: #080d1a;
 
-  /* Papel: neutro quente do fundo da página e das bordas. */
-  --papel-50: #f7f6f2;
-  --papel-100: #f0eee9;
-  --papel-200: #e4e2da;
-  --papel-300: #d0cec4;
+  /* Papel: cinza do fundo da página (os cards brancos flutuam sobre ele) e das bordas. */
+  --papel-50: #eaedf0;
+  --papel-100: #e1e5e9;
+  --papel-200: #d5dae0;
+  --papel-300: #bcc3cc;
 
-  /* Tons avulsos da identidade: Lilás (atalho da conta) e Céu (hero). */
-  --lilas-100: #e6e3ff;
-  --ceu-100: #e8f1ff;
-
-  /* Do logo A (DESIGN.md › Apêndice A): tile Manteiga e estrela dourada. */
-  --brand-tile: var(--manteiga-100);
-  --gold: #ffc53d;
+  /* Do logo (DESIGN.md › Apêndice A): tile Amarelo e estrela dourada. */
+  --brand-tile: var(--amarelo-400);
+  --gold: #ffa41c;
 
   /* ---------- Semânticos (light) ---------- */
   --background: var(--papel-50);
@@ -97,37 +111,45 @@
   --text: var(--tinta-900);
   --text-secondary: var(--tinta-600);
   --text-muted: var(--tinta-500);
-  --primary: var(--pervinca-600);
-  --primary-hover: var(--pervinca-700);
-  --primary-soft: var(--pervinca-100);
+  --primary: var(--azul-600);
+  --primary-hover: var(--azul-700);
+  --primary-soft: var(--azul-100);
   --on-primary: var(--tinta-0);
-  --cta: var(--coral-400);
-  --cta-hover: var(--coral-500);
-  --cta-pressed: var(--coral-500);
+  --cta: var(--laranja-400);
+  --cta-hover: var(--laranja-500);
+  --cta-pressed: var(--laranja-500);
   --on-cta: var(--tinta-900);
-  --success: var(--menta-700);
-  --success-soft: var(--menta-100);
-  --warning: var(--manteiga-800);
-  --warning-soft: var(--manteiga-100);
-  --danger: var(--coral-700);
-  --danger-soft: var(--coral-50);
-  --focus-ring: var(--pervinca-500);
-  --brand-deep: var(--tinta-900);
-  --overlay: rgb(38 37 58 / 0.4);
+  --cart: var(--amarelo-400);
+  --cart-hover: var(--amarelo-500);
+  --on-cart: var(--tinta-900);
+  --deal: var(--vermelho-600);
+  --on-deal: var(--tinta-0);
+  /* Conteúdo sobre as cores chapadas claras da marca (Verde, Amarelo, Laranja): Tinta nos dois temas. */
+  --on-bright: var(--tinta-900);
+  --success: var(--verde-700);
+  --success-soft: var(--verde-100);
+  --warning: var(--amarelo-800);
+  --warning-soft: var(--amarelo-100);
+  --danger: var(--vermelho-700);
+  --danger-soft: var(--vermelho-50);
+  --focus-ring: var(--azul-500);
+  /* Marinho: barra principal do header, footer, header dos painéis e scrim de foto. */
+  --brand-deep: var(--azul-950);
+  /* Marinho claro: a faixa de departamentos sob o header e o "Voltar ao início" do footer. */
+  --brand-deep-raised: #15284d;
+  --overlay: rgb(15 23 41 / 0.5);
 
-  /* Paleta da marca: superfícies lúdicas (atalhos do header, hero, chips de confiança).
-     Pastel é fundo; o conteúdo por cima é sempre Tinta (--text). */
-  --brand-coral: var(--coral-400);
-  --brand-coral-soft: var(--coral-100);
-  --brand-coral-strong: var(--coral-600);
-  --brand-pervinca: var(--pervinca-400);
-  --brand-pervinca-soft: var(--pervinca-100);
-  --brand-menta: var(--menta-400);
-  --brand-menta-soft: var(--menta-100);
-  --brand-manteiga: var(--manteiga-400);
-  --brand-manteiga-soft: var(--manteiga-100);
-  --brand-lilas: var(--lilas-100);
-  --brand-ceu: var(--ceu-100);
+  /* Paleta da marca: cores chapadas (ícones, faixas, ilustração) e seus tons claros. */
+  --brand-vermelho: var(--vermelho-500);
+  --brand-vermelho-soft: var(--vermelho-100);
+  --brand-azul: var(--azul-500);
+  --brand-azul-soft: var(--azul-100);
+  --brand-verde: var(--verde-500);
+  --brand-verde-soft: var(--verde-100);
+  --brand-amarelo: var(--amarelo-400);
+  --brand-amarelo-soft: var(--amarelo-100);
+  --brand-laranja: var(--laranja-400);
+  --brand-laranja-soft: var(--laranja-100);
 
   /* ---------- Tokens shadcn/ui (mapeados) ---------- */
   --foreground: var(--text);
@@ -144,14 +166,14 @@
   --accent-foreground: var(--primary);
   --destructive: var(--danger);
   --destructive-foreground: var(--tinta-0);
-  --input: var(--border);
+  --input: var(--border-strong);
   --ring: var(--focus-ring);
-  --chart-1: var(--pervinca-600);
-  --chart-2: var(--coral-400);
-  --chart-3: var(--menta-500);
-  --chart-4: var(--manteiga-500);
-  --chart-5: var(--tinta-400);
-  --radius: 12px;
+  --chart-1: var(--azul-600);
+  --chart-2: var(--laranja-400);
+  --chart-3: var(--verde-500);
+  --chart-4: var(--vermelho-500);
+  --chart-5: var(--amarelo-500);
+  --radius: 8px;
   --sidebar: var(--surface);
   --sidebar-foreground: var(--text);
   --sidebar-primary: var(--primary);
@@ -162,54 +184,58 @@
   --sidebar-ring: var(--focus-ring);
 
   /* ---------- Sombras (tingidas de Tinta, em camadas) ---------- */
-  --shadow-xs: 0 1px 2px rgb(38 37 58 / 0.05);
-  --shadow-sm: 0 1px 3px rgb(38 37 58 / 0.06), 0 1px 2px rgb(38 37 58 / 0.04);
-  --shadow-md: 0 4px 12px rgb(38 37 58 / 0.08);
-  --shadow-lg: 0 12px 32px rgb(38 37 58 / 0.12);
+  --shadow-xs: 0 1px 2px rgb(15 23 41 / 0.06);
+  --shadow-sm: 0 1px 3px rgb(15 23 41 / 0.08), 0 1px 2px rgb(15 23 41 / 0.05);
+  --shadow-md: 0 4px 12px rgb(15 23 41 / 0.1);
+  --shadow-lg: 0 12px 32px rgb(15 23 41 / 0.16);
 
   /* ---------- Layout ---------- */
-  /* Barra desktop do header: 80 px + fita Pervinca de 4 px. */
-  --header-height: 5.25rem;
+  /* Header desktop: barra Marinho de 64 px + faixa de departamentos de 40 px. */
+  --header-height: 6.5rem;
   --bottom-nav-height: 4rem;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 .dark {
-  /* Superfícies em Tinta; os pastéis viram véus de 20 % da cor sobre a superfície. */
-  --background: #12111f;
-  --surface: var(--tinta-900);
-  --surface-muted: var(--tinta-800);
-  --border: #3e3d54;
-  --border-strong: var(--tinta-700);
-  --text: var(--tinta-50);
-  --text-secondary: var(--tinta-300);
-  --text-muted: #a6a6b9;
-  --primary: var(--pervinca-300);
-  --primary-hover: var(--pervinca-200);
-  --primary-soft: color-mix(in srgb, var(--pervinca-400) 20%, var(--tinta-900));
+  /* Superfícies em Tinta/Marinho; os tons claros viram véus de ~20 % da cor sobre a superfície. */
+  --background: #0a0f1a;
+  --surface: #121a2b;
+  --surface-muted: #1b2438;
+  --border: #2a3550;
+  --border-strong: #3a4663;
+  --text: #f1f4f8;
+  --text-secondary: #c3cbd6;
+  --text-muted: #98a3b3;
+  --primary: var(--azul-400);
+  --primary-hover: var(--azul-300);
+  --primary-soft: color-mix(in srgb, var(--azul-500) 22%, #121a2b);
   --on-primary: var(--tinta-900);
-  --cta: var(--coral-400);
-  --cta-hover: var(--coral-300);
-  --cta-pressed: var(--coral-300);
+  --cta: var(--laranja-400);
+  --cta-hover: var(--laranja-300);
+  --cta-pressed: var(--laranja-300);
   --on-cta: var(--tinta-900);
-  --success: var(--menta-400);
-  --success-soft: color-mix(in srgb, var(--menta-400) 18%, var(--tinta-900));
-  --warning: var(--manteiga-400);
-  --warning-soft: color-mix(in srgb, var(--manteiga-400) 16%, var(--tinta-900));
-  --danger: var(--coral-300);
-  --danger-soft: color-mix(in srgb, var(--coral-400) 18%, var(--tinta-900));
-  --focus-ring: var(--pervinca-400);
-  --brand-deep: var(--tinta-950);
+  --cart: var(--amarelo-400);
+  --cart-hover: var(--amarelo-300);
+  --on-cart: var(--tinta-900);
+  --deal: var(--vermelho-600);
+  --on-deal: var(--tinta-0);
+  --success: var(--verde-400);
+  --success-soft: color-mix(in srgb, var(--verde-500) 20%, #121a2b);
+  --warning: var(--amarelo-400);
+  --warning-soft: color-mix(in srgb, var(--amarelo-400) 16%, #121a2b);
+  --danger: var(--vermelho-300);
+  --danger-soft: color-mix(in srgb, var(--vermelho-500) 20%, #121a2b);
+  --focus-ring: var(--azul-400);
+  --brand-deep: #060b16;
+  --brand-deep-raised: #0f1a33;
   --overlay: rgb(0 0 0 / 0.6);
   --destructive-foreground: var(--tinta-950);
-  --brand-coral-soft: color-mix(in srgb, var(--coral-400) 20%, var(--tinta-900));
-  --brand-coral-strong: var(--coral-300);
-  --brand-pervinca-soft: color-mix(in srgb, var(--pervinca-400) 20%, var(--tinta-900));
-  --brand-menta-soft: color-mix(in srgb, var(--menta-400) 20%, var(--tinta-900));
-  --brand-manteiga-soft: color-mix(in srgb, var(--manteiga-400) 20%, var(--tinta-900));
-  --brand-lilas: color-mix(in srgb, var(--lilas-100) 16%, var(--tinta-900));
-  --brand-ceu: color-mix(in srgb, var(--pervinca-400) 14%, var(--tinta-900));
+  --brand-vermelho-soft: color-mix(in srgb, var(--vermelho-500) 22%, #121a2b);
+  --brand-azul-soft: color-mix(in srgb, var(--azul-500) 22%, #121a2b);
+  --brand-verde-soft: color-mix(in srgb, var(--verde-500) 22%, #121a2b);
+  --brand-amarelo-soft: color-mix(in srgb, var(--amarelo-400) 20%, #121a2b);
+  --brand-laranja-soft: color-mix(in srgb, var(--laranja-400) 20%, #121a2b);
   --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.3);
   --shadow-sm: 0 1px 3px rgb(0 0 0 / 0.35), 0 1px 2px rgb(0 0 0 / 0.25);
   --shadow-md: 0 4px 12px rgb(0 0 0 / 0.4);
@@ -222,46 +248,57 @@
   --color-white: #ffffff;
   --color-black: #000000;
 
-  --color-coral-50: var(--coral-50);
-  --color-coral-100: var(--coral-100);
-  --color-coral-200: var(--coral-200);
-  --color-coral-300: var(--coral-300);
-  --color-coral-400: var(--coral-400);
-  --color-coral-500: var(--coral-500);
-  --color-coral-600: var(--coral-600);
-  --color-coral-700: var(--coral-700);
-  --color-coral-800: var(--coral-800);
-  --color-coral-900: var(--coral-900);
-  --color-pervinca-50: var(--pervinca-50);
-  --color-pervinca-100: var(--pervinca-100);
-  --color-pervinca-200: var(--pervinca-200);
-  --color-pervinca-300: var(--pervinca-300);
-  --color-pervinca-400: var(--pervinca-400);
-  --color-pervinca-500: var(--pervinca-500);
-  --color-pervinca-600: var(--pervinca-600);
-  --color-pervinca-700: var(--pervinca-700);
-  --color-pervinca-800: var(--pervinca-800);
-  --color-pervinca-900: var(--pervinca-900);
-  --color-menta-50: var(--menta-50);
-  --color-menta-100: var(--menta-100);
-  --color-menta-200: var(--menta-200);
-  --color-menta-300: var(--menta-300);
-  --color-menta-400: var(--menta-400);
-  --color-menta-500: var(--menta-500);
-  --color-menta-600: var(--menta-600);
-  --color-menta-700: var(--menta-700);
-  --color-menta-800: var(--menta-800);
-  --color-menta-900: var(--menta-900);
-  --color-manteiga-50: var(--manteiga-50);
-  --color-manteiga-100: var(--manteiga-100);
-  --color-manteiga-200: var(--manteiga-200);
-  --color-manteiga-300: var(--manteiga-300);
-  --color-manteiga-400: var(--manteiga-400);
-  --color-manteiga-500: var(--manteiga-500);
-  --color-manteiga-600: var(--manteiga-600);
-  --color-manteiga-700: var(--manteiga-700);
-  --color-manteiga-800: var(--manteiga-800);
-  --color-manteiga-900: var(--manteiga-900);
+  --color-vermelho-50: var(--vermelho-50);
+  --color-vermelho-100: var(--vermelho-100);
+  --color-vermelho-200: var(--vermelho-200);
+  --color-vermelho-300: var(--vermelho-300);
+  --color-vermelho-400: var(--vermelho-400);
+  --color-vermelho-500: var(--vermelho-500);
+  --color-vermelho-600: var(--vermelho-600);
+  --color-vermelho-700: var(--vermelho-700);
+  --color-vermelho-800: var(--vermelho-800);
+  --color-vermelho-900: var(--vermelho-900);
+  --color-azul-50: var(--azul-50);
+  --color-azul-100: var(--azul-100);
+  --color-azul-200: var(--azul-200);
+  --color-azul-300: var(--azul-300);
+  --color-azul-400: var(--azul-400);
+  --color-azul-500: var(--azul-500);
+  --color-azul-600: var(--azul-600);
+  --color-azul-700: var(--azul-700);
+  --color-azul-800: var(--azul-800);
+  --color-azul-900: var(--azul-900);
+  --color-azul-950: var(--azul-950);
+  --color-verde-50: var(--verde-50);
+  --color-verde-100: var(--verde-100);
+  --color-verde-200: var(--verde-200);
+  --color-verde-300: var(--verde-300);
+  --color-verde-400: var(--verde-400);
+  --color-verde-500: var(--verde-500);
+  --color-verde-600: var(--verde-600);
+  --color-verde-700: var(--verde-700);
+  --color-verde-800: var(--verde-800);
+  --color-verde-900: var(--verde-900);
+  --color-amarelo-50: var(--amarelo-50);
+  --color-amarelo-100: var(--amarelo-100);
+  --color-amarelo-200: var(--amarelo-200);
+  --color-amarelo-300: var(--amarelo-300);
+  --color-amarelo-400: var(--amarelo-400);
+  --color-amarelo-500: var(--amarelo-500);
+  --color-amarelo-600: var(--amarelo-600);
+  --color-amarelo-700: var(--amarelo-700);
+  --color-amarelo-800: var(--amarelo-800);
+  --color-amarelo-900: var(--amarelo-900);
+  --color-laranja-50: var(--laranja-50);
+  --color-laranja-100: var(--laranja-100);
+  --color-laranja-200: var(--laranja-200);
+  --color-laranja-300: var(--laranja-300);
+  --color-laranja-400: var(--laranja-400);
+  --color-laranja-500: var(--laranja-500);
+  --color-laranja-600: var(--laranja-600);
+  --color-laranja-700: var(--laranja-700);
+  --color-laranja-800: var(--laranja-800);
+  --color-laranja-900: var(--laranja-900);
   --color-tinta-0: var(--tinta-0);
   --color-tinta-50: var(--tinta-50);
   --color-tinta-100: var(--tinta-100);
@@ -282,17 +319,16 @@
   --color-brand-tile: var(--brand-tile);
 
   /* Paleta da marca (semânticos de identidade) */
-  --color-brand-coral: var(--brand-coral);
-  --color-brand-coral-soft: var(--brand-coral-soft);
-  --color-brand-coral-strong: var(--brand-coral-strong);
-  --color-brand-pervinca: var(--brand-pervinca);
-  --color-brand-pervinca-soft: var(--brand-pervinca-soft);
-  --color-brand-menta: var(--brand-menta);
-  --color-brand-menta-soft: var(--brand-menta-soft);
-  --color-brand-manteiga: var(--brand-manteiga);
-  --color-brand-manteiga-soft: var(--brand-manteiga-soft);
-  --color-brand-lilas: var(--brand-lilas);
-  --color-brand-ceu: var(--brand-ceu);
+  --color-brand-vermelho: var(--brand-vermelho);
+  --color-brand-vermelho-soft: var(--brand-vermelho-soft);
+  --color-brand-azul: var(--brand-azul);
+  --color-brand-azul-soft: var(--brand-azul-soft);
+  --color-brand-verde: var(--brand-verde);
+  --color-brand-verde-soft: var(--brand-verde-soft);
+  --color-brand-amarelo: var(--brand-amarelo);
+  --color-brand-amarelo-soft: var(--brand-amarelo-soft);
+  --color-brand-laranja: var(--brand-laranja);
+  --color-brand-laranja-soft: var(--brand-laranja-soft);
 
   /* Semânticos */
   --color-background: var(--background);
@@ -311,6 +347,12 @@
   --color-cta-hover: var(--cta-hover);
   --color-cta-pressed: var(--cta-pressed);
   --color-cta-foreground: var(--on-cta);
+  --color-cart: var(--cart);
+  --color-cart-hover: var(--cart-hover);
+  --color-cart-foreground: var(--on-cart);
+  --color-deal: var(--deal);
+  --color-deal-foreground: var(--on-deal);
+  --color-on-bright: var(--on-bright);
   --color-success: var(--success);
   --color-success-soft: var(--success-soft);
   --color-warning: var(--warning);
@@ -319,6 +361,7 @@
   --color-danger-soft: var(--danger-soft);
   --color-focus-ring: var(--focus-ring);
   --color-brand-deep: var(--brand-deep);
+  --color-brand-deep-raised: var(--brand-deep-raised);
   --color-overlay: var(--overlay);
 
   /* shadcn/ui */
@@ -352,12 +395,13 @@
   --color-sidebar-ring: var(--sidebar-ring);
 
   /* ---------- Tipografia ---------- */
-  /* Figtree para interface, textos e números; Bricolage Grotesque 800 só em títulos (`font-heading`). */
+  /* Figtree para interface, textos, títulos de seção e números; Bricolage Grotesque 800 só no
+     wordmark e nas manchetes de banner (`font-heading`). */
   --font-sans: var(--font-figtree), ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
   --font-heading: var(--font-bricolage), var(--font-figtree), "Trebuchet MS", sans-serif;
 
-  /* Saudação do hero da home (use com font-heading). hero-lg a partir de md. */
+  /* Manchete do banner da home (use com font-heading). hero-lg a partir de md. */
   --text-hero: 32px;
   --text-hero--line-height: 36px;
   --text-hero--font-weight: 800;
@@ -393,11 +437,12 @@
   --text-caption--letter-spacing: 0.01em;
 
   /* ---------- Raios ---------- */
+  /* Escala compacta de loja: chips 4 · inputs 6 · cards 8 · sheets e banners 12 · botões full. */
   --radius-*: initial;
-  --radius-sm: 8px;
-  --radius-md: 12px;
-  --radius-lg: 16px;
-  --radius-xl: 24px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
 
   /* ---------- Sombras ---------- */
   --shadow-*: initial;
@@ -477,26 +522,20 @@
   height: 3px;
   background: linear-gradient(
     to right,
-    var(--coral-400) 0 33.333%,
+    var(--vermelho-500) 0 33.333%,
     var(--tinta-0) 33.333% 66.666%,
-    var(--pervinca-400) 66.666% 100%
+    var(--azul-600) 66.666% 100%
   );
 }
 
-/* Fita Pervinca (4 px) na base do header: o tabuleiro da ponte do hero. Sobre superfícies claras. */
-@utility brand-ribbon {
-  height: 4px;
-  background-color: var(--brand-pervinca);
-}
-
-/* Faixa das quatro cores da identidade (Coral · Pervinca · Menta · Manteiga). */
+/* Faixa das quatro cores da marca (Vermelho · Azul · Verde · Amarelo): base do header e do footer. */
 @utility brand-quartet {
   background: linear-gradient(
     to right,
-    var(--coral-400) 0 25%,
-    var(--pervinca-400) 25% 50%,
-    var(--menta-400) 50% 75%,
-    var(--manteiga-400) 75% 100%
+    var(--vermelho-500) 0 25%,
+    var(--azul-500) 25% 50%,
+    var(--verde-500) 50% 75%,
+    var(--amarelo-400) 75% 100%
   );
 }
 
@@ -506,6 +545,21 @@
   outline-offset: 2px;
   &:focus-visible {
     outline-color: var(--focus-ring);
+  }
+}
+
+/* Links sobre a barra Marinho (header, faixa de departamentos, footer): contorno branco de 1 px no
+   hover e anel Amarelo de 2 px no foco por teclado. */
+@utility link-on-deep {
+  outline: 1px solid transparent;
+  outline-offset: -1px;
+  transition: outline-color 150ms var(--ease-standard);
+  &:hover {
+    outline-color: rgb(255 255 255 / 0.85);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--amarelo-400);
+    outline-offset: 0;
   }
 }
 
@@ -541,20 +595,21 @@
 }
 
 /*
- * Tintas por categoria (só nos tiles de categoria — DESIGN.md › Apêndice B, item 4).
- * Defina `--hue` no elemento e use tint-bg / tint-bg-strong / tint-fg.
+ * Cores por categoria (só nos tiles de categoria — DESIGN.md › Apêndice B, item 4).
+ * Defina `--hue` no elemento e use tint-bg / tint-bg-strong / tint-fg; o tile da home é
+ * tint-bg-deep (chapado vivo) com ícone branco (≥ 3:1 em todas as matizes).
  */
 @utility tint-bg {
-  background-color: oklch(0.955 0.03 var(--hue, 255));
+  background-color: oklch(0.94 0.06 var(--hue, 255));
 }
 @utility tint-bg-strong {
-  background-color: oklch(0.92 0.05 var(--hue, 255));
+  background-color: oklch(0.88 0.11 var(--hue, 255));
 }
 @utility tint-bg-deep {
-  background-color: oklch(0.55 0.14 var(--hue, 255));
+  background-color: oklch(0.55 0.2 var(--hue, 255));
 }
 @utility tint-fg {
-  color: oklch(0.5 0.14 var(--hue, 255));
+  color: oklch(0.48 0.19 var(--hue, 255));
 }
 
 @layer base {
@@ -574,7 +629,7 @@
     text-rendering: optimizeLegibility;
   }
   ::selection {
-    background: var(--pervinca-100);
+    background: var(--amarelo-200);
     color: var(--tinta-900);
   }
   input::placeholder,

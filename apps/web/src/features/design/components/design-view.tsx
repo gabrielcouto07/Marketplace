@@ -50,8 +50,8 @@ export function DesignView() {
       <header className="flex flex-col gap-2">
         <h1 className="text-title-1 text-foreground">Design system</h1>
         <p className="max-w-2xl text-body text-foreground-secondary">
-          Tokens, tipografia e componentes do Marketplace Paraguai, renderizados com o código real.
-          A regra de tudo isto está no <code className="font-mono text-body-sm">DESIGN.md</code>.
+          Tokens, tipografia e componentes do Paraguai Imports, renderizados com o código real. A
+          regra de tudo isto está no <code className="font-mono text-body-sm">DESIGN.md</code>.
         </p>
         <nav aria-label="Seções" className="-mx-4 scrollbar-none overflow-x-auto px-4 pt-2">
           <ul className="flex gap-2">
@@ -70,7 +70,11 @@ export function DesignView() {
       </header>
 
       {SECTIONS.map((s) => (
-        <section key={s.id} id={s.id} className="flex scroll-mt-20 flex-col gap-4">
+        <section
+          key={s.id}
+          id={s.id}
+          className="flex scroll-mt-[calc(var(--header-height)+1rem)] flex-col gap-4"
+        >
           <h2 className="text-title-2 text-foreground">{s.label}</h2>
           {s.node}
         </section>

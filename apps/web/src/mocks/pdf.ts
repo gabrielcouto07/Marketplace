@@ -25,7 +25,7 @@ export function buildBoletoPdf(payment: PaymentDto): Uint8Array {
 
   const due = new Date(boleto.dueDate).toLocaleDateString("pt-BR");
   const text: Array<[font: "F1" | "F2" | "F3", size: number, value: string, gap: number]> = [
-    ["F2", 20, "Marketplace Paraguai", 12],
+    ["F2", 20, "Paraguai Imports", 12],
     ["F1", 11, "Boleto bancario - ambiente de demonstracao", 28],
     ["F1", 11, `Pagamento: ${payment.id}`, 6],
     ["F1", 11, `Compra: ${payment.purchaseId}`, 6],

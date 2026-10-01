@@ -1,26 +1,29 @@
 "use client";
 
-import { cva, type VariantProps } from "class-variance-authority";
-import { Heart, Search, ShoppingBag, User, X } from "lucide-react";
+import { ChevronRight, MapPin, Menu, Search, ShoppingCart, User, X } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { useTranslations } from "next-intl";
 import { useSearchParams } from "next/navigation";
-import { useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
 
 import { BrandMark } from "@/components/layout/brand-mark";
 import { BackButton } from "@/components/shared/back-button";
+import { readStoredCep } from "@/components/shared/cep-shipping-calculator";
 import { Button } from "@/components/ui/button";
+import { useAuthStore } from "@/features/auth/store";
 import { selectItemCount, useCartHydrated, useCartStore } from "@/features/cart/store";
+import { useStoreHydrated } from "@/hooks/use-store-hydrated";
 import { Link, usePathname, useRouter } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
+import { formatCep } from "@/lib/validation/documents";
 
 export interface HeaderProps {
-  /** Título da página interna (mobile): substitui a pill de busca por título + atalho de busca. */
+  /** Título da página interna (mobile): substitui a busca por título + atalho de busca. */
   title?: string;
   showBack?: boolean;
   /** Oculta a busca (ex.: checkout, login). */
   hideSearch?: boolean;
-  /** Conteúdo extra à direita da barra mobile (ex.: contador "3 itens"). */
+  /** Conteúdo extra à direita da barra mobile (sobre o Marinho: use texto branco). */
   action?: ReactNode;
   /** Páginas que desenham o próprio topo no mobile (galeria do produto, busca com input próprio). */
   hideMobileBar?: boolean;
@@ -28,11 +31,12 @@ export interface HeaderProps {
 }
 
 /**
- * Header da identidade "Etiqueta" (DESIGN.md › Navegação): superfície branca, lockup da marca,
- * busca em pill Tinta-100 com o círculo coral, atalhos em tiles pastel e a fita Pervinca na base.
- * - mobile, home: duas linhas (marca + conta/carrinho; busca de 52 px embaixo);
- * - mobile, páginas internas: voltar + busca (ou título) + carrinho numa linha de 64 px;
- * - desktop (≥ md): marca, busca e favoritos/conta/carrinho numa barra de 80 px.
+ * Header de loja (DESIGN.md › Navegação): barra Marinho com a marca, "Enviar para", a busca branca
+ * com o botão Laranja e os atalhos de conta, pedidos e carrinho em texto branco; embaixo, a faixa
+ * de departamentos (Marinho claro) a partir de md.
+ * - mobile, home: marca + entrar/carrinho; busca de 44 px; faixa "Enviar para CEP …";
+ * - mobile, páginas internas: voltar (ou logo) + busca (ou título) + carrinho numa linha de 56 px;
+ * - desktop (≥ md): barra de 64 px + faixa de departamentos de 40 px.
  */
 export function Header({
   title,
@@ -52,98 +56,86 @@ export function Header({
   return (
     <header
       className={cn(
-        "sticky top-0 z-40 bg-surface pt-safe",
+        "sticky top-0 z-40 bg-brand-deep pt-safe text-white",
         // Sem barra mobile, o header só existe a partir de md (a página desenha o próprio topo).
-        hideMobileBar && "max-md:static max-md:pt-0",
+        hideMobileBar && "max-md:static max-md:bg-transparent max-md:pt-0",
         className,
       )}
     >
       {hideMobileBar ? null : home ? (
         <div className="md:hidden">
-          <div className="flex h-16 items-center justify-between gap-3 px-4">
+          <div className="flex h-14 items-center justify-between gap-2 px-3">
             <BrandMark size="sm" />
-            <nav aria-label={t("quickActions")} className="flex items-center gap-2">
-              <HeaderTile
-                href="/conta"
-                label={t("account")}
-                tone="lilas"
-                size="sm"
-                active={pathname.startsWith("/conta")}
-              >
-                <User strokeWidth={1.75} />
-              </HeaderTile>
-              <CartTile count={cartCount} size="sm" active={pathname.startsWith("/carrinho")} />
+            <nav aria-label={t("quickActions")} className="flex items-center gap-1">
+              <AccountLink variant="mobile" />
+              <CartLink count={cartCount} variant="mobile" />
             </nav>
           </div>
-          <div className="px-4 pb-4">
-            <SearchPill size="lg" />
+          <div className="px-4 pb-3">
+            <SearchPill />
           </div>
+          <DeliverToStrip />
         </div>
       ) : (
-        <div className="flex h-16 items-center gap-3 px-4 md:hidden">
-          {showBack ? <BackButton className="-ml-2" /> : <BrandMark compact />}
+        <div className="flex h-14 items-center gap-2 px-3 md:hidden">
+          {showBack ? (
+            <BackButton className="text-white hover:bg-white/10 aria-expanded:bg-white/10" />
+          ) : (
+            <BrandMark compact />
+          )}
           {title ? (
-            <h1 className="min-w-0 flex-1 truncate text-title-3 text-foreground">{title}</h1>
+            <h1 className="min-w-0 flex-1 truncate text-title-3 text-white">{title}</h1>
           ) : hideSearch ? (
             <div className="flex-1" />
           ) : (
-            <SearchPill size="md" />
+            <SearchPill />
           )}
           {action}
           {title && !hideSearch ? (
             <Button
               variant="ghost"
               size="icon"
-              className="-mr-2"
+              className="text-white hover:bg-white/10"
               render={<Link href="/busca" aria-label={t("openSearch")} />}
             >
               <Search strokeWidth={1.75} />
             </Button>
           ) : null}
-          {!title && !hideSearch ? (
-            <CartTile count={cartCount} size="sm" active={pathname.startsWith("/carrinho")} />
-          ) : null}
+          {!title && !hideSearch ? <CartLink count={cartCount} variant="mobile" /> : null}
         </div>
       )}
-      <DesktopBar cartCount={cartCount} pathname={pathname} />
-      <div aria-hidden className={cn("brand-ribbon", hideMobileBar && "max-md:hidden")} />
+      <DesktopBar cartCount={cartCount} />
+      <DepartmentsBar pathname={pathname} />
     </header>
   );
 }
 
 /* ------------------------------- Busca -------------------------------- */
 
-const pillVariants = cva(
-  "flex min-w-0 flex-1 pressable items-center gap-2 rounded-full bg-surface-muted text-foreground-muted focus-ring",
-  {
-    variants: {
-      size: {
-        lg: "h-13 pr-1 pl-5 text-body font-medium",
-        md: "h-12 pr-1 pl-4 text-body-sm font-medium",
-      },
-    },
-  },
-);
+/** Botão Laranja da busca: o mesmo bloco no mobile (decorativo) e no desktop (submit). */
+const SEARCH_BUTTON =
+  "flex w-12 shrink-0 items-center justify-center bg-cta text-cta-foreground transition-colors";
 
-const searchDotVariants = cva(
-  "flex shrink-0 items-center justify-center rounded-full bg-cta text-cta-foreground",
-  { variants: { size: { lg: "size-11", md: "size-10" } } },
-);
-
-/** Pill de busca no mobile: leva à página de busca, onde o input real ganha foco. */
-function SearchPill({ size }: { size: "lg" | "md" }) {
+/** Busca no mobile: leva à página de busca, onde o input real ganha foco. */
+function SearchPill() {
   const t = useTranslations("nav");
   return (
-    <Link href="/busca" aria-label={t("openSearch")} className={pillVariants({ size })}>
-      <span className="min-w-0 flex-1 truncate">{t("searchPlaceholder")}</span>
-      <span aria-hidden className={searchDotVariants({ size })}>
+    <Link
+      href="/busca"
+      aria-label={t("openSearch")}
+      className="flex h-11 min-w-0 flex-1 pressable items-stretch overflow-hidden rounded-md bg-surface shadow-xs focus-ring"
+    >
+      <span className="flex min-w-0 flex-1 items-center px-3 text-body text-foreground-muted">
+        <span className="truncate">{t("searchPlaceholder")}</span>
+      </span>
+      <span aria-hidden className={SEARCH_BUTTON}>
         <Search className="size-5" strokeWidth={2.25} />
       </span>
     </Link>
   );
 }
 
-function DesktopBar({ cartCount, pathname }: { cartCount: number; pathname: string }) {
+function DesktopBar({ cartCount }: { cartCount: number }) {
   const t = useTranslations("nav");
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -166,12 +158,13 @@ function DesktopBar({ cartCount, pathname }: { cartCount: number; pathname: stri
 
   return (
     <div className="hidden md:block">
-      <div className="mx-auto flex h-20 w-full max-w-6xl items-center gap-10 px-4">
-        <BrandMark />
+      <div className="mx-auto flex h-16 w-full max-w-6xl items-center gap-2 px-4">
+        <BrandMark className="mr-2" />
+        <DeliverToLink />
         <form
           role="search"
           onSubmit={onSubmit}
-          className="flex h-14 min-w-0 flex-1 items-center gap-1 rounded-full bg-surface-muted pr-1.5 pl-6 transition-colors focus-within:ring-2 focus-within:ring-focus-ring"
+          className="mx-2 flex h-11 min-w-0 flex-1 items-stretch overflow-hidden rounded-md bg-surface transition-shadow focus-within:ring-3 focus-within:ring-cta"
         >
           <label htmlFor="global-search" className="sr-only">
             {t("searchLabel")}
@@ -186,7 +179,7 @@ function DesktopBar({ cartCount, pathname }: { cartCount: number; pathname: stri
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={t("searchPlaceholder")}
-            className="h-full min-w-0 flex-1 bg-transparent text-body font-medium text-foreground outline-none placeholder:text-foreground-muted [&::-webkit-search-cancel-button]:hidden"
+            className="h-full min-w-0 flex-1 bg-transparent px-4 text-body text-foreground outline-none placeholder:text-foreground-muted [&::-webkit-search-cancel-button]:hidden"
           />
           {query ? (
             <button
@@ -196,7 +189,7 @@ function DesktopBar({ cartCount, pathname }: { cartCount: number; pathname: stri
                 setQuery("");
                 inputRef.current?.focus();
               }}
-              className="flex size-10 shrink-0 items-center justify-center rounded-full text-foreground-secondary focus-ring transition-colors hover:bg-surface hover:text-foreground"
+              className="flex w-10 shrink-0 items-center justify-center text-foreground-secondary transition-colors hover:text-foreground focus-visible:bg-surface-muted focus-visible:outline-none"
             >
               <X className="size-5" strokeWidth={1.75} />
             </button>
@@ -205,102 +198,188 @@ function DesktopBar({ cartCount, pathname }: { cartCount: number; pathname: stri
             type="submit"
             aria-label={t("search")}
             className={cn(
-              searchDotVariants({ size: "lg" }),
-              "pressable focus-ring transition-colors hover:bg-cta-hover",
+              SEARCH_BUTTON,
+              "w-13 hover:bg-cta-hover focus-visible:bg-cta-hover focus-visible:outline-none",
             )}
           >
-            <Search className="size-5" strokeWidth={2.25} aria-hidden />
+            <Search className="size-6" strokeWidth={2.25} aria-hidden />
           </button>
         </form>
-        <nav aria-label={t("quickActions")} className="flex items-center gap-2">
-          <HeaderTile
-            href="/favoritos"
-            label={t("favorites")}
-            tone="coral"
-            active={pathname.startsWith("/favoritos")}
+        <nav aria-label={t("quickActions")} className="flex items-center gap-1">
+          <AccountLink variant="desktop" />
+          <Link
+            href="/conta/pedidos"
+            className="hidden h-12 flex-col justify-center rounded-sm px-2 link-on-deep lg:flex"
           >
-            <Heart strokeWidth={1.75} />
-          </HeaderTile>
-          <HeaderTile
-            href="/conta"
-            label={t("account")}
-            tone="lilas"
-            active={pathname.startsWith("/conta")}
-          >
-            <User strokeWidth={1.75} />
-          </HeaderTile>
-          <CartTile count={cartCount} active={pathname.startsWith("/carrinho")} />
+            <span className="text-caption leading-tight text-white/80">{t("ordersLine1")}</span>
+            <span className="text-body-sm leading-tight font-bold">{t("ordersLine2")}</span>
+          </Link>
+          <CartLink count={cartCount} variant="desktop" />
         </nav>
       </div>
     </div>
   );
 }
 
-/* ------------------------------ Atalhos ------------------------------- */
+/* --------------------------- Enviar para (CEP) ------------------------ */
 
-/**
- * Atalho em tile pastel (favoritos Coral, conta Lilás, carrinho Manteiga) com ícone em Tinta.
- * A página atual ganha um anel inset em Tinta.
- */
-const tileVariants = cva(
-  "relative flex shrink-0 pressable items-center justify-center text-foreground ring-foreground/20 ring-inset focus-ring hover:ring-2 aria-[current=page]:ring-2 [&_svg]:size-6",
-  {
-    variants: {
-      tone: {
-        coral: "bg-brand-coral-soft",
-        lilas: "bg-brand-lilas",
-        manteiga: "bg-brand-manteiga-soft",
-      },
-      size: {
-        sm: "size-11 rounded-md",
-        md: "size-12 rounded-lg",
-      },
-    },
-    defaultVariants: { size: "md" },
-  },
-);
+const noopSubscribe = () => () => {};
 
-interface HeaderTileProps extends VariantProps<typeof tileVariants> {
-  href: string;
-  label: string;
-  active?: boolean;
-  children: ReactNode;
+/** CEP salvo pelo cálculo de frete; só existe no cliente (no servidor renderiza o convite). */
+function useStoredCep(): string {
+  const stored = useSyncExternalStore(noopSubscribe, readStoredCep, () => "");
+  return stored ? formatCep(stored) : "";
 }
 
-function HeaderTile({ href, label, tone, size, active, children }: HeaderTileProps) {
+function DeliverToLink() {
+  const t = useTranslations("nav");
+  const cep = useStoredCep();
+  const place = cep ? t("deliverToCep", { cep }) : t("deliverToEmpty");
   return (
     <Link
-      href={href}
-      aria-label={label}
-      aria-current={active ? "page" : undefined}
-      className={tileVariants({ tone, size })}
+      href="/conta/enderecos"
+      aria-label={t("deliverToLabel", { place })}
+      className="hidden h-12 shrink-0 items-end gap-1 rounded-sm px-2 pb-1.5 link-on-deep lg:flex"
     >
-      {children}
+      <MapPin className="mb-0.5 size-5" strokeWidth={2} aria-hidden />
+      <span className="flex flex-col">
+        <span className="text-caption leading-tight text-white/80">{t("deliverTo")}</span>
+        <span className="text-body-sm leading-tight font-bold">{place}</span>
+      </span>
     </Link>
   );
 }
 
-function CartTile({
-  count,
-  size,
-  active,
-}: {
-  count: number;
-  size?: "sm" | "md";
-  active?: boolean;
-}) {
+/** Faixa "Enviar para CEP …" sob a busca na home mobile, em Marinho claro. */
+function DeliverToStrip() {
   const t = useTranslations("nav");
+  const cep = useStoredCep();
+  const place = cep ? t("deliverToCep", { cep }) : t("deliverToEmpty");
   return (
-    <HeaderTile
-      href="/carrinho"
-      label={t("cartWithCount", { count })}
-      tone="manteiga"
-      size={size}
-      active={active}
+    <Link
+      href="/conta/enderecos"
+      aria-label={t("deliverToLabel", { place })}
+      className="flex h-10 items-center gap-2 bg-brand-deep-raised px-4 text-body-sm focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-amarelo"
     >
-      <ShoppingBag strokeWidth={1.75} />
-      <CartBadge count={count} className="-top-1.5 -right-1.5" />
-    </HeaderTile>
+      <MapPin className="size-4.5 shrink-0" strokeWidth={2} aria-hidden />
+      <span className="min-w-0 truncate">
+        {t("deliverTo")} <span className="font-bold">{place}</span>
+      </span>
+      <ChevronRight className="ml-auto size-4 shrink-0 text-white/80" strokeWidth={2} aria-hidden />
+    </Link>
+  );
+}
+
+/* ------------------------------ Atalhos ------------------------------- */
+
+/** "Olá, Ana / Conta e favoritos" (desktop) ou "Entrar ›" + ícone (mobile). */
+function AccountLink({ variant }: { variant: "desktop" | "mobile" }) {
+  const t = useTranslations("nav");
+  const hydrated = useStoreHydrated(useAuthStore);
+  const user = useAuthStore((s) => s.user);
+  const firstName = hydrated && user ? user.fullName.split(/\s+/)[0] : null;
+
+  if (variant === "mobile") {
+    return (
+      <Link
+        href="/conta"
+        aria-label={t("account")}
+        className="flex h-11 items-center gap-1 rounded-sm px-2 text-body-sm font-medium link-on-deep"
+      >
+        <span className="max-w-24 truncate">{firstName ?? t("signIn")}</span>
+        <ChevronRight className="size-4 shrink-0" strokeWidth={2} aria-hidden />
+        <User className="size-6 shrink-0" strokeWidth={1.75} aria-hidden />
+      </Link>
+    );
+  }
+
+  return (
+    <Link
+      href="/conta"
+      className="flex h-12 max-w-44 flex-col justify-center rounded-sm px-2 link-on-deep"
+    >
+      <span className="truncate text-caption leading-tight text-white/80">
+        {firstName ? t("greeting", { name: firstName }) : t("greetingGuest")}
+      </span>
+      <span className="truncate text-body-sm leading-tight font-bold">
+        {t("accountAndFavorites")}
+      </span>
+    </Link>
+  );
+}
+
+function CartLink({ count, variant }: { count: number; variant: "desktop" | "mobile" }) {
+  const t = useTranslations("nav");
+  const desktop = variant === "desktop";
+  return (
+    <Link
+      href="/carrinho"
+      aria-label={t("cartWithCount", { count })}
+      className={cn(
+        "relative flex shrink-0 items-center rounded-sm link-on-deep",
+        desktop ? "h-12 items-end gap-1 px-2 pb-1.5" : "size-11 justify-center",
+      )}
+    >
+      <span className="relative">
+        <ShoppingCart className={desktop ? "size-8" : "size-7"} strokeWidth={1.75} aria-hidden />
+        <CartBadge count={count} className="-top-2 -right-2 ring-brand-deep" />
+      </span>
+      {desktop ? (
+        <span aria-hidden className="text-body-sm font-bold">
+          {t("cart")}
+        </span>
+      ) : null}
+    </Link>
+  );
+}
+
+/* --------------------------- Departamentos ---------------------------- */
+
+const DEPARTMENT_LINK =
+  "flex h-8 items-center gap-1.5 rounded-sm px-2 whitespace-nowrap link-on-deep aria-[current=page]:bg-white/10";
+
+/** Faixa de departamentos (≥ md): todos os departamentos, vitrines e o convite para vender. */
+function DepartmentsBar({ pathname }: { pathname: string }) {
+  const t = useTranslations("nav");
+  const links = [
+    { href: "/busca?onlyOffers=true", label: t("deals") },
+    { href: "/busca?sort=bestSelling", label: t("bestSellers") },
+    { href: "/busca?sort=newest", label: t("newArrivals") },
+    { href: "/lojas", label: t("stores"), current: pathname.startsWith("/lojas") },
+    { href: "/favoritos", label: t("favorites"), current: pathname.startsWith("/favoritos") },
+  ];
+  return (
+    <nav aria-label={t("departments")} className="hidden bg-brand-deep-raised md:block">
+      <ul className="mx-auto scrollbar-none flex h-10 w-full max-w-6xl items-center gap-1 overflow-x-auto px-4 text-body-sm font-medium">
+        <li>
+          <Link
+            href="/categorias"
+            aria-label={t("allDepartmentsLabel")}
+            aria-current={pathname.startsWith("/categoria") ? "page" : undefined}
+            className={cn(DEPARTMENT_LINK, "-ml-2 font-bold")}
+          >
+            <Menu className="size-5" strokeWidth={2} aria-hidden />
+            {t("allDepartments")}
+          </Link>
+        </li>
+        {links.map((l) => (
+          <li key={l.href}>
+            <Link
+              href={l.href}
+              aria-current={l.current ? "page" : undefined}
+              className={DEPARTMENT_LINK}
+            >
+              {l.label}
+            </Link>
+          </li>
+        ))}
+        <li className="ml-auto">
+          <Link href="/vendedor/cadastro" className={cn(DEPARTMENT_LINK, "-mr-2 font-bold")}>
+            {t("sell")}
+          </Link>
+        </li>
+      </ul>
+    </nav>
   );
 }
 
@@ -315,7 +394,7 @@ export function CartBadge({ count, className }: { count: number; className?: str
       animate={{ scale: 1 }}
       transition={{ type: "spring", stiffness: 520, damping: 22 }}
       className={cn(
-        "absolute top-1 right-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-cta px-1 text-caption font-semibold text-cta-foreground tabular-nums ring-2 ring-surface",
+        "absolute top-1 right-1 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-cta px-1 text-caption font-bold text-cta-foreground tabular-nums ring-2 ring-surface",
         className,
       )}
     >

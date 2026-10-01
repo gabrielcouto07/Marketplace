@@ -167,9 +167,9 @@ export function SearchView({ fixed = {}, hideHeading, className }: SearchViewPro
   return (
     <div className={cn("flex flex-col", className)}>
       {mode === "search" ? (
-        <div className="sticky top-0 z-30 border-b border-border bg-surface/85 pt-safe backdrop-blur-md supports-backdrop-filter:bg-surface/80 md:hidden">
-          <PageContainer className="flex h-16 items-center gap-3">
-            <BackButton className="-ml-2" />
+        <div className="sticky top-0 z-30 bg-brand-deep pt-safe md:hidden">
+          <PageContainer className="flex h-16 items-center gap-2">
+            <BackButton className="-ml-2 text-white hover:bg-white/10" />
             <SearchField
               value={filters.q ?? ""}
               onSubmit={(q) => navigate({ ...filters, q: q || undefined })}
@@ -207,7 +207,7 @@ export function SearchView({ fixed = {}, hideHeading, className }: SearchViewPro
           <div className="flex items-start gap-8">
             {/* Sidebar (≥ lg) */}
             <aside className="hidden w-64 shrink-0 lg:block">
-              <div className="sticky top-20 flex flex-col gap-6 rounded-lg border border-border bg-surface p-4 shadow-xs">
+              <div className="sticky top-[calc(var(--header-height)+1rem)] flex flex-col gap-6 rounded-lg border border-border bg-surface p-4 shadow-xs">
                 <h2 className="text-title-3 text-foreground">{t("filters")}</h2>
                 <FiltersPanel value={filters} facets={facets} locked={locked} onChange={navigate} />
                 <Button variant="ghost" onClick={clearAll} disabled={activeCount === 0}>
@@ -443,7 +443,7 @@ function SearchField({
         value={input}
         onChange={(e) => setInput(e.target.value)}
         placeholder={tn("searchPlaceholder")}
-        className="h-12 w-full rounded-full border border-transparent bg-surface-muted pr-12 pl-12 text-body text-foreground transition-colors outline-none placeholder:text-foreground-muted hover:bg-border focus-visible:border-primary focus-visible:bg-surface focus-visible:ring-2 focus-visible:ring-focus-ring/25 [&::-webkit-search-cancel-button]:hidden"
+        className="h-11 w-full rounded-md border border-transparent bg-surface pr-12 pl-12 text-body text-foreground shadow-xs transition-shadow outline-none placeholder:text-foreground-muted focus-visible:ring-3 focus-visible:ring-cta [&::-webkit-search-cancel-button]:hidden"
       />
       {input ? (
         <button
@@ -454,7 +454,7 @@ function SearchField({
             if (value) onSubmit("");
             inputRef.current?.focus();
           }}
-          className="absolute top-1/2 right-2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full text-foreground-secondary focus-ring transition-colors hover:bg-border hover:text-foreground"
+          className="absolute top-1/2 right-2 flex size-8 -translate-y-1/2 items-center justify-center rounded-full text-foreground-secondary focus-ring transition-colors hover:bg-surface-muted hover:text-foreground"
         >
           <X className="size-4" strokeWidth={1.75} aria-hidden />
         </button>

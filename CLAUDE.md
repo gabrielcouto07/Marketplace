@@ -1,4 +1,4 @@
-# Marketplace Paraguai — instruções para o Claude
+# Paraguai Imports — instruções para o Claude
 
 Monorepo pnpm. O app é `apps/web` (Next.js 16 App Router, React 19, TypeScript strict, Tailwind CSS 4,
 shadcn/ui sobre Base UI, TanStack Query, Zustand, MSW, next-intl, Serwist). Porta de dev: 3210.
@@ -8,16 +8,20 @@ shadcn/ui sobre Base UI, TanStack Query, Zustand, MSW, next-intl, Serwist). Port
 `DESIGN.md` (raiz) é a fonte de verdade visual e de código de UI. Leia-o antes de qualquer tarefa que toque
 em componentes, telas, estilos ou textos de interface. Em resumo:
 
-- Identidade "Etiqueta" (logo A): Coral, Pervinca, Menta e Manteiga em pastel, textos em Tinta, fundo Papel.
-- Cores só por tokens semânticos (`bg-surface`, `text-foreground-secondary`, `bg-cta`, `text-success`,
-  `bg-brand-coral-soft`…). Nunca hex no JSX (exceto a arte do logo/hero), nunca classes de cor cruas
-  (`bg-coral-400`) fora de `globals.css` e do `/design`.
-- Pastel é fundo, Tinta é conteúdo: nada de texto branco sobre pastel. O CTA é Coral com texto Tinta.
-- Um único CTA coral de compra (`variant="cta"`) visível por tela.
+- Identidade viva com estrutura de loja (referência: Amazon): Vermelho, Azul, Verde e Amarelo das bandeiras,
+  Laranja de compra, header e footer Marinho (`brand-deep`), cards brancos sobre o Papel cinza, textos em Tinta.
+- Cores só por tokens semânticos (`bg-surface`, `text-foreground-secondary`, `bg-cta`, `bg-cart`, `text-deal`,
+  `text-success`, `bg-brand-verde`…). Nunca hex no JSX (exceto a arte do logo e das bandeiras), nunca classes de
+  cor cruas (`bg-vermelho-500`) fora de `globals.css` e do `/design`.
+- Cada cor tem papel: Laranja = comprar (`cta`), Amarelo = carrinho (`cart`), Vermelho 600 = oferta (`deal`),
+  Azul = ação/link (`primary`), Verde = sucesso. Texto Tinta sobre Laranja/Amarelo/Verde; branco sobre Azul,
+  Vermelho 600 e Marinho.
+- Um único CTA laranja de compra (`variant="cta"`) visível por tela; "Adicionar ao carrinho" é `variant="cart"`.
 - Tipografia pela escala (`text-hero`, `text-display`, `text-title-1/2/3`, `text-body`, `text-body-sm`,
-  `text-caption`). Figtree em tudo; Bricolage 800 (`font-heading font-extrabold`) só em títulos, nunca em preços.
+  `text-caption`). Figtree em tudo (títulos de seção em 700); Bricolage 800 (`font-heading font-extrabold`) só no
+  wordmark e nas manchetes de banner, nunca em preços.
   Preços, quantidades e rastreio com `tabular-nums`. Inputs ≥ 16 px. Nada abaixo de 12 px.
-- Grid de 8 px (4 px só dentro de componentes). Raios 8/12/16/24/full. Sombras `shadow-xs|sm|md|lg` só.
+- Grid de 8 px (4 px só dentro de componentes). Raios 4/6/8/12, botões `rounded-full`. Sombras `shadow-xs|sm|md|lg` só.
 - Movimento: `transition-colors|transform|opacity` (nunca `transition-all`), `pressable` no toque,
   `motion` só onde o DESIGN.md permite, `prefers-reduced-motion` respeitado.
 - Componentes com `class-variance-authority` + `tailwind-merge`; Base UI sem `asChild` (use `render`).
@@ -41,9 +45,10 @@ pnpm --filter web icons # regenera ícones a partir de apps/web/public/logo.svg
   sombras, motion, utilitários).
 - Componentes base: `apps/web/src/components/ui` (shadcn) e `apps/web/src/components/shared`
   (ProductCard, PriceTag, SellerBadge, TrustBadge, OrderTimeline, EmptyState…).
-- Layout: `apps/web/src/components/layout` (StoreShell, Header, BottomNav, BrandMark, TricolorStripe).
-- Marca: `apps/web/public/logo.svg` (logo A, vetor; os PNGs saem dele via `pnpm --filter web icons`),
-  `components/layout/brand-logo.tsx` e `brand-mark.tsx`. Identidade original: `../Marketplace Paraguai — identidade.html`.
+- Layout: `apps/web/src/components/layout` (StoreShell, Header, Footer, BottomNav, BrandMark, TricolorStripe).
+- Marca: `apps/web/public/logo.svg` (logo "Etiqueta", vetor; os PNGs e a OG saem dele via `pnpm --filter web icons`),
+  `components/layout/brand-logo.tsx`, `brand-mark.tsx` e `components/shared/flags.tsx`. Geometria original:
+  `../Marketplace Paraguai — identidade.html` (as cores e o nome de lá foram substituídos em 01/10/2026).
 - Docs técnicas: `docs/*.md` (arquitetura, contratos, mocks, PWA, i18n, convenções).
 
 ## Convenções que não estão no DESIGN.md

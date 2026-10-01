@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 
 interface CategoryTileProps {
   category: CategoryDto;
-  /** `icon`: quadrado tintado de 64 px + rótulo (home) · `card`: capa fotográfica com nome e contagem (página de categorias). */
+  /** `icon`: quadrado chapado de 64 px na cor da categoria + rótulo (home) · `card`: capa fotográfica com nome e contagem (página de categorias). */
   variant?: "icon" | "card";
   priority?: boolean;
   className?: string;
@@ -40,8 +40,8 @@ export function CategoryTile({
           className,
         )}
       >
-        <span className="flex size-16 items-center justify-center rounded-lg tint-bg tint-fg">
-          <CategoryIcon iconKey={category.iconKey} className="size-6" />
+        <span className="flex size-16 items-center justify-center rounded-lg tint-bg-deep text-white shadow-xs">
+          <CategoryIcon iconKey={category.iconKey} className="size-7" />
         </span>
         <span className="line-clamp-1 text-center text-caption text-foreground">
           {category.name}

@@ -1,5 +1,5 @@
 // Gera os ícones PNG do manifest, favicons, apple-touch-icon, o PNG mestre e a imagem OG a partir
-// de public/logo.svg (logo A "Etiqueta", ver DESIGN.md › Apêndice A).
+// de public/logo.svg (logo "Etiqueta", ver DESIGN.md › Apêndice A).
 // Uso: pnpm icons
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -11,12 +11,12 @@ const logo = readFileSync(join(root, "public/logo.svg"), "utf8");
 const outDir = join(root, "public/icons");
 mkdirSync(outDir, { recursive: true });
 
-/** Cores da identidade (DESIGN.md): tile Manteiga, Papel, Tinta e as quatro cores da marca. */
-const TILE = "#FFF1C9";
-const PAPEL = "#F7F6F2";
-const TINTA = "#26253A";
-const TINTA_600 = "#5E5C72";
-const QUARTET = ["#FF8B7B", "#7F9BFF", "#5DCB94", "#FFD15C"];
+/** Cores da identidade (DESIGN.md): tile Amarelo, Marinho, Amarelo do wordmark e as quatro cores da marca. */
+const TILE = "#FFD20A";
+const MARINHO = "#0A1733";
+const AMARELO = "#FFD20A";
+const WHITE_80 = "#CED1D6";
+const QUARTET = ["#F2263E", "#1552EB", "#00B852", "#FFD20A"];
 
 /** Mesmo desenho, sem os cantos arredondados: iOS e ícones maskable aplicam a própria máscara. */
 const fullBleed = Buffer.from(logo.replace('rx="30"', 'rx="0"'));
@@ -33,7 +33,7 @@ async function plain(size) {
   writeFileSync(join(outDir, `icon-${size}.png`), await render(tile, size));
 }
 
-/** Maskable: Manteiga até a borda e o desenho dentro da zona segura (80 % central). */
+/** Maskable: Amarelo até a borda e o desenho dentro da zona segura (80 % central). */
 async function maskable(size) {
   const inner = await render(fullBleed, Math.round(size * 0.8));
   const buf = await sharp({ create: { width: size, height: size, channels: 4, background: TILE } })
@@ -48,7 +48,7 @@ async function apple(size) {
   writeFileSync(join(outDir, "apple-touch-icon.png"), await render(fullBleed, size));
 }
 
-/** OG / screenshot do manifest: Papel, logo, wordmark em Tinta e a faixa das quatro cores. */
+/** OG / screenshot do manifest: Marinho, logo, wordmark em branco e Amarelo e a faixa das quatro cores. */
 async function splash() {
   const w = 1200;
   const h = 630;
@@ -58,9 +58,9 @@ async function splash() {
   ).join("");
   const stripe = Buffer.from(`<svg width="${w}" height="10">${band}</svg>`);
   const text = Buffer.from(
-    `<svg width="${w}" height="${h}"><text x="600" y="444" text-anchor="middle" font-family="Bricolage Grotesque, Figtree, Arial, sans-serif" font-size="60" font-weight="800" letter-spacing="-1.2" fill="${TINTA}">Marketplace Paraguai</text><text x="600" y="496" text-anchor="middle" font-family="Figtree, Arial, sans-serif" font-size="26" font-weight="500" fill="${TINTA_600}">Do Paraguai para todo o Brasil, com preço, frete e impostos claros</text></svg>`,
+    `<svg width="${w}" height="${h}"><text x="600" y="444" text-anchor="middle" font-family="Bricolage Grotesque, Figtree, Arial, sans-serif" font-size="60" font-weight="800" letter-spacing="-1.2" fill="#FFFFFF">Paraguai <tspan fill="${AMARELO}">Imports</tspan></text><text x="600" y="496" text-anchor="middle" font-family="Figtree, Arial, sans-serif" font-size="26" font-weight="500" fill="${WHITE_80}">Do Paraguai para todo o Brasil, com preço, frete e impostos claros</text></svg>`,
   );
-  const buf = await sharp({ create: { width: w, height: h, channels: 4, background: PAPEL } })
+  const buf = await sharp({ create: { width: w, height: h, channels: 4, background: MARINHO } })
     .composite([
       { input: icon, top: 140, left: 490 },
       { input: text, top: 0, left: 0 },

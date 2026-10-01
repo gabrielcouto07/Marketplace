@@ -166,7 +166,7 @@ export function CartView() {
       {/* Espaço para a barra fixa não cobrir o conteúdo no mobile. */}
       <div className="h-24 lg:hidden" aria-hidden />
 
-      {/* Barra fixa (mobile/tablet): subtotal + único CTA coral da tela */}
+      {/* Barra fixa (mobile/tablet): subtotal + único CTA laranja da tela */}
       <StickyBar tone="light" aboveBottomNav className="lg:hidden">
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="text-caption text-foreground-secondary">{t("subtotalLabel")}</span>
