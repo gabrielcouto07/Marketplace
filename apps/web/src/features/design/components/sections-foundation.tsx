@@ -1,6 +1,6 @@
 "use client";
 
-import { Heart, ShoppingBag } from "lucide-react";
+import { Heart, ShoppingBag, Sparkles, Zap } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { useState } from "react";
 
@@ -9,6 +9,7 @@ import { BrandMark } from "@/components/layout/brand-mark";
 import { CartBadge } from "@/components/layout/header";
 import { TricolorStripe } from "@/components/layout/tricolor-stripe";
 import { FlagBR, FlagPY } from "@/components/shared/flags";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { contrastRatio, formatRatio, wcagLevel } from "@/lib/contrast";
 import { cn } from "@/lib/utils";
@@ -51,6 +52,12 @@ const BRAND_COLORS = [
     soft: "bg-brand-laranja-soft",
     use: "CTA de compra, busca",
   },
+  {
+    name: "Roxo",
+    strong: "bg-brand-roxo",
+    soft: "bg-brand-roxo-soft",
+    use: "campanhas (só fundo)",
+  },
 ];
 
 export function BrandSection() {
@@ -82,7 +89,7 @@ export function BrandSection() {
         </div>
       </Demo>
       <Demo label="Paleta da marca" hint="cores chapadas vivas em cima · tons claros embaixo">
-        <ul className="grid grid-cols-3 gap-3 sm:grid-cols-5">
+        <ul className="grid grid-cols-3 gap-3 sm:grid-cols-6">
           {BRAND_COLORS.map((c) => (
             <li key={c.name} className="flex flex-col gap-2">
               <span className="flex h-20 flex-col overflow-hidden rounded-lg">
@@ -358,6 +365,32 @@ export function MotionSection() {
           <Button size="sm" onClick={() => setAdded((n) => n + 1)}>
             Adicionar
           </Button>
+        </div>
+      </Demo>
+      <Demo
+        label="Animações de vitrine"
+        hint="shine · float · flash · wiggle · marquee — somem com prefers-reduced-motion"
+        className="md:col-span-3"
+      >
+        <div className="flex flex-wrap items-center gap-6">
+          <Button variant="cta">Comprar agora</Button>
+          <Badge variant="deal">Oferta</Badge>
+          <span className="flex size-16 animate-float items-center justify-center rounded-lg bg-brand-roxo text-white shadow-md">
+            <Sparkles className="size-6 animate-wiggle" strokeWidth={2} aria-hidden />
+          </span>
+          <Zap
+            className="size-8 animate-flash fill-brand-amarelo text-brand-amarelo"
+            strokeWidth={1.75}
+            aria-hidden
+          />
+          <div className="w-64 overflow-hidden rounded-full bg-surface-muted py-2">
+            <div className="flex w-max animate-marquee gap-6 text-body-sm font-semibold text-foreground">
+              <span>Rastreio ponta a ponta</span>
+              <span>Lojas verificadas</span>
+              <span aria-hidden>Rastreio ponta a ponta</span>
+              <span aria-hidden>Lojas verificadas</span>
+            </div>
+          </div>
         </div>
       </Demo>
     </div>

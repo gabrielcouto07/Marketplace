@@ -110,7 +110,7 @@ export interface Swatch {
 }
 
 type ScaleName =
-  "vermelho" | "azul" | "verde" | "amarelo" | "laranja" | "tinta" | "papel" | "avulsos";
+  "vermelho" | "azul" | "verde" | "amarelo" | "laranja" | "roxo" | "tinta" | "papel" | "avulsos";
 
 /** Escalas vivas: 500 (400 no Amarelo e no Laranja) = cor da marca; 600+ = tons de texto e ícone. */
 export const SCALES: Record<ScaleName, Swatch[]> = {
@@ -174,6 +174,18 @@ export const SCALES: Record<ScaleName, Swatch[]> = {
     ["700", "#9C4D00"],
     ["800", "#7A3C00"],
     ["900", "#592B00"],
+  ].map(([name, hex]) => ({ name, hex })),
+  roxo: [
+    ["50", "#F8F5FF"],
+    ["100", "#EFE6FF"],
+    ["200", "#E1CFFF"],
+    ["300", "#CEB0FE"],
+    ["400", "#A866F5"],
+    ["500", "#8B2FE0"],
+    ["600", "#771FC3"],
+    ["700", "#5F08A0"],
+    ["800", "#4B0680"],
+    ["900", "#36045C"],
   ].map(([name, hex]) => ({ name, hex })),
   tinta: [
     ["0", "#FFFFFF"],
@@ -369,6 +381,13 @@ export const SEMANTIC_PAIRS: SemanticPair[] = [
     bg: "#F2263E",
     className: "bg-brand-vermelho text-white",
     large: true,
+  },
+  {
+    token: "white / brand-roxo",
+    role: "vitrine de campanha (preenchimento)",
+    fg: "#FFFFFF",
+    bg: "#8B2FE0",
+    className: "bg-brand-roxo text-white",
   },
   {
     token: "on-bright / brand-verde",

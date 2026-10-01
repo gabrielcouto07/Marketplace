@@ -6,7 +6,8 @@ import { cn } from "@/lib/utils";
 
 /**
  * Botões em pill (DESIGN.md › Padrões de componentes › Botões).
- * - `cta`: Laranja com texto Tinta, 48 px, só um por tela (Comprar agora, Finalizar compra, Pagar).
+ * - `cta`: Laranja com texto Tinta e reflexo periódico (`shine`), 48 px, só um por tela (Comprar agora,
+ *   Finalizar compra, Pagar).
  * - `cart`: Amarelo com texto Tinta (Adicionar ao carrinho, logo acima do CTA).
  * - `primary` (padrão): Azul com texto branco, ações principais sem conotação de compra.
  * - `secondary`: surface + borda com sombra leve (ações neutras).
@@ -21,7 +22,7 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        cta: "bg-cta text-cta-foreground shadow-xs hover:bg-cta-hover active:bg-cta-pressed",
+        cta: "shine bg-cta text-cta-foreground shadow-xs hover:bg-cta-hover active:bg-cta-pressed",
         cart: "bg-cart text-cart-foreground shadow-xs hover:bg-cart-hover",
         default: "bg-primary text-primary-foreground hover:bg-primary-hover",
         primary: "bg-primary text-primary-foreground hover:bg-primary-hover",

@@ -200,7 +200,14 @@
     "quadCategoriesCta": "Ver todos os departamentos",
     "quadBestSellersCta": "Ver os mais vendidos",
     "quadNewArrivalsCta": "Ver novidades",
-    "trustLabel": "Por que comprar aqui"
+    "trustLabel": "Por que comprar aqui",
+    "quadCategoriesTitleShort": "Departamentos",
+    "departmentsTitle": "Ofertas por departamento",
+    "categoryDealsTitle": "Ofertas em {name}",
+    "categoryDealsUpTo": "até {percent}% off",
+    "campaignTitle": "Acabou de chegar do Paraguai",
+    "heroPause": "Pausar banners",
+    "heroPlay": "Retomar banners"
   },
   "catalog": {
     "searchTitle": "Busca",

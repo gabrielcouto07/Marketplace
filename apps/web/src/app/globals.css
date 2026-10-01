@@ -78,6 +78,18 @@
   --laranja-800: #7a3c00;
   --laranja-900: #592b00;
 
+  /* Roxo de campanha: vitrines temáticas ("Acabou de chegar", datas sazonais). Só preenchimento. */
+  --roxo-50: #f8f5ff;
+  --roxo-100: #efe6ff;
+  --roxo-200: #e1cfff;
+  --roxo-300: #ceb0fe;
+  --roxo-400: #a866f5;
+  --roxo-500: #8b2fe0;
+  --roxo-600: #771fc3;
+  --roxo-700: #5f08a0;
+  --roxo-800: #4b0680;
+  --roxo-900: #36045c;
+
   /* Tinta: neutro frio levemente azulado (textos, superfícies e o modo escuro). */
   --tinta-0: #ffffff;
   --tinta-50: #f7f8fa;
@@ -150,6 +162,8 @@
   --brand-amarelo-soft: var(--amarelo-100);
   --brand-laranja: var(--laranja-400);
   --brand-laranja-soft: var(--laranja-100);
+  --brand-roxo: var(--roxo-500);
+  --brand-roxo-soft: var(--roxo-100);
 
   /* ---------- Tokens shadcn/ui (mapeados) ---------- */
   --foreground: var(--text);
@@ -236,6 +250,7 @@
   --brand-verde-soft: color-mix(in srgb, var(--verde-500) 22%, #121a2b);
   --brand-amarelo-soft: color-mix(in srgb, var(--amarelo-400) 20%, #121a2b);
   --brand-laranja-soft: color-mix(in srgb, var(--laranja-400) 20%, #121a2b);
+  --brand-roxo-soft: color-mix(in srgb, var(--roxo-500) 24%, #121a2b);
   --shadow-xs: 0 1px 2px rgb(0 0 0 / 0.3);
   --shadow-sm: 0 1px 3px rgb(0 0 0 / 0.35), 0 1px 2px rgb(0 0 0 / 0.25);
   --shadow-md: 0 4px 12px rgb(0 0 0 / 0.4);
@@ -299,6 +314,16 @@
   --color-laranja-700: var(--laranja-700);
   --color-laranja-800: var(--laranja-800);
   --color-laranja-900: var(--laranja-900);
+  --color-roxo-50: var(--roxo-50);
+  --color-roxo-100: var(--roxo-100);
+  --color-roxo-200: var(--roxo-200);
+  --color-roxo-300: var(--roxo-300);
+  --color-roxo-400: var(--roxo-400);
+  --color-roxo-500: var(--roxo-500);
+  --color-roxo-600: var(--roxo-600);
+  --color-roxo-700: var(--roxo-700);
+  --color-roxo-800: var(--roxo-800);
+  --color-roxo-900: var(--roxo-900);
   --color-tinta-0: var(--tinta-0);
   --color-tinta-50: var(--tinta-50);
   --color-tinta-100: var(--tinta-100);
@@ -329,6 +354,8 @@
   --color-brand-amarelo-soft: var(--brand-amarelo-soft);
   --color-brand-laranja: var(--brand-laranja);
   --color-brand-laranja-soft: var(--brand-laranja-soft);
+  --color-brand-roxo: var(--brand-roxo);
+  --color-brand-roxo-soft: var(--brand-roxo-soft);
 
   /* Semânticos */
   --color-background: var(--background);
@@ -461,6 +488,14 @@
   --animate-ring-pulse: ring-pulse 1.6s var(--ease-standard) infinite;
   --animate-fade-in: fade-in 200ms var(--ease-standard) both;
   --animate-pop: pop 300ms var(--ease-standard);
+  /* Vitrine (DESIGN.md › Movimento › Animações de vitrine): todas somem com prefers-reduced-motion. */
+  --animate-ken-burns: ken-burns 9s ease-out both;
+  --animate-rise: rise 500ms var(--ease-standard) both;
+  --animate-float: float 4s ease-in-out infinite;
+  --animate-marquee: marquee 40s linear infinite;
+  --animate-flash: flash 1.6s ease-in-out infinite;
+  --animate-progress: progress var(--hero-interval, 6s) linear both;
+  --animate-wiggle: wiggle 2.4s ease-in-out infinite;
 
   @keyframes shimmer {
     from {
@@ -500,6 +535,103 @@
       transform: scale(1);
     }
   }
+  /* Zoom lento da foto do banner ativo. */
+  @keyframes ken-burns {
+    from {
+      transform: scale(1);
+    }
+    to {
+      transform: scale(1.08);
+    }
+  }
+  /* Entrada do texto do banner e dos cards: sobe 16 px e aparece. */
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  /* Fotos dos tiles de departamento flutuando. */
+  @keyframes float {
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-6px);
+    }
+  }
+  /* Faixa de confiança correndo (o conteúdo é duplicado, por isso -50 %). */
+  @keyframes marquee {
+    from {
+      transform: translateX(0);
+    }
+    to {
+      transform: translateX(-50%);
+    }
+  }
+  /* Raio das ofertas piscando. */
+  @keyframes flash {
+    0%,
+    100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.55;
+      transform: scale(1.15);
+    }
+  }
+  /* Barra de progresso do ponto ativo do carrossel. */
+  @keyframes progress {
+    from {
+      transform: scaleX(0);
+    }
+    to {
+      transform: scaleX(1);
+    }
+  }
+  /* Ícone de campanha balançando (com pausa longa entre os balanços). */
+  @keyframes wiggle {
+    0%,
+    70%,
+    100% {
+      transform: rotate(0);
+    }
+    76% {
+      transform: rotate(-12deg);
+    }
+    84% {
+      transform: rotate(10deg);
+    }
+    92% {
+      transform: rotate(-6deg);
+    }
+  }
+  /* Reflexo que atravessa CTAs e selos de oferta. */
+  @keyframes shine {
+    0%,
+    60% {
+      transform: translateX(-120%) skewX(-20deg);
+    }
+    100% {
+      transform: translateX(220%) skewX(-20deg);
+    }
+  }
+  @keyframes reveal-up {
+    from {
+      opacity: 0;
+      transform: translateY(24px) scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: none;
+    }
+  }
 
   /* ---------- Espaçamentos de layout ---------- */
   --spacing-header: var(--header-height);
@@ -537,6 +669,40 @@
     var(--verde-500) 50% 75%,
     var(--amarelo-400) 75% 100%
   );
+}
+
+/* Reflexo periódico (3,6 s) atravessando o elemento: CTA de compra e selos de oferta. O elemento
+   precisa de `position` (relative/absolute); o brilho fica por cima do texto e não captura clique. */
+@utility shine {
+  overflow: hidden;
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    width: 45%;
+    pointer-events: none;
+    background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.55), transparent);
+    transform: translateX(-120%) skewX(-20deg);
+    animation: shine 3.6s var(--ease-standard) infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    &::after {
+      display: none;
+    }
+  }
+}
+
+/* Entrada ao rolar (scroll-driven animations): sobe e aparece quando entra na tela. Sem suporte ao
+   `animation-timeline`, o elemento simplesmente já está visível. */
+@utility reveal {
+  @supports (animation-timeline: view()) {
+    animation: reveal-up linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 70%;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
 }
 
 /* Foco visível padrão: anel de 2 px em --focus-ring com 2 px de offset (funciona em qualquer fundo). */
