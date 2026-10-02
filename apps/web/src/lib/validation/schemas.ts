@@ -56,6 +56,14 @@ export type RegisterFormValues = z.infer<typeof registerSchema>;
 export const forgotPasswordSchema = z.object({ email: emailSchema });
 export type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>;
 
+export const resetPasswordSchema = z
+  .object({ password: passwordSchema, confirmPassword: z.string() })
+  .refine((v) => v.password === v.confirmPassword, {
+    path: ["confirmPassword"],
+    message: "passwordMismatch",
+  });
+export type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>;
+
 export const profileSchema = z.object({
   fullName: z.string().trim().min(3, "nameMin"),
   phone: phoneBrSchema,
@@ -161,6 +169,13 @@ export const productSchema = z
     lengthCm: parcelSideSchema,
     widthCm: parcelSideSchema,
     heightCm: parcelSideSchema,
+    /** NCM/HS da declaração aduaneira: 4 a 16 dígitos (pontos aceitos), ou vazio. */
+    hsCode: z
+      .string()
+      .trim()
+      .transform((v) => v.replace(/\D/g, ""))
+      .refine((v) => v.length === 0 || (v.length >= 4 && v.length <= 16), "hsCodeInvalid")
+      .default(""),
     attributes: z
       .array(z.object({ name: z.string().trim(), value: z.string().trim() }))
       .default([]),

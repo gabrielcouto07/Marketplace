@@ -56,6 +56,8 @@ export function RegisterView() {
         email: values.email,
         phone: values.phone,
         password: values.password,
+        // O backend registra o consentimento (LGPD) com data, IP e versão dos termos.
+        acceptTerms: values.acceptTerms,
       },
       {
         onSuccess: (session) => {

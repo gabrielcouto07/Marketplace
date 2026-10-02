@@ -1,14 +1,21 @@
 import type {
+  AnswerQuestionRequest,
+  CancelOrderRequest,
   OrderStatus,
+  PayoutDto,
+  PayoutStatus,
   PresignedUploadDto,
   ProductDetailDto,
+  QuestionDto,
   SellerDashboardDto,
   SellerDto,
+  SellerPayoutSummaryDto,
   SellerProductDto,
   SellerProductInput,
   SellerProductListItemDto,
   SellerProfileDto,
   SellerProfileInput,
+  SellerQuestionDto,
   SellerRegisterRequest,
   SellerRegisterResponseDto,
   ShipOrderRequest,
@@ -22,12 +29,14 @@ import { convert, discountPercent, sum } from "@/lib/money";
 import {
   allProducts,
   findProduct,
+  findProductRecord,
   findSellerBySlug,
   productStatus,
   sellerStatus,
 } from "../catalog-state";
 import { db, persistDb } from "../db";
 import { categoryById, getRate, slugify, toSellerSummary } from "../fixtures/base";
+import { payoutFor } from "./admin";
 import { issueSession } from "./auth";
 import { advanceOrder, settlePendingPayments } from "./orders";
 import {
@@ -87,6 +96,50 @@ function validateContact(body: SellerProfileInput): Record<string, string[]> {
 
 function productsOf(sellerId: string): ProductDetailDto[] {
   return allProducts().filter((p) => p.seller.id === sellerId);
+}
+
+/** Perguntas (fixtures + feitas nesta sessão) de todos os produtos da loja, com o produto para contexto. */
+function sellerQuestions(sellerId: string): SellerQuestionDto[] {
+  const result: SellerQuestionDto[] = [];
+  for (const product of productsOf(sellerId)) {
+    const record = findProductRecord(product.id);
+    const fixture = record?.questions ?? [];
+    const session = db.questions.filter((q) => q.productId === product.id);
+    const sessionIds = new Set(session.map((q) => q.id));
+    for (const q of [...session, ...fixture.filter((q) => !sessionIds.has(q.id))]) {
+      result.push({
+        id: q.id,
+        productId: product.id,
+        productName: product.name,
+        productSlug: product.slug,
+        productThumbnailUrl: product.thumbnailUrl,
+        question: q.question,
+        askedBy: q.askedBy,
+        askedAt: q.askedAt,
+        answer: q.answer,
+      });
+    }
+  }
+  return result;
+}
+
+function toPlainQuestion(q: SellerQuestionDto): QuestionDto {
+  return {
+    id: q.id,
+    productId: q.productId,
+    question: q.question,
+    askedBy: q.askedBy,
+    askedAt: q.askedAt,
+    answer: q.answer,
+  };
+}
+
+function sellerPayouts(sellerId: string): PayoutDto[] {
+  return db.orders
+    .filter((o) => o.seller.id === sellerId)
+    .map(payoutFor)
+    .filter((p): p is PayoutDto => Boolean(p))
+    .sort((a, b) => b.scheduledFor.localeCompare(a.scheduledFor));
 }
 
 function toProfile(seller: SellerDto): SellerProfileDto {
@@ -612,6 +665,123 @@ export const sellerPanelHandlers = [
     });
     persistDb();
     return HttpResponse.json(order);
+  }),
+
+  http.post(`${API}/seller/orders/:id/cancel`, async ({ request, params }) => {
+    await simulateLatency();
+    const seller = requireSeller(request);
+    if (isResponse(seller)) return seller;
+    const order = db.orders.find((o) => o.id === params.id && o.seller.id === seller.id);
+    if (!order) return notFound("Pedido");
+    if (!["AguardandoPagamento", "Pago", "EmPreparacao"].includes(order.status))
+      return problem(409, "ORDER_NOT_CANCELLABLE", "Este pedido não pode mais ser cancelado.");
+    const body = (await request.json().catch(() => null)) as CancelOrderRequest | null;
+    const reason = body?.reason?.trim();
+    if (reason && reason.length > 300) return validation({ reason: ["Motivo muito longo."] });
+    const wasPaid = order.payment.status === "Aprovado";
+    advanceOrder(
+      order,
+      "Cancelado",
+      (reason ? `Cancelado pela loja: ${reason}` : "Cancelado pela loja.") +
+        (wasPaid ? " Reembolso solicitado no meio de pagamento original." : ""),
+    );
+    if (wasPaid) {
+      const payment = db.payments.find((p) => p.id === order.payment.id);
+      const siblings = db.orders.filter((o) => o.purchaseId === order.purchaseId && o.id !== order.id);
+      if (payment) {
+        payment.refundedAmount = {
+          amount: Math.min(payment.amount.amount, payment.refundedAmount.amount + order.totals.total.amount),
+          currency: "BRL",
+        };
+        if (siblings.every((o) => ["Cancelado", "Reembolsado"].includes(o.status))) {
+          payment.status = "Estornado";
+          order.payment = { ...order.payment, status: "Estornado" };
+        }
+      }
+    }
+    db.audit.push({
+      id: db.audit.length + 1,
+      userId: db.user.id,
+      userEmail: db.user.email,
+      action: "seller.order.cancel",
+      target: order.number,
+      occurredAt: nowIso(),
+      ipAddress: null,
+    });
+    persistDb();
+    return HttpResponse.json(order);
+  }),
+
+  // ----- Perguntas dos compradores -----
+  http.get(`${API}/seller/questions`, async ({ request }) => {
+    await simulateLatency();
+    const seller = requireSeller(request);
+    if (isResponse(seller)) return seller;
+    const url = new URL(request.url);
+    const unanswered = url.searchParams.get("unanswered") === "true";
+    const page = num(url.searchParams.get("page"), 1)!;
+    const pageSize = num(url.searchParams.get("pageSize"), 20)!;
+    let items = sellerQuestions(seller.id);
+    if (unanswered) items = items.filter((q) => !q.answer);
+    items.sort((a, b) => {
+      if (Boolean(a.answer) !== Boolean(b.answer)) return a.answer ? 1 : -1;
+      return a.answer
+        ? b.answer!.answeredAt.localeCompare(a.answer.answeredAt)
+        : a.askedAt.localeCompare(b.askedAt);
+    });
+    return HttpResponse.json(paginate(items, page, pageSize));
+  }),
+
+  http.post(`${API}/seller/questions/:id/answer`, async ({ request, params }) => {
+    await simulateLatency();
+    const seller = requireSeller(request);
+    if (isResponse(seller)) return seller;
+    const body = (await request.json()) as AnswerQuestionRequest;
+    const text = body.text?.trim() ?? "";
+    if (text.length < 2) return validation({ text: ["Escreva a resposta."] });
+    if (text.length > 1000) return validation({ text: ["Resposta muito longa (máximo 1000 caracteres)."] });
+    const target = sellerQuestions(seller.id).find((q) => q.id === params.id);
+    if (!target) return notFound("Pergunta");
+    const answer = { text, answeredAt: nowIso() };
+    // Perguntas das fixtures viram "respondidas" via db (sobrescreve a resposta original para a sessão).
+    const stored = db.questions.find((q) => q.id === target.id);
+    if (stored) stored.answer = answer;
+    else db.questions.unshift({ ...toPlainQuestion(target), answer });
+    persistDb();
+    return HttpResponse.json({ ...target, answer });
+  }),
+
+  // ----- Repasses -----
+  http.get(`${API}/seller/payouts`, async ({ request }) => {
+    await simulateLatency();
+    const seller = requireSeller(request);
+    if (isResponse(seller)) return seller;
+    settlePendingPayments();
+    const url = new URL(request.url);
+    const status = url.searchParams.get("status") as PayoutStatus | null;
+    const page = num(url.searchParams.get("page"), 1)!;
+    const pageSize = num(url.searchParams.get("pageSize"), 20)!;
+    let items = sellerPayouts(seller.id);
+    if (status) items = items.filter((p) => p.status === status);
+    return HttpResponse.json(paginate(items, page, pageSize));
+  }),
+
+  http.get(`${API}/seller/payouts/summary`, async ({ request }) => {
+    await simulateLatency();
+    const seller = requireSeller(request);
+    if (isResponse(seller)) return seller;
+    settlePendingPayments();
+    const items = sellerPayouts(seller.id);
+    const total = (s: PayoutStatus) =>
+      sum(items.filter((p) => p.status === s).map((p) => p.net), "BRL");
+    const body: SellerPayoutSummaryDto = {
+      scheduled: total("Agendado"),
+      processing: total("Processando"),
+      paid: total("Pago"),
+      failed: total("Falhou"),
+      scheduledCount: items.filter((p) => p.status === "Agendado").length,
+    };
+    return HttpResponse.json(body);
   }),
 
   // ----- Uploads (duas etapas: assina → PUT do arquivo) -----

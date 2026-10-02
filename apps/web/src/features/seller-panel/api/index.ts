@@ -1,17 +1,24 @@
 "use client";
 
 import type {
+  AnswerQuestionRequest,
+  CancelOrderRequest,
   OrderDto,
   OrderListQuery,
   PagedResult,
+  PayoutDto,
   PresignedUploadDto,
   SellerDashboardDto,
+  SellerPayoutListQuery,
+  SellerPayoutSummaryDto,
   SellerProductDto,
   SellerProductInput,
   SellerProductListItemDto,
   SellerProductListQuery,
   SellerProfileDto,
   SellerProfileInput,
+  SellerQuestionDto,
+  SellerQuestionListQuery,
   SellerRegisterRequest,
   SellerRegisterResponseDto,
   ShipOrderRequest,
@@ -43,6 +50,15 @@ export const sellerPanelApi = {
   prepareOrder: (id: string) => api.post<OrderDto>(`/seller/orders/${id}/prepare`),
   shipOrder: (id: string, body: ShipOrderRequest) =>
     api.post<OrderDto>(`/seller/orders/${id}/ship`, body),
+  cancelOrder: (id: string, body: CancelOrderRequest) =>
+    api.post<OrderDto>(`/seller/orders/${id}/cancel`, body),
+  questions: (query: SellerQuestionListQuery) =>
+    api.get<PagedResult<SellerQuestionDto>>("/seller/questions", { query: { ...query } }),
+  answerQuestion: (id: string, body: AnswerQuestionRequest) =>
+    api.post<SellerQuestionDto>(`/seller/questions/${id}/answer`, body),
+  payouts: (query: SellerPayoutListQuery) =>
+    api.get<PagedResult<PayoutDto>>("/seller/payouts", { query: { ...query } }),
+  payoutSummary: () => api.get<SellerPayoutSummaryDto>("/seller/payouts/summary"),
   presignUpload: (body: UploadRequest) => api.post<PresignedUploadDto>("/seller/uploads", body),
 };
 
@@ -175,6 +191,60 @@ export function useShipOrder() {
     mutationFn: ({ id, body }: { id: string; body: ShipOrderRequest }) =>
       sellerPanelApi.shipOrder(id, body),
     onSuccess: invalidate,
+  });
+}
+
+/** Loja cancela um pedido pago/em preparação: estorno e devolução do estoque acontecem no servidor. */
+export function useSellerCancelOrder() {
+  const invalidate = useInvalidateSellerOrders();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: CancelOrderRequest }) =>
+      sellerPanelApi.cancelOrder(id, body),
+    onSuccess: () => {
+      invalidate();
+      // O estoque voltou: vitrine e repasses mudam junto.
+      void client.invalidateQueries({ queryKey: ["products"] });
+      void client.invalidateQueries({ queryKey: ["seller", "payouts"] });
+    },
+  });
+}
+
+export function useSellerQuestions(query: SellerQuestionListQuery) {
+  return useQuery({
+    queryKey: queryKeys.sellerPanel.questions(query),
+    queryFn: () => sellerPanelApi.questions(query),
+    staleTime: 30 * 1000,
+  });
+}
+
+export function useAnswerQuestion() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: AnswerQuestionRequest }) =>
+      sellerPanelApi.answerQuestion(id, body),
+    onSuccess: (answered) => {
+      void client.invalidateQueries({ queryKey: ["seller", "questions"] });
+      void client.invalidateQueries({ queryKey: queryKeys.sellerPanel.dashboard });
+      // A resposta aparece na página pública do produto.
+      void client.invalidateQueries({ queryKey: queryKeys.products.questions(answered.productId) });
+    },
+  });
+}
+
+export function useSellerPayouts(query: SellerPayoutListQuery) {
+  return useQuery({
+    queryKey: queryKeys.sellerPanel.payouts(query),
+    queryFn: () => sellerPanelApi.payouts(query),
+    staleTime: 60 * 1000,
+  });
+}
+
+export function useSellerPayoutSummary() {
+  return useQuery({
+    queryKey: queryKeys.sellerPanel.payoutSummary,
+    queryFn: sellerPanelApi.payoutSummary,
+    staleTime: 60 * 1000,
   });
 }
 

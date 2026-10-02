@@ -42,7 +42,11 @@ export function ConfirmationView() {
           action={
             <Button
               variant="primary"
-              render={<Link href={`/entrar?next=/pedido/confirmado?purchase=${purchaseId}`} />}
+              render={
+                <Link
+                  href={`/entrar?next=${encodeURIComponent(`/pedido/confirmado?purchase=${purchaseId}`)}`}
+                />
+              }
             >
               {tAccount("signIn")}
             </Button>
@@ -81,17 +85,31 @@ export function ConfirmationView() {
 
   const pendingOrder = orders.find((o) => o.status === "AguardandoPagamento");
   const pending = Boolean(pendingOrder);
+  // Pagamento recusado/expirado ou compra cancelada antes de pagar: não é "pedido confirmado".
+  const failed =
+    !pending &&
+    orders.length > 0 &&
+    orders.every((o) => o.status === "Cancelado") &&
+    orders[0].payment.status !== "Aprovado";
   const trackHref = orders.length === 1 ? `/conta/pedidos/${orders[0].id}` : "/conta/pedidos";
 
   return (
     <PageContainer className="flex flex-col gap-6 pt-6 pb-6 sm:max-w-lg">
       <ResultHeader
-        illustration={pending ? "box" : "check"}
-        title={pending ? t("confirmationPendingTitle") : t("confirmationTitle")}
+        illustration={failed ? "alert" : pending ? "box" : "check"}
+        title={
+          failed
+            ? t("confirmationFailedTitle")
+            : pending
+              ? t("confirmationPendingTitle")
+              : t("confirmationTitle")
+        }
         subtitle={
-          pending
-            ? t("confirmationPendingSubtitle")
-            : t("confirmationSubtitle", { email: user?.email ?? "" })
+          failed
+            ? t("confirmationFailedSubtitle")
+            : pending
+              ? t("confirmationPendingSubtitle")
+              : t("confirmationSubtitle", { email: user?.email ?? "" })
         }
         note={orders.length > 1 ? t("multipleOrdersNote", { count: orders.length }) : undefined}
       />

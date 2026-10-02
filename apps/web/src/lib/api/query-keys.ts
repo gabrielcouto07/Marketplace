@@ -8,7 +8,9 @@ import type {
   AdminUserListQuery,
   OrderListQuery,
   ProductSearchQuery,
+  SellerPayoutListQuery,
   SellerProductListQuery,
+  SellerQuestionListQuery,
 } from "@marketplace/contracts";
 
 /**
@@ -73,5 +75,8 @@ export const queryKeys = {
     products: (query: SellerProductListQuery) => ["seller", "products", query] as const,
     product: (id: string) => ["seller", "products", "detail", id] as const,
     orders: (query: OrderListQuery) => ["seller", "orders", query] as const,
+    questions: (query: SellerQuestionListQuery) => ["seller", "questions", query] as const,
+    payouts: (query: SellerPayoutListQuery) => ["seller", "payouts", query] as const,
+    payoutSummary: ["seller", "payouts", "summary"] as const,
   },
 } as const;

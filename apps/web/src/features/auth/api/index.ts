@@ -7,6 +7,7 @@ import type {
   LoginRequest,
   RefreshRequest,
   RegisterRequest,
+  ResetPasswordRequest,
   UpdateProfileRequest,
   UserProfileDto,
 } from "@marketplace/contracts";
@@ -24,6 +25,7 @@ export const authApi = {
   register: (body: RegisterRequest) => api.post<AuthResponseDto>("/auth/register", body),
   google: (body: GoogleAuthRequest) => api.post<AuthResponseDto>("/auth/google", body),
   forgotPassword: (body: ForgotPasswordRequest) => api.post<void>("/auth/forgot-password", body),
+  resetPassword: (body: ResetPasswordRequest) => api.post<void>("/auth/reset-password", body),
   /** O corpo leva o refresh token salvo; o backend também revoga o cookie httpOnly. */
   logout: (body: RefreshRequest) => api.post<void>("/auth/logout", body),
   me: () => api.get<UserProfileDto>("/me"),
@@ -76,6 +78,11 @@ export function useForgotPassword() {
   return useMutation({ mutationFn: authApi.forgotPassword });
 }
 
+/** Redefinição pelo link do e-mail (`/redefinir-senha?token=`): o backend revoga todas as sessões antigas. */
+export function useResetPassword() {
+  return useMutation({ mutationFn: authApi.resetPassword });
+}
+
 /** Sair: revoga o refresh token na API e limpa sessão + TODO o cache de queries (dados pessoais). */
 export function useLogout() {
   const signOut = useAuthStore((s) => s.signOut);
@@ -85,6 +92,8 @@ export function useLogout() {
     onSettled: () => {
       signOut();
       client.clear();
+      // O service worker guarda respostas da API para uso offline: esquece tudo antes que outra pessoa use o aparelho.
+      navigator.serviceWorker?.controller?.postMessage({ type: "CLEAR_API_CACHES" });
     },
   });
 }

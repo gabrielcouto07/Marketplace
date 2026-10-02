@@ -53,6 +53,7 @@ const EMPTY: ProductFormValues = {
   lengthCm: null,
   widthCm: null,
   heightCm: null,
+  hsCode: "",
   attributes: [],
   images: [],
   status: "Ativo",
@@ -74,9 +75,11 @@ function toFormValues(p: SellerProductDto): ProductFormValues {
     lengthCm: p.dimensions?.lengthCm ?? null,
     widthCm: p.dimensions?.widthCm ?? null,
     heightCm: p.dimensions?.heightCm ?? null,
+    hsCode: p.hsCode ?? "",
     attributes: p.attributes,
     images: p.images.map((i) => ({ url: i.url, alt: i.alt, storageKey: i.storageKey })),
-    status: p.status === "Rascunho" ? "Rascunho" : "Ativo",
+    // Arquivado abre como rascunho: salvar um produto arquivado não pode republicá-lo sem querer.
+    status: p.status === "Ativo" ? "Ativo" : "Rascunho",
   };
 }
 
@@ -215,7 +218,7 @@ export function ProductForm({
         values.lengthCm && values.widthCm && values.heightCm
           ? { lengthCm: values.lengthCm, widthCm: values.widthCm, heightCm: values.heightCm }
           : null,
-      hsCode: product?.hsCode ?? null,
+      hsCode: values.hsCode || null,
       attributes: values.attributes.filter((a) => a.name && a.value),
       images: values.images.map((i) => ({
         url: i.url,
@@ -567,6 +570,23 @@ export function ProductForm({
                   />
                 ))}
               </div>
+            </FormField>
+            <FormField
+              id="product-hsCode"
+              label={t("productHsCode")}
+              optional
+              hint={t("productHsCodeHint")}
+              error={errors.hsCode?.message}
+            >
+              <Input
+                id="product-hsCode"
+                inputMode="numeric"
+                placeholder="8517.12.31"
+                className="tabular-nums"
+                aria-invalid={Boolean(errors.hsCode) || undefined}
+                aria-describedby={describedBy("product-hsCode", Boolean(errors.hsCode), true)}
+                {...register("hsCode")}
+              />
             </FormField>
           </div>
         </div>

@@ -254,7 +254,7 @@ function toOrderItem(o: OrderDto): AdminOrderListItemDto {
   };
 }
 
-function payoutFor(o: OrderDto): PayoutDto | null {
+export function payoutFor(o: OrderDto): PayoutDto | null {
   if (o.payment.status !== "Aprovado" && o.payment.status !== "Estornado") return null;
   const payment = db.payments.find((p) => p.id === o.payment.id);
   const paidAt = payment?.paidAt ?? o.createdAt;
@@ -301,7 +301,7 @@ function payoutFor(o: OrderDto): PayoutDto | null {
   };
 }
 
-function allPayouts(): PayoutDto[] {
+export function allPayouts(): PayoutDto[] {
   return db.orders
     .map(payoutFor)
     .filter((p): p is PayoutDto => Boolean(p))

@@ -5,9 +5,12 @@ import type {
   OrderStatus,
   ProductStatus,
   SellerProductListItemDto,
+  SellerStatus,
 } from "@marketplace/contracts";
 import {
+  AlertTriangle,
   Banknote,
+  Clock,
   HelpCircle,
   LayoutDashboard,
   Package,
@@ -18,13 +21,14 @@ import {
   ShoppingBag,
   Store,
   Truck,
+  XCircle,
 } from "lucide-react";
 import Image from "next/image";
 import { useFormatter, useTranslations } from "next-intl";
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
-import { PanelShell, PanelTitle, SkeletonNotice } from "@/components/layout/panel-shell";
+import { PanelShell, PanelTitle } from "@/components/layout/panel-shell";
 import { OrderStatusBadge } from "@/components/shared/order-status";
 import { EmptyState, ErrorState, SectionHeader } from "@/components/shared/states";
 import { Badge } from "@/components/ui/badge";
@@ -46,10 +50,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Textarea } from "@/components/ui/textarea";
 import { Link } from "@/i18n/navigation";
 import { isApiError } from "@/lib/api/errors";
 import { BLUR_DATA_URL, isDirectImage } from "@/lib/images";
 import { formatMoney } from "@/lib/money";
+import { cn } from "@/lib/utils";
 
 import {
   FilterSelect,
@@ -64,6 +70,7 @@ import { useDebouncedValue } from "@/hooks/use-debounce";
 import {
   useArchiveProduct,
   usePrepareOrder,
+  useSellerCancelOrder,
   useSellerDashboard,
   useSellerOrders,
   useSellerProducts,
@@ -93,8 +100,44 @@ export function SellerPanelShell({ children }: { children: ReactNode }) {
   ];
   return (
     <PanelShell title={t("title")} subtitle={profile.data?.name ?? t("subtitle")} items={items}>
-      <SellerGate>{children}</SellerGate>
+      <SellerGate>
+        <SellerStatusNotice status={profile.data?.status} />
+        {children}
+      </SellerGate>
     </PanelShell>
+  );
+}
+
+/**
+ * Loja pendente de aprovação ou suspensa: a vitrine não a mostra (nem os produtos), e sem este aviso o
+ * vendedor cadastraria produtos e cairia num 404 ao clicar em "Ver minha loja" sem entender por quê.
+ */
+function SellerStatusNotice({ status }: { status: SellerStatus | undefined }) {
+  const t = useTranslations("sellerPanel");
+  if (!status || status === "Aprovado") return null;
+  const pending = status === "Pendente";
+  return (
+    <div
+      role="status"
+      className={cn(
+        "mb-6 flex items-start gap-3 rounded-lg border p-4",
+        pending ? "border-warning/40 bg-warning-soft" : "border-danger/40 bg-danger-soft",
+      )}
+    >
+      {pending ? (
+        <Clock className="mt-0.5 size-5 shrink-0 text-warning" strokeWidth={1.75} aria-hidden />
+      ) : (
+        <AlertTriangle className="mt-0.5 size-5 shrink-0 text-danger" strokeWidth={1.75} aria-hidden />
+      )}
+      <div className="flex flex-col gap-1">
+        <p className="text-body-sm font-semibold text-foreground">
+          {pending ? t("statusPendingTitle") : t("statusSuspendedTitle")}
+        </p>
+        <p className="text-body-sm text-foreground-secondary">
+          {pending ? t("statusPendingDescription") : t("statusSuspendedDescription")}
+        </p>
+      </div>
+    </div>
   );
 }
 
@@ -171,11 +214,13 @@ function OrdersSection({
   orders,
   onPrepare,
   onShip,
+  onCancel,
   preparingId,
 }: {
   orders: ReturnType<typeof useSellerOrders>;
   onPrepare?: (order: OrderDto) => void;
   onShip?: (order: OrderDto) => void;
+  onCancel?: (order: OrderDto) => void;
   preparingId?: string | null;
 }) {
   const t = useTranslations("sellerPanel");
@@ -197,6 +242,7 @@ function OrdersSection({
         orders={orders.data.items}
         onPrepare={onPrepare}
         onShip={onShip}
+        onCancel={onCancel}
         preparingId={preparingId}
       />
     </PanelCard>
@@ -207,16 +253,18 @@ function OrdersTable({
   orders,
   onPrepare,
   onShip,
+  onCancel,
   preparingId,
 }: {
   orders: OrderDto[];
   onPrepare?: (order: OrderDto) => void;
   onShip?: (order: OrderDto) => void;
+  onCancel?: (order: OrderDto) => void;
   preparingId?: string | null;
 }) {
   const t = useTranslations("sellerPanel");
   const format = useFormatter();
-  const withActions = Boolean(onPrepare || onShip);
+  const withActions = Boolean(onPrepare || onShip || onCancel);
   return (
     <Table>
       <TableHeader>
@@ -268,6 +316,17 @@ function OrdersTable({
                     <Truck data-icon="inline-start" strokeWidth={1.75} /> {t("actionShip")}
                   </Button>
                 ) : null}
+                {(o.status === "Pago" || o.status === "EmPreparacao") && onCancel ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="ml-2 text-danger"
+                    aria-label={`${t("actionCancel")} ${o.number}`}
+                    onClick={() => onCancel(o)}
+                  >
+                    <XCircle data-icon="inline-start" strokeWidth={1.75} /> {t("actionCancel")}
+                  </Button>
+                ) : null}
                 {o.trackingCode ? (
                   <span className="block text-caption text-foreground-secondary tabular-nums">
                     {o.trackingCode}
@@ -302,11 +361,14 @@ export function SellerOrders() {
   const tErrors = useTranslations("errors");
   const [status, setStatus] = useState<OrderFilter>("all");
   const [shipping, setShipping] = useState<OrderDto | null>(null);
+  const [cancelling, setCancelling] = useState<OrderDto | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
   const orders = useSellerOrders({
     status: status === "all" ? undefined : (status as OrderStatus),
     pageSize: 50,
   });
   const prepare = usePrepareOrder();
+  const cancel = useSellerCancelOrder();
 
   const items = Object.fromEntries(
     ORDER_FILTERS.map((s) => [s, s === "all" ? t("filterAllStatus") : ts(s)]),
@@ -335,8 +397,59 @@ export function SellerOrders() {
           })
         }
         onShip={setShipping}
+        onCancel={(o) => {
+          setCancelReason("");
+          setCancelling(o);
+        }}
       />
       <ShipOrderSheet order={shipping} onClose={() => setShipping(null)} />
+
+      <Dialog open={Boolean(cancelling)} onOpenChange={(open) => !open && setCancelling(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("cancelOrderTitle", { number: cancelling?.number ?? "" })}</DialogTitle>
+            <DialogDescription>{t("cancelOrderDescription")}</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-2">
+            <label htmlFor="seller-cancel-reason" className="text-body-sm font-medium text-foreground">
+              {t("cancelOrderReason")}
+            </label>
+            <Textarea
+              id="seller-cancel-reason"
+              rows={2}
+              maxLength={300}
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder={t("cancelOrderReasonPlaceholder")}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="secondary" onClick={() => setCancelling(null)}>
+              {t("cancelOrderKeep")}
+            </Button>
+            <Button
+              variant="destructive"
+              loading={cancel.isPending}
+              onClick={() => {
+                if (!cancelling) return;
+                const number = cancelling.number;
+                cancel.mutate(
+                  { id: cancelling.id, body: { reason: cancelReason.trim() || null } },
+                  {
+                    onSuccess: () => {
+                      toast.success(t("cancelSuccess", { number }));
+                      setCancelling(null);
+                    },
+                    onError: (e) => toast.error(isApiError(e) ? e.message : tErrors("genericTitle")),
+                  },
+                );
+              }}
+            >
+              {t("cancelOrderConfirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -542,38 +655,11 @@ export function SellerProducts() {
 }
 
 /* ------------------------------------------------------------------ */
-/* Perguntas e repasses (ainda sem endpoint)                            */
+/* Perguntas e repasses                                                 */
 /* ------------------------------------------------------------------ */
 
-export function SellerQuestions() {
-  const t = useTranslations("sellerPanel");
-  return (
-    <div>
-      <SkeletonNotice text={t("placeholder")} />
-      <PanelTitle>{t("questions")}</PanelTitle>
-      <EmptyState
-        illustration="check"
-        title={t("questionsEmptyTitle")}
-        description={t("questionsEmptyDescription")}
-      />
-    </div>
-  );
-}
-
-export function SellerPayouts() {
-  const t = useTranslations("sellerPanel");
-  return (
-    <div>
-      <SkeletonNotice text={t("placeholder")} />
-      <PanelTitle>{t("payouts")}</PanelTitle>
-      <EmptyState
-        illustration="box"
-        title={t("payoutsEmptyTitle")}
-        description={t("payoutsEmptyDescription")}
-      />
-    </div>
-  );
-}
+export { SellerQuestions } from "./seller-questions";
+export { SellerPayouts } from "./seller-payouts";
 
 /* ------------------------------------------------------------------ */
 /* Configurações                                                        */

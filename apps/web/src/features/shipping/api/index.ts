@@ -9,6 +9,9 @@ import type {
 import { useMutation, useQuery } from "@tanstack/react-query";
 
 import { api } from "@/lib/api/http";
+
+/** Câmbio é público: sem Authorization o cache de saída da API vale também para quem está logado. */
+const PUBLIC = { accessToken: null } as const;
 import { queryKeys } from "@/lib/api/query-keys";
 import { onlyDigits } from "@/lib/validation/documents";
 
@@ -20,7 +23,7 @@ export const shippingApi = {
       ...body,
       postalCode: onlyDigits(body.postalCode),
     }),
-  exchangeRates: () => api.get<ExchangeRateDto[]>("/exchange-rates"),
+  exchangeRates: () => api.get<ExchangeRateDto[]>("/exchange-rates", PUBLIC),
 };
 
 export function usePostalCodeLookup(cep: string) {

@@ -88,21 +88,6 @@ export function SearchView({ fixed = {}, hideHeading, className }: SearchViewPro
   );
 
   const query = useMemo(() => filtersToQuery(filters), [filters]);
-  const {
-    data,
-    isPending,
-    isError,
-    error,
-    refetch,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-    isPlaceholderData,
-  } = useProductSearch(query);
-
-  const items = useMemo(() => data?.pages.flatMap((p) => p.items) ?? [], [data]);
-  const totalCount = data?.pages[0]?.totalCount ?? 0;
-  const facets = data?.pages[0]?.facets;
   const activeCount = countActiveFilters(filters, locked);
 
   const mode: "search" | "category" | "embedded" = hideHeading
@@ -114,6 +99,23 @@ export function SearchView({ fixed = {}, hideHeading, className }: SearchViewPro
   // (ex.: "Ver tudo" de Novidades e Mais vendidos na home) e deve mostrar resultados.
   const showSuggestions =
     mode === "search" && !fixed.sellerSlug && !filters.q && !filters.sort && activeCount === 0;
+
+  // Com as sugestões na tela não há lista para mostrar: não busca a primeira página do catálogo à toa.
+  const {
+    data,
+    isPending,
+    isError,
+    error,
+    refetch,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    isPlaceholderData,
+  } = useProductSearch(query, { enabled: !showSuggestions });
+
+  const items = useMemo(() => data?.pages.flatMap((p) => p.items) ?? [], [data]);
+  const totalCount = data?.pages[0]?.totalCount ?? 0;
+  const facets = data?.pages[0]?.facets;
   // Listagem sem termo (ex.: /busca?sort=newest): o título vira o nome da ordenação.
   const listingSort =
     !filters.q && filters.sort && filters.sort !== "relevance" ? filters.sort : null;

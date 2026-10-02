@@ -10,7 +10,7 @@ export const sellerHandlers = [
   http.get(`${API}/sellers`, async () => {
     await simulateLatency();
     const body: SellerSummaryDto[] = allSellers()
-      .filter((s) => sellerStatus(s.id) !== "Suspenso")
+      .filter((s) => sellerStatus(s.id) === "Aprovado")
       .map(toSellerSummary);
     return HttpResponse.json(body);
   }),
@@ -18,7 +18,10 @@ export const sellerHandlers = [
   http.get(`${API}/sellers/:slug`, async ({ params }) => {
     await simulateLatency();
     const seller = findSellerBySlug(String(params.slug));
-    return seller ? HttpResponse.json(seller) : notFound("Loja");
+    // Como no backend: loja pendente de aprovação ou suspensa não tem página pública.
+    return seller && sellerStatus(seller.id) === "Aprovado"
+      ? HttpResponse.json(seller)
+      : notFound("Loja");
   }),
 
   http.get(`${API}/sellers/:slug/reviews`, async ({ params, request }) => {

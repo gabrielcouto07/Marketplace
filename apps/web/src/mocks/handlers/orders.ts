@@ -66,10 +66,13 @@ export const orderHandlers = [
     settlePendingPayments();
     const url = new URL(request.url);
     const status = url.searchParams.get("status") as OrderStatus | null;
+    const group = url.searchParams.get("group");
     const page = num(url.searchParams.get("page"), 1)!;
     const pageSize = num(url.searchParams.get("pageSize"), 10)!;
+    const done = (s: OrderStatus) => ["Concluido", "Cancelado", "Reembolsado"].includes(s);
     const items = db.orders
       .filter((o) => !status || o.status === status)
+      .filter((o) => (group === "active" ? !done(o.status) : group === "done" ? done(o.status) : true))
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     return HttpResponse.json(paginate(items, page, pageSize));
   }),

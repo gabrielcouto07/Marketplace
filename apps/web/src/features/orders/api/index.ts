@@ -80,13 +80,21 @@ export function usePurchaseOrders(purchaseId: string) {
   });
 }
 
-/** Pagamento com polling a cada 5 s enquanto estiver pendente (Pix/boleto). */
+/**
+ * Pagamento com polling enquanto estiver pendente: Pix a cada 5 s (aprovação em segundos), boleto a cada 60 s
+ * (compensa em horas/dias; uma aba aberta não precisa bater na API 17 mil vezes por dia). Pix vencido para.
+ */
 export function usePayment(id: string) {
   return useQuery({
     queryKey: queryKeys.payments.detail(id),
     queryFn: () => ordersApi.payment(id),
     enabled: Boolean(id),
-    refetchInterval: (query) => (query.state.data?.status === "Pendente" ? 5000 : false),
+    refetchInterval: (query) => {
+      const payment = query.state.data;
+      if (!payment || payment.status !== "Pendente") return false;
+      if (payment.pix && new Date(payment.pix.expiresAt).getTime() <= Date.now()) return false;
+      return payment.method === "Boleto" ? 60_000 : 5_000;
+    },
     staleTime: 0,
   });
 }

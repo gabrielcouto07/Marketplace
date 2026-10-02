@@ -16,29 +16,40 @@ import { uploadImage } from "../api";
 const ACCEPT = "image/jpeg,image/png,image/webp,image/avif";
 const MAX_BYTES = 8 * 1024 * 1024;
 
-function useUploadHandler(onDone: (url: string, storageKey: string) => void) {
+interface UploadedImage {
+  url: string;
+  storageKey: string;
+}
+
+/**
+ * Envia um arquivo e devolve a URL pública (ou null em falha, já com toast). `busy` conta uploads em voo,
+ * então vários arquivos em paralelo só liberam o botão quando o último termina.
+ */
+function useUploadHandler(onDone?: (url: string, storageKey: string) => void) {
   const t = useTranslations("sellerPanel");
-  const [busy, setBusy] = useState(false);
-  const upload = async (file: File) => {
+  const [pending, setPending] = useState(0);
+  const upload = async (file: File): Promise<UploadedImage | null> => {
     if (!ACCEPT.split(",").includes(file.type)) {
       toast.error(t("uploadInvalidType"));
-      return;
+      return null;
     }
     if (file.size > MAX_BYTES) {
       toast.error(t("uploadTooLarge"));
-      return;
+      return null;
     }
-    setBusy(true);
+    setPending((n) => n + 1);
     try {
       const result = await uploadImage(file);
-      onDone(result.publicUrl, result.storageKey);
+      onDone?.(result.publicUrl, result.storageKey);
+      return { url: result.publicUrl, storageKey: result.storageKey };
     } catch (error) {
       toast.error(isApiError(error) ? error.message : t("uploadFailed"));
+      return null;
     } finally {
-      setBusy(false);
+      setPending((n) => n - 1);
     }
   };
-  return { busy, upload };
+  return { busy: pending > 0, upload };
 }
 
 interface SingleImageUploadProps {
@@ -166,10 +177,17 @@ export function GalleryUpload({
 }: GalleryUploadProps) {
   const t = useTranslations("sellerPanel");
   const inputRef = useRef<HTMLInputElement>(null);
-  const { busy, upload } = useUploadHandler((url, storageKey) =>
-    onChange([...value, { url, storageKey }]),
-  );
+  const { busy, upload } = useUploadHandler();
   const remaining = max - value.length;
+
+  // Vários arquivos de uma vez: sobe todos em paralelo e acrescenta à galeria numa única atualização.
+  // Chamar onChange a cada arquivo usaria o `value` capturado na seleção e sobrescreveria os anteriores.
+  const uploadMany = async (files: File[]) => {
+    const uploaded = (await Promise.all(files.map(upload))).filter(
+      (img): img is UploadedImage => img !== null,
+    );
+    if (uploaded.length) onChange([...value, ...uploaded]);
+  };
 
   return (
     <div className="flex flex-col gap-2">
@@ -247,9 +265,7 @@ export function GalleryUpload({
         onChange={(e) => {
           const files = Array.from(e.target.files ?? []).slice(0, remaining);
           e.target.value = "";
-          void (async () => {
-            for (const file of files) await upload(file);
-          })();
+          if (files.length) void uploadMany(files);
         }}
       />
       <p className="text-caption text-foreground-secondary">{t("uploadHint", { max })}</p>

@@ -6,6 +6,7 @@ import type {
   GoogleAuthRequest,
   LoginRequest,
   RegisterRequest,
+  ResetPasswordRequest,
   UpdateProfileRequest,
   UserProfileDto,
 } from "@marketplace/contracts";
@@ -78,6 +79,8 @@ export const authHandlers = [
       errors.password = ["A senha deve ter pelo menos 8 caracteres."];
     if (body.email?.toLowerCase() === "existe@mktpy.com")
       errors.email = ["Este e-mail já está cadastrado."];
+    if (body.acceptTerms !== true)
+      errors.acceptTerms = ["É preciso aceitar os termos de uso e a política de privacidade."];
     if (Object.keys(errors).length) return validation(errors);
 
     db.user = {
@@ -106,6 +109,19 @@ export const authHandlers = [
     if (!body.email?.includes("@")) return validation({ email: ["E-mail inválido."] });
     // Resposta sempre 202 para não revelar se o e-mail existe.
     return new HttpResponse(null, { status: 202 });
+  }),
+
+  // Link do e-mail: /redefinir-senha?token=… — no mock, qualquer token exceto "expirado" vale.
+  http.post(`${API}/auth/reset-password`, async ({ request }) => {
+    await simulateLatency();
+    const body = (await request.json()) as ResetPasswordRequest;
+    if (!body.token || body.token === "expirado")
+      return validation({ token: ["Link inválido ou expirado. Solicite um novo."] });
+    if (!body.password || body.password.length < 8)
+      return validation({ password: ["A senha deve ter pelo menos 8 caracteres."] });
+    db.tokens = [];
+    persistDb();
+    return new HttpResponse(null, { status: 204 });
   }),
 
   http.post(`${API}/auth/logout`, async ({ request }) => {

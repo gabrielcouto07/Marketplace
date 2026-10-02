@@ -132,10 +132,10 @@ export function allProducts(): ProductDetailDto[] {
   return [...PRODUCTS, ...db.customProducts].map(applyProductOverride);
 }
 
-/** O que a vitrine mostra: produtos ativos de lojas não suspensas. */
+/** O que a vitrine mostra: produtos ativos de lojas aprovadas (igual ao backend: Pendente e Suspenso ficam fora). */
 export function catalogProducts(): ProductDetailDto[] {
   return allProducts().filter(
-    (p) => productStatus(p.id) === "Ativo" && sellerStatus(p.seller.id) !== "Suspenso",
+    (p) => productStatus(p.id) === "Ativo" && sellerStatus(p.seller.id) === "Aprovado",
   );
 }
 
@@ -162,7 +162,8 @@ export function findProductRecord(id: string): ProductRecord | undefined {
   };
 }
 
+/** Página pública do produto: só o que a vitrine mostra (arquivado/rascunho ou loja não aprovada = 404, como no backend). */
 export function findProductRecordBySlug(slug: string): ProductRecord | undefined {
-  const match = allProducts().find((p) => p.slug === slug);
+  const match = catalogProducts().find((p) => p.slug === slug);
   return match ? findProductRecord(match.id) : undefined;
 }

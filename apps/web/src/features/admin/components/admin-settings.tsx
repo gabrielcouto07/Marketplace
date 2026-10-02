@@ -54,11 +54,15 @@ export function AdminSettings() {
   // Só as edições ficam em estado; o formulário exibido é dado carregado + edições.
   const [edits, setEdits] = useState<Partial<PlatformSettingsDto>>({});
   const [errors, setErrors] = useState<Record<string, string[]>>({});
+  // Rascunho textual dos campos em % enquanto o admin digita ("3," ou "3,4"): converter a cada tecla
+  // arredondaria e impediria decimais. O número só é gravado quando o texto é um valor válido.
+  const [percentDrafts, setPercentDrafts] = useState<Partial<Record<PercentKey, string>>>({});
   const form: PlatformSettingsDto | null = settings.data ? { ...settings.data, ...edits } : null;
 
-  if (settings.isPending || !form) return <Skeleton className="h-96 max-w-3xl rounded-lg" />;
+  // Erro antes do skeleton: sem dados, `form` é null e a tela ficaria carregando para sempre.
   if (settings.isError)
     return <ErrorState error={settings.error} onRetry={() => settings.refetch()} />;
+  if (settings.isPending || !form) return <Skeleton className="h-96 max-w-3xl rounded-lg" />;
 
   const set = <K extends keyof PlatformSettingsDto>(key: K, value: PlatformSettingsDto[K]) =>
     setEdits((e) => ({ ...e, [key]: value }));
@@ -80,10 +84,14 @@ export function AdminSettings() {
           id={`set-${key}`}
           inputMode="decimal"
           className="pr-10 tabular-nums"
-          value={String(form[key] / 100)}
-          onChange={(e) =>
-            set(key, Math.round(Number(e.target.value.replace(",", ".")) * 100) || 0)
-          }
+          value={percentDrafts[key] ?? String(form[key] / 100).replace(".", ",")}
+          onChange={(e) => {
+            const text = e.target.value;
+            setPercentDrafts((d) => ({ ...d, [key]: text }));
+            const parsed = Number(text.replace(",", "."));
+            if (text.trim() !== "" && Number.isFinite(parsed)) set(key, Math.round(parsed * 100));
+          }}
+          onBlur={() => setPercentDrafts((d) => ({ ...d, [key]: undefined }))}
         />
         <span className="pointer-events-none absolute top-1/2 right-4 -translate-y-1/2 text-body-sm text-foreground-secondary">
           %

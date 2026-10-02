@@ -3,6 +3,7 @@
 import type { OrderDto } from "@marketplace/contracts";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslations } from "next-intl";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
 
@@ -39,6 +40,14 @@ export function ShipOrderSheet({ order, onClose }: ShipOrderSheetProps) {
     mode: "onBlur",
   });
   const { errors } = formState;
+
+  // A folha fica montada o tempo todo: ao abrir outro pedido (ou fechar sem enviar), o formulário recomeça
+  // com a transportadora dele e sem o código digitado para o pedido anterior.
+  const orderId = order?.id ?? null;
+  const defaultCarrier = order?.shippingOption.carrier ?? "";
+  useEffect(() => {
+    reset({ carrier: defaultCarrier, trackingCode: "" });
+  }, [orderId, defaultCarrier, reset]);
 
   const submit = handleSubmit((values) => {
     if (!order) return;

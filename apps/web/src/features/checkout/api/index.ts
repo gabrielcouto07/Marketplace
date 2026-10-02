@@ -22,9 +22,20 @@ export const checkoutApi = {
     api.post<PlaceOrderResponseDto>("/orders", body, { timeoutMs: 60_000 }),
 };
 
-/** Cotação do checkout: recalcula frete por vendedor, impostos estimados e trava o câmbio por 15 min. */
-export function useCheckoutQuote() {
-  return useMutation({ mutationFn: checkoutApi.quote });
+/**
+ * Cotação do checkout: recalcula frete por vendedor, impostos estimados e trava o câmbio por 15 min.
+ * O TanStack zera `data` enquanto a mutação está pendente, então quem precisa manter a última cotação na tela
+ * durante a recotação guarda o resultado em estado próprio via `onSuccess`.
+ */
+export function useCheckoutQuote(options?: {
+  onSuccess?: (quote: CheckoutQuoteDto) => void;
+  onError?: (error: unknown) => void;
+}) {
+  return useMutation({
+    mutationFn: checkoutApi.quote,
+    onSuccess: options?.onSuccess,
+    onError: options?.onError,
+  });
 }
 
 export function usePlaceOrder() {

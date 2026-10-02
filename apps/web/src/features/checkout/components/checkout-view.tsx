@@ -2,6 +2,7 @@
 
 import type {
   AddressDto,
+  CheckoutQuoteDto,
   CheckoutQuoteRequest,
   DayRange,
   PaymentMethod,
@@ -19,7 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAddresses } from "@/features/account/api";
-import { useCurrentUser, useIsAuthenticated } from "@/features/auth/store";
+import { useAuthStore, useCurrentUser, useIsAuthenticated } from "@/features/auth/store";
 import { useCartHydration } from "@/features/cart/components/cart-view";
 import { groupBySeller, useCartStore } from "@/features/cart/store";
 import { useCheckoutQuote, usePlaceOrder } from "@/features/checkout/api";
@@ -36,9 +37,10 @@ import { ShippingSection } from "@/features/checkout/components/checkout-shippin
 import { CheckoutStepper } from "@/features/checkout/components/checkout-stepper";
 import { CheckoutSummary } from "@/features/checkout/components/checkout-summary";
 import { useCountdown } from "@/hooks/use-countdown";
+import { useStoreHydrated } from "@/hooks/use-store-hydrated";
 import { Link, useRouter } from "@/i18n/navigation";
 import { isApiError } from "@/lib/api/errors";
-import { formatMoney, splitInstallments } from "@/lib/money";
+import { formatMoney } from "@/lib/money";
 import {
   CARD_PAYMENT_ENABLED,
   isCardUnavailableError,
@@ -54,6 +56,7 @@ export function CheckoutView() {
   const tAccount = useTranslations("account");
   const router = useRouter();
 
+  const authHydrated = useStoreHydrated(useAuthStore);
   const isAuthenticated = useIsAuthenticated();
   const user = useCurrentUser();
   const hydrated = useCartHydration();
@@ -73,14 +76,22 @@ export function CheckoutView() {
   const payerDocument = payerInput ?? user?.cpf ?? "";
   const [payerError, setPayerError] = useState<string | undefined>();
 
+  // A última cotação fica em estado próprio: durante a recotação (troca de frete, cupom, endereço) a tela
+  // continua mostrando opções e totais com `aria-busy`, em vez de voltar aos skeletons a cada clique.
+  const [quote, setQuote] = useState<CheckoutQuoteDto | undefined>();
+  // Pedido que a cotação atual representa; se a tela mudou e ainda não recotou, "Pagar" espera.
+  const [quotedKey, setQuotedKey] = useState<string | null>(null);
   const {
     mutate: requestQuote,
-    data: quote,
     isPending: quoting,
     isError: quoteFailed,
     error: quoteError,
-    reset: resetQuote,
-  } = useCheckoutQuote();
+    reset: resetQuoteMutation,
+  } = useCheckoutQuote({
+    onSuccess: (fresh) => setQuote(fresh),
+    // Cotação falhou (estoque acabou, CEP sem entrega...): a antiga não vale mais para pagar.
+    onError: () => setQuote(undefined),
+  });
   const placeOrder = usePlaceOrder();
   const idempotencyKey = useRef<string | null>(null);
 
@@ -116,25 +127,48 @@ export function CheckoutView() {
     };
   }, [postalCode, groups, shippingSel, coupon]);
 
+  const requestKey = useMemo(() => {
+    const req = buildRequest();
+    return req ? JSON.stringify(req) : null;
+  }, [buildRequest]);
+
   // Recotação (debounce) sempre que endereço, itens, frete ou cupom mudarem
   useEffect(() => {
     const req = buildRequest();
     if (!req) return;
-    const timer = window.setTimeout(() => requestQuote(req), 250);
+    const key = JSON.stringify(req);
+    const timer = window.setTimeout(
+      () => requestQuote(req, { onSuccess: () => setQuotedKey(key) }),
+      250,
+    );
     return () => window.clearTimeout(timer);
   }, [buildRequest, requestQuote]);
 
   const refreshQuote = useCallback(() => {
     const req = buildRequest();
-    if (req) requestQuote(req);
+    if (req) requestQuote(req, { onSuccess: () => setQuotedKey(JSON.stringify(req)) });
   }, [buildRequest, requestQuote]);
+
+  const resetQuote = useCallback(() => {
+    resetQuoteMutation();
+    setQuote(undefined);
+    setQuotedKey(null);
+  }, [resetQuoteMutation]);
 
   const remaining = useCountdown(quote?.lockedUntil);
   const quoteExpired = Boolean(quote) && remaining <= 0;
+  const quoteStale = quotedKey !== requestKey;
 
   const total = quote?.total;
+  // Mesma regra do backend (arredonda para cima): a página de pagamento mostra o valor gravado lá.
   const installmentValues = useMemo(
-    () => (total ? Array.from({ length: 12 }, (_, i) => splitInstallments(total, i + 1)[0]) : []),
+    () =>
+      total
+        ? Array.from({ length: 12 }, (_, i) => ({
+            amount: Math.ceil(total.amount / (i + 1)),
+            currency: total.currency,
+          }))
+        : [],
     [total],
   );
 
@@ -154,6 +188,19 @@ export function CheckoutView() {
   }, [quote, shippingSel]);
 
   // ----- Estados de bloqueio -----
+  // Sessão e carrinho vêm do localStorage: antes de reidratar, o servidor e o cliente concordam no skeleton
+  // (sem piscar "Entre para finalizar" para quem já está logado, nem erro de hidratação).
+  if (!authHydrated || (isAuthenticated && !hydrated)) {
+    return (
+      <PageContainer className="flex flex-col gap-4 pt-4">
+        <Skeleton className="h-6 w-full" />
+        <Skeleton className="h-44 w-full rounded-lg" />
+        <Skeleton className="h-44 w-full rounded-lg" />
+        <Skeleton className="h-64 w-full rounded-lg" />
+      </PageContainer>
+    );
+  }
+
   if (!isAuthenticated) {
     return (
       <PageContainer className="pt-4">
@@ -167,17 +214,6 @@ export function CheckoutView() {
             </Button>
           }
         />
-      </PageContainer>
-    );
-  }
-
-  if (!hydrated) {
-    return (
-      <PageContainer className="flex flex-col gap-4 pt-4">
-        <Skeleton className="h-6 w-full" />
-        <Skeleton className="h-44 w-full rounded-lg" />
-        <Skeleton className="h-44 w-full rounded-lg" />
-        <Skeleton className="h-64 w-full rounded-lg" />
       </PageContainer>
     );
   }
@@ -270,7 +306,8 @@ export function CheckoutView() {
         onSuccess: (res) => {
           idempotencyKey.current = null;
           if (res.payment.status === "Recusado") {
-            toast.error(t("cardDeclined"));
+            // Cartão recusado pelo emissor, ou o gateway não conseguiu gerar a cobrança Pix/boleto.
+            toast.error(method === "Cartao" ? t("cardDeclined") : t("paymentCreationFailed"));
             refreshQuote();
             return;
           }
@@ -312,6 +349,7 @@ export function CheckoutView() {
   const canSubmit =
     Boolean(quote) &&
     !quoting &&
+    !quoteStale &&
     !quoteExpired &&
     !placeOrder.isPending &&
     Boolean(selectedAddress) &&

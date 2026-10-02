@@ -34,6 +34,10 @@ export function getApiBaseUrl(): string {
   const configured = env.apiUrl.replace(/\/$/, "");
   if (/^https?:\/\//.test(configured)) return configured;
   if (typeof window !== "undefined") return configured;
+  // No servidor, com o proxy configurado, fala direto com a API em vez de dar a volta pela própria origem
+  // pública (que num container pode nem resolver, ex.: NEXT_PUBLIC_SITE_URL vazia → localhost:3210).
+  const proxy = process.env.API_PROXY_URL?.replace(/\/$/, "");
+  if (proxy) return `${proxy}${configured.startsWith("/") ? "" : "/"}${configured}`;
   return `${env.siteUrl}${configured.startsWith("/") ? "" : "/"}${configured}`;
 }
 

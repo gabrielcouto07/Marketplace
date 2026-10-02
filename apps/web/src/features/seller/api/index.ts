@@ -4,13 +4,16 @@ import type { PagedResult, ReviewDto, SellerDto, SellerSummaryDto } from "@marke
 import { queryOptions, useInfiniteQuery, useQuery } from "@tanstack/react-query";
 
 import { api } from "@/lib/api/http";
+
+/** Rotas públicas vão sem Authorization para o cache de saída da API valer também para quem está logado. */
+const PUBLIC = { accessToken: null } as const;
 import { queryKeys } from "@/lib/api/query-keys";
 
 export const sellerApi = {
-  list: () => api.get<SellerSummaryDto[]>("/sellers"),
-  detail: (slug: string) => api.get<SellerDto>(`/sellers/${slug}`),
+  list: () => api.get<SellerSummaryDto[]>("/sellers", PUBLIC),
+  detail: (slug: string) => api.get<SellerDto>(`/sellers/${slug}`, PUBLIC),
   reviews: (slug: string, page = 1, pageSize = 5) =>
-    api.get<PagedResult<ReviewDto>>(`/sellers/${slug}/reviews`, { query: { page, pageSize } }),
+    api.get<PagedResult<ReviewDto>>(`/sellers/${slug}/reviews`, { ...PUBLIC, query: { page, pageSize } }),
 };
 
 export const sellerQuery = (slug: string) =>

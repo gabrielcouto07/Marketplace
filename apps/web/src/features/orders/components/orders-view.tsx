@@ -149,13 +149,13 @@ export function OrdersView() {
   const user = useCurrentUser();
   const hydrated = useStoreHydrated(useAuthStore);
   const [filter, setFilter] = useState<OrderFilter>("all");
-  const orders = useOrders();
+  // Filtro no servidor: filtrar só a página carregada esconderia pedidos concluídos que estão na página 2.
+  const orders = useOrders({ group: filter === "all" ? undefined : filter });
 
   if (!hydrated) return null;
   if (!user) return <LoginRequired next="/conta/pedidos" />;
 
-  const all = orders.data?.pages.flatMap((p) => p.items) ?? [];
-  const visible = all.filter((o) => matchesOrderFilter(o, filter));
+  const visible = orders.data?.pages.flatMap((p) => p.items) ?? [];
 
   return (
     <PageContainer className="flex flex-col gap-4 py-4">

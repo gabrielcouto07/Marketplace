@@ -1,5 +1,9 @@
 import { SellerSettings } from "@/features/seller-panel/components/seller-panel";
+import { setRequestLocale } from "next-intl/server";
+import type { AppLocale } from "@/i18n/routing";
 
-export default function SellerSettingsPage() {
+export default async function SellerSettingsPage({ params }: { params: Promise<{ locale: AppLocale }> }) {
+  const { locale } = await params;
+  setRequestLocale(locale);
   return <SellerSettings />;
 }

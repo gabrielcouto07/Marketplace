@@ -15,8 +15,10 @@ export async function simulateLatency(): Promise<void> {
   await delay(MIN_LATENCY + Math.floor(Math.random() * (MAX_LATENCY - MIN_LATENCY)));
 }
 
-/** Taxa de erro aleatória para listagens (ajustável via NEXT_PUBLIC_MOCK_ERROR_RATE; padrão 3%). */
-const ERROR_RATE = Number(process.env.NEXT_PUBLIC_MOCK_ERROR_RATE ?? "0.03");
+/** Taxa de erro aleatória para listagens (NEXT_PUBLIC_MOCK_ERROR_RATE; padrão 3% só em desenvolvimento). */
+const ERROR_RATE = Number(
+  process.env.NEXT_PUBLIC_MOCK_ERROR_RATE ?? (process.env.NODE_ENV === "development" ? "0.03" : "0"),
+);
 
 export function shouldFailRandomly(): boolean {
   return Math.random() < ERROR_RATE;

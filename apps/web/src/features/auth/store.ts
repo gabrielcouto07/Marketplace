@@ -5,7 +5,10 @@ import type { QueryClient } from "@tanstack/react-query";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
+import { isApiError } from "@/lib/api/errors";
 import { http, setAccessTokenProvider, setSessionRefresher } from "@/lib/api/http";
+
+const STORAGE_KEY = "mktpy.session.v1";
 
 /**
  * Sessão do usuário. O access token curto vive aqui (persistido) e o refresh token também — o backend
@@ -39,7 +42,7 @@ export const useAuthStore = create<AuthState>()(
       signOut: () => set({ user: null, accessToken: null, refreshToken: null, expiresAt: null }),
     }),
     {
-      name: "mktpy.session.v1",
+      name: STORAGE_KEY,
       storage: createJSONStorage(() => localStorage),
     },
   ),
@@ -60,6 +63,14 @@ export function registerAuthHttpBridge(getQueryClient: () => QueryClient): void 
   bridgeInstalled = true;
 
   setAccessTokenProvider(() => useAuthStore.getState().accessToken);
+
+  // Outra aba entrou, saiu ou renovou a sessão: esta aba adota o mesmo estado em vez de seguir com um
+  // refresh token velho (que o backend trata como reuso e derruba a sessão inteira).
+  if (typeof window !== "undefined") {
+    window.addEventListener("storage", (event) => {
+      if (event.key === STORAGE_KEY) void useAuthStore.persist.rehydrate();
+    });
+  }
 
   const endSession = () => {
     useAuthStore.getState().signOut();
@@ -82,8 +93,10 @@ export function registerAuthHttpBridge(getQueryClient: () => QueryClient): void 
       });
       setSession(session);
       return session.accessToken;
-    } catch {
-      endSession();
+    } catch (error) {
+      // Só o backend dizendo "sessão inválida" encerra a sessão. Rede caída, tempo limite, 429 ou 5xx
+      // são transitórios: a requisição original falha, mas o usuário continua logado e tenta de novo.
+      if (isApiError(error) && (error.status === 401 || error.status === 403)) endSession();
       return null;
     }
   });

@@ -83,9 +83,11 @@ function centsToReais(cents?: number): string {
   return cents === undefined ? "" : String(Math.floor(cents / 100));
 }
 
+/** Aceita "1500", "1.500", "1500,50" e "1.500,50" (pt-BR: ponto de milhar, vírgula decimal). */
 function reaisToCents(value: string): number | undefined {
-  const n = Number(value.replace(",", "."));
-  if (!value || !Number.isFinite(n) || n < 0) return undefined;
+  const normalized = value.trim().replace(/\s|R\$/g, "").replace(/\./g, "").replace(",", ".");
+  const n = Number(normalized);
+  if (!normalized || !Number.isFinite(n) || n < 0) return undefined;
   return Math.round(n * 100);
 }
 

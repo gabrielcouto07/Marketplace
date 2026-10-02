@@ -32,6 +32,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { LoginRequired } from "@/features/account/components/profile-view";
 import { useAuthStore, useCurrentUser } from "@/features/auth/store";
 import { useCartStore } from "@/features/cart/store";
+import { catalogApi } from "@/features/catalog/api";
 import {
   useCancelOrder,
   useConfirmReceipt,
@@ -41,7 +42,7 @@ import {
 } from "@/features/orders/api";
 import { useStoreHydrated } from "@/hooks/use-store-hydrated";
 import { Link, useRouter } from "@/i18n/navigation";
-import { convert, formatMoney } from "@/lib/money";
+import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
 import { formatCep } from "@/lib/validation/documents";
 
@@ -123,6 +124,7 @@ function OrderDetail({ order }: { order: OrderDto }) {
   const tracking = useOrderTracking(order.id, order.status, order.trackingCode);
   const addToCart = useCartStore((s) => s.add);
   const [confirm, setConfirm] = useState<"cancel" | "dispute" | "receipt" | null>(null);
+  const [buying, setBuying] = useState(false);
 
   const awaitingPayment = order.status === "AguardandoPagamento";
   const active = !isOrderDone(order.status);
@@ -140,28 +142,55 @@ function OrderDetail({ order }: { order: OrderDto }) {
     }
   };
 
-  const buyAgain = () => {
-    for (const item of order.items) {
-      addToCart({
-        product: {
-          id: item.productId,
-          slug: item.productSlug,
-          name: item.name,
-          thumbnailUrl: item.thumbnailUrl,
-          price: item.unitPrice,
-          referencePrice: convert(item.unitPrice, order.exchangeRate),
-          stock: 99,
-          freeShipping: false,
-          seller: order.seller,
-        },
-        variantId: item.variantId,
-        variantLabel: item.variantLabel,
-        unitPrice: item.unitPrice,
-        quantity: item.quantity,
+  // Recompra com os dados ATUAIS do catálogo (preço, estoque, variação ainda existente): o pedido antigo
+  // guarda um retrato do dia da compra, e um produto arquivado ou esgotado não pode voltar ao carrinho.
+  const buyAgain = async () => {
+    setBuying(true);
+    try {
+      const results = await Promise.allSettled(
+        order.items.map((item) => catalogApi.product(item.productSlug)),
+      );
+      let added = 0;
+      let skipped = 0;
+      results.forEach((result, index) => {
+        const item = order.items[index];
+        if (result.status !== "fulfilled") {
+          skipped++;
+          return;
+        }
+        const product = result.value;
+        const variant = item.variantId
+          ? product.variants.find((v) => v.id === item.variantId)
+          : null;
+        if (item.variantId && !variant) {
+          skipped++;
+          return;
+        }
+        const stock = variant ? variant.stock : product.stock;
+        if (stock <= 0) {
+          skipped++;
+          return;
+        }
+        addToCart({
+          product,
+          variantId: variant?.id ?? null,
+          variantLabel: item.variantLabel,
+          unitPrice: variant?.price ?? product.price,
+          quantity: Math.min(item.quantity, stock),
+          maxQuantity: stock,
+        });
+        added++;
       });
+      if (added === 0) {
+        toast.error(t("buyAgainUnavailable"));
+        return;
+      }
+      if (skipped > 0) toast.warning(t("buyAgainPartial", { count: skipped }));
+      else toast.success(tProduct("addedToCart"));
+      router.push("/carrinho");
+    } finally {
+      setBuying(false);
     }
-    toast.success(tProduct("addedToCart"));
-    router.push("/carrinho");
   };
 
   const runConfirm = () => {
@@ -400,7 +429,7 @@ function OrderDetail({ order }: { order: OrderDto }) {
               <PackageCheck data-icon="inline-start" strokeWidth={1.75} /> {t("confirmReceipt")}
             </Button>
           ) : null}
-          <Button variant="secondary" fullWidth onClick={buyAgain}>
+          <Button variant="secondary" fullWidth loading={buying} onClick={() => void buyAgain()}>
             <RefreshCw data-icon="inline-start" strokeWidth={1.75} /> {t("buyAgain")}
           </Button>
           {DISPUTABLE.includes(order.status) ? (

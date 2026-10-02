@@ -23,24 +23,27 @@ import {
 } from "@tanstack/react-query";
 
 import { api } from "@/lib/api/http";
+
+/** Rotas públicas vão sem Authorization: com o token, o cache de saída da API ignora a resposta e todo usuário logado pagaria a consulta completa. */
+const PUBLIC = { accessToken: null } as const;
 import { queryKeys } from "@/lib/api/query-keys";
 
 // ----- Endpoints (únicos pontos que conhecem as rotas) -----
 export const catalogApi = {
-  home: () => api.get<HomeDto>("/home"),
-  categories: () => api.get<CategoryDto[]>("/categories"),
-  category: (slug: string) => api.get<CategoryDto>(`/categories/${slug}`),
+  home: () => api.get<HomeDto>("/home", PUBLIC),
+  categories: () => api.get<CategoryDto[]>("/categories", PUBLIC),
+  category: (slug: string) => api.get<CategoryDto>(`/categories/${slug}`, PUBLIC),
   search: (query: ProductSearchQuery) =>
-    api.get<ProductSearchResultDto>("/products", { query: { ...query } }),
+    api.get<ProductSearchResultDto>("/products", { ...PUBLIC, query: { ...query } }),
   /** Autocomplete da busca (a tela atual usa buscas recentes + "em alta"; fica para o futuro). */
   suggestions: (q: string) =>
-    api.get<SearchSuggestionDto[]>("/products/suggestions", { query: { q } }),
-  product: (slug: string) => api.get<ProductDetailDto>(`/products/${slug}`),
+    api.get<SearchSuggestionDto[]>("/products/suggestions", { ...PUBLIC, query: { q } }),
+  product: (slug: string) => api.get<ProductDetailDto>(`/products/${slug}`, PUBLIC),
   reviews: (id: string, page = 1, pageSize = 5) =>
-    api.get<PagedResult<ReviewDto>>(`/products/${id}/reviews`, { query: { page, pageSize } }),
-  reviewSummary: (id: string) => api.get<ReviewSummaryDto>(`/products/${id}/reviews/summary`),
+    api.get<PagedResult<ReviewDto>>(`/products/${id}/reviews`, { ...PUBLIC, query: { page, pageSize } }),
+  reviewSummary: (id: string) => api.get<ReviewSummaryDto>(`/products/${id}/reviews/summary`, PUBLIC),
   questions: (id: string, page = 1, pageSize = 10) =>
-    api.get<PagedResult<QuestionDto>>(`/products/${id}/questions`, { query: { page, pageSize } }),
+    api.get<PagedResult<QuestionDto>>(`/products/${id}/questions`, { ...PUBLIC, query: { page, pageSize } }),
   askQuestion: (id: string, body: AskQuestionRequest) =>
     api.post<QuestionDto>(`/products/${id}/questions`, body),
 };
@@ -83,7 +86,10 @@ export function useProduct(slug: string) {
 }
 
 /** Busca paginada com infinite scroll; mantém dados anteriores ao trocar filtros. */
-export function useProductSearch(query: Omit<ProductSearchQuery, "page">) {
+export function useProductSearch(
+  query: Omit<ProductSearchQuery, "page">,
+  options: { enabled?: boolean } = {},
+) {
   const pageSize = query.pageSize ?? 20;
   return useInfiniteQuery({
     queryKey: queryKeys.products.search({ ...query, pageSize }),
@@ -92,6 +98,7 @@ export function useProductSearch(query: Omit<ProductSearchQuery, "page">) {
     getNextPageParam: (last) =>
       last.page * last.pageSize < last.totalCount ? last.page + 1 : undefined,
     placeholderData: keepPreviousData,
+    enabled: options.enabled ?? true,
   });
 }
 

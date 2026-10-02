@@ -13,6 +13,7 @@ import {
 } from "react";
 
 import { noopSubscribe } from "@/hooks/use-store-hydrated";
+import { env } from "@/lib/env";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -37,8 +38,14 @@ export function usePwa(): PwaContextValue {
   return ctx;
 }
 
+/**
+ * O service worker do app fica desligado em dev (salvo NEXT_PUBLIC_SW_DEV) e sempre que o mock (MSW) está
+ * ativo: os dois registram o escopo "/" e o navegador só mantém um — o do app venceria, as chamadas /api
+ * iriam para a rede sem backend e toda tela cairia em erro até o próximo reload.
+ */
 const DISABLE_SW =
-  process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_SW_DEV !== "true";
+  env.apiMocking ||
+  (process.env.NODE_ENV === "development" && process.env.NEXT_PUBLIC_SW_DEV !== "true");
 
 // ----- Fontes externas (useSyncExternalStore evita setState em effects e mismatch de hidratação) -----
 
@@ -84,6 +91,22 @@ export function PwaProvider({ children }: { children: ReactNode }) {
     return () => {
       window.removeEventListener("beforeinstallprompt", onBeforeInstall);
       window.removeEventListener("appinstalled", onInstalled);
+    };
+  }, []);
+
+  // Deploy novo: o SW (skipWaiting + clientsClaim) assume as abas abertas, mas os chunks antigos já não
+  // existem no servidor — a próxima navegação daria ChunkLoadError. Recarrega uma vez quando a troca é update.
+  useEffect(() => {
+    if (DISABLE_SW || typeof window === "undefined" || !("serviceWorker" in navigator)) return;
+    const onControlling = (event: { isUpdate?: boolean }) => {
+      if (event.isUpdate) window.location.reload();
+    };
+    const attach = () => window.serwist?.addEventListener("controlling", onControlling);
+    if (window.serwist) attach();
+    else window.addEventListener("load", attach, { once: true });
+    return () => {
+      window.removeEventListener("load", attach);
+      window.serwist?.removeEventListener("controlling", onControlling);
     };
   }, []);
 

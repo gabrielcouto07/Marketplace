@@ -51,7 +51,9 @@ export function ProductView({ slug }: { slug: string }) {
     );
   }
   if (isPending) return <ProductSkeleton />;
-  return <ProductContent product={data} />;
+  // `key` por produto: ao navegar para um relacionado já em cache, a seleção de variação, a quantidade e a
+  // cotação de frete do produto anterior não podem "vazar" para o novo (apareceria como esgotado).
+  return <ProductContent key={data.id} product={data} />;
 }
 
 function ProductContent({ product }: { product: ProductDetailDto }) {
@@ -137,12 +139,17 @@ function ProductContent({ product }: { product: ProductDetailDto }) {
       try {
         await navigator.share({ title: product.name, url });
         return;
-      } catch {
-        /* cancelado */
+      } catch (error) {
+        // Usuário fechou a folha de compartilhamento: não é erro nem motivo para copiar o link.
+        if (error instanceof DOMException && error.name === "AbortError") return;
       }
     }
-    await navigator.clipboard.writeText(url);
-    toast(t("linkCopied"));
+    try {
+      await navigator.clipboard.writeText(url);
+      toast(t("linkCopied"));
+    } catch {
+      toast.error(tc("copyFailed"));
+    }
   };
 
   const shippingItems = [{ productId: product.id, variantId: variant?.id ?? null, quantity }];
