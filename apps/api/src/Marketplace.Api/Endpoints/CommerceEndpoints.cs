@@ -14,9 +14,12 @@ public static class CommerceEndpoints
     {
         var g = api.MapGroup("").WithTags("CEP, frete e câmbio");
 
-        g.MapGet("/postal-codes/{cep}", (string cep, ShippingService svc, CancellationToken ct) => svc.LookupAsync(cep, ct));
+        // Rotas anônimas que batem em serviços externos (ViaCEP/transportadoras): sem limite, um scraper derruba a cotação de todos.
+        g.MapGet("/postal-codes/{cep}", (string cep, ShippingService svc, CancellationToken ct) => svc.LookupAsync(cep, ct))
+            .RequireRateLimiting("quotes");
 
-        g.MapPost("/shipping/quotes", (ShippingQuoteRequest body, ShippingService svc, CancellationToken ct) => svc.QuoteAsync(body, ct));
+        g.MapPost("/shipping/quotes", (ShippingQuoteRequest body, ShippingService svc, CancellationToken ct) => svc.QuoteAsync(body, ct))
+            .RequireRateLimiting("quotes");
 
         g.MapGet("/exchange-rates", (string? from, string? to, ExchangeRateService svc, CancellationToken ct) =>
             svc.ListAsync(
@@ -42,8 +45,8 @@ public static class CommerceEndpoints
 
         var orders = api.MapGroup("").WithTags("Pedidos").RequireAuthorization();
 
-        orders.MapGet("/orders", (string? status, int? page, int? pageSize, OrderService svc, CancellationToken ct) =>
-            svc.ListAsync(Enum.TryParse<OrderStatus>(status, true, out var s) ? s : null, page, pageSize, ct));
+        orders.MapGet("/orders", (string? status, string? group, int? page, int? pageSize, OrderService svc, CancellationToken ct) =>
+            svc.ListAsync(Enum.TryParse<OrderStatus>(status, true, out var s) ? s : null, group, page, pageSize, ct));
 
         orders.MapGet("/orders/{id}", (string id, OrderService svc, CancellationToken ct) => svc.GetAsync(id, ct));
 

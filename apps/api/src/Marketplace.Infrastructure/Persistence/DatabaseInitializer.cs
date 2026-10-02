@@ -103,20 +103,31 @@ public sealed class DatabaseInitializer(
 
         if (!await db.ShippingZones.AnyAsync(ct)) db.ShippingZones.AddRange(SeedCatalog.ShippingZones());
         if (!await db.ExchangeRates.AnyAsync(ct)) db.ExchangeRates.AddRange(SeedCatalog.ExchangeRates(now));
-        if (!await db.Banners.AnyAsync(ct)) db.Banners.AddRange(SeedCatalog.Banners());
-        if (!await db.Coupons.AnyAsync(ct))
-            db.Coupons.Add(new Coupon { Id = DeterministicId.Guid("coupon:PARAGUAI10"), Code = "PARAGUAI10", DiscountBasisPoints = 1000, Active = true });
 
-        if (!await db.Categories.AnyAsync(ct))
+        // Lojas, produtos, avaliações, banners e o cupom PARAGUAI10 são fictícios: só entram com SeedDemoData
+        // (Development). Em produção a vitrine nasce vazia e o admin/vendedores cadastram o catálogo real.
+        if (options.Value.SeedDemoData)
         {
-            var catalog = SeedCatalog.Build();
-            db.Categories.AddRange(catalog.Categories);
-            db.Sellers.AddRange(catalog.Sellers);
-            db.Products.AddRange(catalog.Products);
-            db.Reviews.AddRange(catalog.Reviews);
-            db.Questions.AddRange(catalog.Questions);
-            logger.LogInformation("Seed do catálogo: {Categories} categorias, {Sellers} lojas, {Products} produtos",
-                catalog.Categories.Count, catalog.Sellers.Count, catalog.Products.Count);
+            if (!await db.Banners.AnyAsync(ct)) db.Banners.AddRange(SeedCatalog.Banners());
+            if (!await db.Coupons.AnyAsync(ct))
+                db.Coupons.Add(new Coupon { Id = DeterministicId.Guid("coupon:PARAGUAI10"), Code = "PARAGUAI10", DiscountBasisPoints = 1000, Active = true });
+            if (!await db.Categories.AnyAsync(ct))
+            {
+                var catalog = SeedCatalog.Build();
+                db.Categories.AddRange(catalog.Categories);
+                db.Sellers.AddRange(catalog.Sellers);
+                db.Products.AddRange(catalog.Products);
+                db.Reviews.AddRange(catalog.Reviews);
+                db.Questions.AddRange(catalog.Questions);
+                logger.LogInformation("Seed do catálogo de demonstração: {Categories} categorias, {Sellers} lojas, {Products} produtos",
+                    catalog.Categories.Count, catalog.Sellers.Count, catalog.Products.Count);
+            }
+        }
+        else if (!await db.Categories.AnyAsync(ct))
+        {
+            // Só a taxonomia (categorias reais), sem lojas nem produtos inventados.
+            db.Categories.AddRange(SeedCatalog.Build().Categories);
+            logger.LogInformation("Seed inicial: categorias criadas (sem dados de demonstração)");
         }
         await db.SaveChangesAsync(ct);
 

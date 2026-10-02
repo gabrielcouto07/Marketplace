@@ -552,6 +552,8 @@ export interface OrderDto {
 
 export interface OrderListQuery extends PagedQuery {
   status?: OrderStatus;
+  /** Filtro por grupo de status no servidor: "active" (em andamento) ou "done" (concluídos/cancelados). */
+  group?: "active" | "done";
 }
 
 /** GET /orders/:id/tracking — eventos consultados na transportadora. */
@@ -631,6 +633,8 @@ export interface RegisterRequest {
   email: string;
   phone: string;
   password: string;
+  /** Aceite dos termos de uso e da política de privacidade (consentimento LGPD registrado no servidor). */
+  acceptTerms: boolean;
 }
 
 export interface GoogleAuthRequest {
@@ -784,6 +788,46 @@ export interface SellerProfileInput {
 
 export interface SellerRegisterRequest extends SellerProfileInput {
   acceptTerms: boolean;
+}
+
+/** POST /seller/orders/:id/cancel — loja cancela um pedido pago/em preparação (estorno + estoque automáticos). */
+export interface CancelOrderRequest {
+  reason?: string | null;
+}
+
+/** GET /seller/questions — pergunta de comprador com o produto para dar contexto. */
+export interface SellerQuestionDto {
+  id: string;
+  productId: string;
+  productName: string;
+  productSlug: string;
+  productThumbnailUrl: string;
+  question: string;
+  askedBy: string;
+  askedAt: string;
+  answer: { text: string; answeredAt: string } | null;
+}
+
+export interface SellerQuestionListQuery extends PagedQuery {
+  unanswered?: boolean;
+}
+
+/** POST /seller/questions/:id/answer */
+export interface AnswerQuestionRequest {
+  text: string;
+}
+
+export interface SellerPayoutListQuery extends PagedQuery {
+  status?: PayoutStatus;
+}
+
+/** GET /seller/payouts/summary — totais líquidos do ledger da loja por situação. */
+export interface SellerPayoutSummaryDto {
+  scheduled: Money;
+  processing: Money;
+  paid: Money;
+  failed: Money;
+  scheduledCount: number;
 }
 
 export interface SellerRegisterResponseDto {

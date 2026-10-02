@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace Marketplace.Tests.Integration;
 
@@ -193,9 +194,11 @@ public sealed class BuyerFlowTests : IClassFixture<ApiFactory>
     [Fact]
     public async Task Register_RefreshRotation_AndDeleteAccount()
     {
-        var anon = _factory.CreateClient();
+        // Sem cookies: o refresh prefere o cookie httpOnly (sempre o token mais novo do navegador); aqui queremos
+        // exercitar o caminho do corpo, que é o de um token roubado/copiado para outro cliente.
+        var anon = _factory.CreateClient(new WebApplicationFactoryClientOptions { HandleCookies = false });
         var email = $"user-{Guid.NewGuid():N}@example.com";
-        var registered = await anon.PostAsJsonAsync("/api/auth/register", new { fullName = "Usuária Teste", email, phone = "11999999999", password = "senhaForte1" }, Json);
+        var registered = await anon.PostAsJsonAsync("/api/auth/register", new { fullName = "Usuária Teste", email, phone = "11999999999", password = "senhaForte1", acceptTerms = true }, Json);
         Assert.Equal(HttpStatusCode.Created, registered.StatusCode);
         var session = await registered.Content.ReadFromJsonAsync<JsonElement>(Json);
         var refresh = session.GetProperty("refreshToken").GetString();

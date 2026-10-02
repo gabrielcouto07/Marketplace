@@ -16,4 +16,9 @@ public sealed class DatabaseOptions
     /// a inicialização falha com uma mensagem clara pedindo para apagar o arquivo.
     /// </summary>
     public bool RecreateSqliteOnSchemaChange { get; set; } = true;
+    /// <summary>
+    /// Fora de Development a API exige ConnectionStrings:Postgres: cair em SQLite por uma variável esquecida é
+    /// perder os dados no próximo deploy. Ligue só em homologação descartável.
+    /// </summary>
+    public bool AllowSqliteOutsideDevelopment { get; set; }
 }

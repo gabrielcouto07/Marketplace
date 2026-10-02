@@ -39,7 +39,9 @@ public static class AccountEndpoints
 
         g.MapPost("/refresh", async (RefreshRequest? body, AuthService svc, HttpContext http, CancellationToken ct) =>
         {
-            var token = body?.RefreshToken ?? http.Request.Cookies[RefreshCookie];
+            // O cookie é sempre o token mais novo do navegador (cada aba guarda uma cópia que pode estar velha): com duas
+            // abas abertas, o token velho da aba B seria reuso de token rotacionado e derrubaria a sessão inteira.
+            var token = http.Request.Cookies[RefreshCookie] ?? body?.RefreshToken;
             return WithCookie(http, await svc.RefreshAsync(token, ct));
         });
 

@@ -14,6 +14,7 @@ public sealed class SellerPanelService(
     ICatalogCache catalogCache,
     AuthService auth,
     OrderService orders,
+    RefundService refunds,
     PlatformSettingsProvider settingsProvider,
     ICurrentUser currentUser,
     TimeProvider clock)
@@ -434,5 +435,128 @@ public sealed class SellerPanelService(
         });
         await db.SaveChangesAsync(ct);
         return order.ToDto(currentUser.Locale);
+    }
+
+    /// <summary>
+    /// Pago/EmPreparacao → Cancelado pela loja (acabou o estoque, produto com defeito...). Estorna a parte do pedido
+    /// no meio de pagamento, cancela o repasse e devolve o estoque — igual ao cancelamento pelo comprador.
+    /// </summary>
+    public async Task<OrderDto> CancelOrderAsync(Guid id, CancelOrderRequest? request, CancellationToken ct)
+    {
+        var order = await RequireOrderAsync(id, ct);
+        if (!order.CanBeCancelled)
+            throw AppException.Conflict("ORDER_NOT_CANCELLABLE", "Este pedido não pode mais ser cancelado.");
+        var reason = request?.Reason?.Trim();
+        if (reason is { Length: > 300 }) throw AppException.Validation("reason", "Motivo muito longo (máximo 300 caracteres).");
+        orders.MarkCancelled(order, string.IsNullOrEmpty(reason) ? "Cancelado pela loja." : $"Cancelado pela loja: {reason}", "seller");
+        if (order.Payment.Status == PaymentStatus.Aprovado)
+        {
+            var ok = await refunds.RefundOrderAsync(order, order.Payment, ct);
+            order.Events[^1].Note += ok ? " Reembolso solicitado no meio de pagamento original." : " Reembolso pendente de processamento manual.";
+        }
+        db.AuditLogs.Add(new AuditLog { UserId = currentUser.UserId, Action = "seller.order.cancel", Target = order.Number, OccurredAt = Now, IpAddress = currentUser.IpAddress });
+        await orders.CommitCancellationAsync([order], ct);
+        return order.ToDto(currentUser.Locale);
+    }
+
+    // ----- Perguntas -----
+
+    public async Task<PagedResult<SellerQuestionDto>> ListQuestionsAsync(bool? unanswered, int? page, int? pageSize, CancellationToken ct)
+    {
+        var seller = await RequireSellerAsync(ct);
+        var query = from q in db.Questions.AsNoTracking()
+                    join p in db.Products.AsNoTracking() on q.ProductId equals p.Id
+                    where p.SellerId == seller.Id
+                    select new QuestionRow
+                    {
+                        Question = q,
+                        ProductName = p.Name,
+                        ProductSlug = p.Slug,
+                        Thumbnail = p.Images.OrderBy(i => i.SortOrder).Select(i => i.Url).FirstOrDefault(),
+                    };
+        if (unanswered == true) query = query.Where(x => x.Question.AnswerText == null);
+        // Sem resposta primeiro (mais antigas no topo: são as que mais esperam), depois as respondidas mais recentes.
+        var paged = await query
+            .OrderBy(x => x.Question.AnswerText == null ? 0 : 1)
+            .ThenBy(x => x.Question.AnswerText == null ? x.Question.AskedAt : DateTime.MaxValue)
+            .ThenByDescending(x => x.Question.AnsweredAt)
+            .ToPagedAsync(page, pageSize, 20, ct);
+        return paged.Map(ToQuestionDto);
+    }
+
+    public async Task<SellerQuestionDto> AnswerQuestionAsync(Guid id, AnswerQuestionRequest request, CancellationToken ct)
+    {
+        var seller = await RequireSellerAsync(ct);
+        var text = request.Text?.Trim() ?? string.Empty;
+        new ValidationErrors()
+            .AddIf(text.Length < 2, "text", "Escreva a resposta.")
+            .AddIf(text.Length > 1000, "text", "Resposta muito longa (máximo 1000 caracteres).")
+            .ThrowIfAny();
+        // Pergunta rastreada (sem AsNoTracking na consulta, senão o SaveChanges não grava a resposta); 404 também
+        // quando a pergunta é de produto de outra loja.
+        var question = await db.Questions
+                           .FirstOrDefaultAsync(q => q.Id == id && db.Products.Any(p => p.Id == q.ProductId && p.SellerId == seller.Id), ct)
+                       ?? throw AppException.NotFound("Pergunta");
+        question.AnswerText = text;
+        question.AnsweredAt = Now;
+        await db.SaveChangesAsync(ct);
+        var product = await db.Products.AsNoTracking()
+            .Where(p => p.Id == question.ProductId)
+            .Select(p => new { p.Name, p.Slug, Thumbnail = p.Images.OrderBy(i => i.SortOrder).Select(i => i.Url).FirstOrDefault() })
+            .FirstAsync(ct);
+        return ToQuestionDto(new QuestionRow { Question = question, ProductName = product.Name, ProductSlug = product.Slug, Thumbnail = product.Thumbnail });
+    }
+
+    private sealed class QuestionRow
+    {
+        public required Question Question { get; init; }
+        public required string ProductName { get; init; }
+        public required string ProductSlug { get; init; }
+        public string? Thumbnail { get; init; }
+    }
+
+    private static SellerQuestionDto ToQuestionDto(QuestionRow r)
+    {
+        var q = r.Question;
+        return new SellerQuestionDto(q.Id, q.ProductId, r.ProductName, r.ProductSlug, r.Thumbnail ?? "/images/products/placeholder.svg",
+            q.Text, q.AskedByName, q.AskedAt,
+            q.AnswerText is not null && q.AnsweredAt is { } at ? new QuestionAnswerDto(q.AnswerText, at) : null);
+    }
+
+    // ----- Repasses -----
+
+    public async Task<PagedResult<PayoutDto>> ListPayoutsAsync(PayoutStatus? status, int? page, int? pageSize, CancellationToken ct)
+    {
+        var seller = await RequireSellerAsync(ct);
+        var query = from p in db.Payouts.AsNoTracking()
+                    join o in db.Orders.AsNoTracking() on p.OrderId equals o.Id
+                    where p.SellerId == seller.Id
+                    select new PayoutRow { Payout = p, OrderNumber = o.Number };
+        if (status is { } s) query = query.Where(x => x.Payout.Status == s);
+        var paged = await query.OrderByDescending(x => x.Payout.ScheduledFor).ThenByDescending(x => x.OrderNumber).ToPagedAsync(page, pageSize, 20, ct);
+        return paged.Map(x => new PayoutDto(x.Payout.Id, x.Payout.SellerId, seller.Name, x.Payout.OrderId, x.OrderNumber,
+            new DateRange(x.Payout.PeriodStart, x.Payout.PeriodEnd),
+            Money.Brl(x.Payout.GrossAmount), Money.Brl(x.Payout.PlatformFeeAmount), Money.Brl(x.Payout.PaymentFeeAmount), Money.Brl(x.Payout.NetAmount),
+            x.Payout.Status, x.Payout.ScheduledFor, x.Payout.PaidAt, x.Payout.FailureReason));
+    }
+
+    public async Task<SellerPayoutSummaryDto> PayoutSummaryAsync(CancellationToken ct)
+    {
+        var seller = await RequireSellerAsync(ct);
+        var totals = await db.Payouts.AsNoTracking()
+            .Where(p => p.SellerId == seller.Id)
+            .GroupBy(p => p.Status)
+            .Select(g => new { Status = g.Key, Net = g.Sum(p => p.NetAmount), Count = g.Count() })
+            .ToListAsync(ct);
+        long Of(PayoutStatus s) => totals.FirstOrDefault(t => t.Status == s)?.Net ?? 0;
+        return new SellerPayoutSummaryDto(
+            Money.Brl(Of(PayoutStatus.Agendado)), Money.Brl(Of(PayoutStatus.Processando)), Money.Brl(Of(PayoutStatus.Pago)), Money.Brl(Of(PayoutStatus.Falhou)),
+            totals.FirstOrDefault(t => t.Status == PayoutStatus.Agendado)?.Count ?? 0);
+    }
+
+    private sealed class PayoutRow
+    {
+        public required Payout Payout { get; init; }
+        public required string OrderNumber { get; init; }
     }
 }

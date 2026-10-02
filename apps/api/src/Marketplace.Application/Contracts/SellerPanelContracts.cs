@@ -126,3 +126,22 @@ public sealed record SellerProductInput(
 public sealed record ParcelDimensionsDto(int LengthCm, int WidthCm, int HeightCm);
 
 public sealed record ShipOrderRequest(string? Carrier, string? TrackingCode);
+
+public sealed record CancelOrderRequest(string? Reason);
+
+/// <summary>Pergunta de um comprador vista pela loja (com o produto para dar contexto).</summary>
+public sealed record SellerQuestionDto(
+    Guid Id,
+    Guid ProductId,
+    string ProductName,
+    string ProductSlug,
+    string ProductThumbnailUrl,
+    string Question,
+    string AskedBy,
+    DateTime AskedAt,
+    QuestionAnswerDto? Answer);
+
+public sealed record AnswerQuestionRequest(string? Text);
+
+/// <summary>Totais do ledger de repasses da loja, por situação.</summary>
+public sealed record SellerPayoutSummaryDto(Money Scheduled, Money Processing, Money Paid, Money Failed, int ScheduledCount);

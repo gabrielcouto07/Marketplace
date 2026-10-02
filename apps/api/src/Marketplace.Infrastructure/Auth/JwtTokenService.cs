@@ -15,7 +15,7 @@ public sealed class JwtOptions
     /// <summary>Mínimo 32 caracteres. Em produção, use user-secrets/variável de ambiente.</summary>
     public string Secret { get; set; } = string.Empty;
     /// <summary>O front ainda não renova o token automaticamente; manter longo até o interceptor 401→refresh existir.</summary>
-    public int AccessTokenMinutes { get; set; } = 7 * 24 * 60;
+    public int AccessTokenMinutes { get; set; } = 60;
 
     public SymmetricSecurityKey SigningKey => new(Encoding.UTF8.GetBytes(Secret));
 }

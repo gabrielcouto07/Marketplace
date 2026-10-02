@@ -18,6 +18,7 @@ public sealed class CheckoutService(
     IPaymentGatewayRegistry gateways,
     OrderService orders,
     PaymentService payments,
+    ICatalogCache catalogCache,
     ICurrentUser currentUser,
     JsonSerializerOptions json,
     TimeProvider clock,
@@ -55,6 +56,9 @@ public sealed class CheckoutService(
         {
             var seller = await db.Sellers.AsNoTracking().FirstOrDefaultAsync(s => s.Id == g.SellerId, ct)
                          ?? throw AppException.Validation("groups", $"Loja {g.SellerId} não encontrada.");
+            // Loja pendente/suspensa some da vitrine, mas um carrinho antigo ainda pode apontar para ela.
+            if (seller.Status != SellerStatus.Aprovado)
+                throw AppException.Validation("groups", $"A loja \"{seller.Name}\" não está disponível no momento. Remova os itens dela para continuar.");
             if (g.Items is null || g.Items.Count == 0) throw AppException.Validation("items", "Grupo sem itens.");
             var lines = await shipping.ResolveLinesAsync(g.Items, seller.Id, ct);
             var stockErrors = new ValidationErrors();
@@ -154,147 +158,184 @@ public sealed class CheckoutService(
         var rate = await db.ExchangeRates.AsNoTracking().FirstAsync(r => r.Id == quoteRow.ExchangeRateId, ct);
 
         // 1) Persistência (transação): compra, pedidos, itens, timeline, pagamento pendente e reserva de estoque.
+        //    O número do pedido é MAX+1: dois checkouts no mesmo instante podem colidir no índice único e o perdedor
+        //    tenta de novo com um número novo (a transação desfaz a reserva de estoque da tentativa perdida).
         var purchaseId = Guid.NewGuid();
         var paymentId = Guid.NewGuid();
         var expiresAt = payment.Method switch
         {
             PaymentMethod.Pix => now.AddMinutes(settings.PixExpirationMinutes),
             PaymentMethod.Boleto => now.AddDays(settings.BoletoDueDays).Date.AddDays(1),
-            _ => now.AddMinutes(settings.PixExpirationMinutes),
+            // Cartão em análise antifraude no gateway pode levar dias: expirar em 30 min cancelaria compras legítimas.
+            _ => now.AddDays(2),
         };
 
-        var paymentEntity = new Payment
+        for (var attempt = 1; ; attempt++)
         {
-            Id = paymentId,
-            PurchaseId = purchaseId,
-            UserId = userId,
-            Method = payment.Method,
-            Status = PaymentStatus.Pendente,
-            Amount = quote.Total.Amount,
-            Currency = CurrencyCode.BRL,
-            CreatedAt = now,
-            UpdatedAt = now,
-            ExpiresAt = expiresAt,
-            Gateway = Gateway.Name,
-            PayerDocument = payerDocument,
-            CardBrand = payment.Card?.Brand,
-            CardLast4 = payment.Card?.Last4,
-            Installments = payment.Method == PaymentMethod.Cartao ? payment.Card!.Installments : null,
-            InstallmentAmount = payment.Method == PaymentMethod.Cartao
-                ? quote.Total.InstallmentAmount(payment.Card!.Installments).Amount
-                : null,
-        };
-
-        var purchase = new Purchase
-        {
-            Id = purchaseId,
-            UserId = userId,
-            PaymentId = paymentId,
-            ExchangeRateId = rate.Id,
-            QuoteId = quoteRow.Id,
-            IdempotencyKey = key,
-            TotalAmount = quote.Total.Amount,
-            CreatedAt = now,
-        };
-
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
-        db.Payments.Add(paymentEntity);
-        db.Purchases.Add(purchase);
-
-        var discountLeft = quote.Discount.Amount;
-        var taxLeft = quote.EstimatedImportTax.Amount;
-        for (var gi = 0; gi < quote.Groups.Count; gi++)
-        {
-            var group = quote.Groups[gi];
-            var isLast = gi == quote.Groups.Count - 1;
-            var input = request.Groups?.FirstOrDefault(g => g.SellerId == group.Seller.Id);
-            // Impostos e total foram calculados com a opção selecionada na cotação; mudar o frete exige recotar.
-            if (input?.ShippingOptionId is { } chosen && chosen != group.SelectedShippingOptionId)
-                throw AppException.Validation("quoteId", "A opção de frete mudou. Atualize o resumo do pedido.");
-            var option = group.ShippingOptions.FirstOrDefault(o => o.Id == group.SelectedShippingOptionId)
-                         ?? group.ShippingOptions[0];
-
-            var discountShare = isLast
-                ? discountLeft
-                : quote.Subtotal.Amount == 0 ? 0 : Money.RoundDiv(quote.Discount.Amount * group.Subtotal.Amount, quote.Subtotal.Amount);
-            discountLeft -= discountShare;
-            var taxable = group.Subtotal.Amount + option.Price.Amount - discountShare;
-            var taxShare = isLast ? taxLeft : Money.RoundDiv(taxable * quote.ImportTaxRateBasisPoints, 10_000);
-            taxLeft -= taxShare;
-            var total = taxable + taxShare;
-
-            var handlingDays = 0;
-            var items = new List<OrderItem>();
-            foreach (var line in group.Lines)
+            try
             {
-                var product = await db.Products.AsNoTracking().Include(p => p.Variants).FirstAsync(p => p.Id == line.ProductId, ct);
-                var variant = line.VariantId is { } vid ? product.Variants.First(v => v.Id == vid) : null;
-                var quantity = line.Quantity;
-                // Reserva atômica (UPDATE ... WHERE stock >= qtd): duas compras simultâneas não vendem a mesma unidade.
-                var reserved = variant is not null
-                    ? await db.ProductVariants.Where(v => v.Id == variant.Id && v.Stock >= quantity)
-                        .ExecuteUpdateAsync(s => s.SetProperty(v => v.Stock, v => v.Stock - quantity), ct)
-                    : await db.Products.Where(p => p.Id == product.Id && p.Stock >= quantity)
-                        .ExecuteUpdateAsync(s => s.SetProperty(p => p.Stock, p => p.Stock - quantity), ct);
-                if (reserved == 0)
-                    throw AppException.Validation("items", $"Estoque insuficiente para \"{product.Name}\".");
-                if (variant is not null)
-                    await db.Products.Where(p => p.Id == product.Id)
-                        .ExecuteUpdateAsync(s => s.SetProperty(p => p.Stock, p => p.Stock >= quantity ? p.Stock - quantity : 0), ct);
-                handlingDays = Math.Max(handlingDays, product.HandlingDaysMax);
-                items.Add(new OrderItem
-                {
-                    Id = Guid.NewGuid(),
-                    ProductId = product.Id,
-                    ProductSlug = product.Slug,
-                    VariantId = variant?.Id,
-                    Name = product.Name,
-                    VariantLabel = variant?.Label,
-                    ThumbnailUrl = line.ThumbnailUrl,
-                    Quantity = line.Quantity,
-                    UnitPriceAmount = line.UnitPrice.Amount,
-                    LineTotalAmount = line.LineTotal.Amount,
-                });
+                await PersistAsync();
+                break;
             }
-
-            var order = new Order
+            catch (DbUpdateException ex) when (attempt < 3 && IsUniqueViolation(ex))
             {
-                Id = Guid.NewGuid(),
-                Number = await orders.NextNumberAsync(now, ct),
+                logger.LogWarning(ex, "Colisão ao gravar a compra {PurchaseId} (tentativa {Attempt}); repetindo", purchaseId, attempt);
+                db.ChangeTracker.Clear();
+                // A colisão pode ter sido na própria chave de idempotência (duas requisições iguais ao mesmo tempo).
+                var replay = await db.Purchases.AsNoTracking().FirstOrDefaultAsync(p => p.UserId == userId && p.IdempotencyKey == key, ct);
+                if (replay is not null) return await BuildResponseAsync(replay.Id, ct);
+                quoteRow = await db.CheckoutQuotes.FirstAsync(q => q.Id == request.QuoteId, ct);
+                if (!quoteRow.IsUsable(now)) throw AppException.Validation("quoteId", "Cotação expirada. Atualize o resumo do pedido.");
+            }
+        }
+        // Estoque mudou: a vitrine (cache de 60 s) precisa refletir na hora.
+        await catalogCache.InvalidateAsync(ct);
+
+        async Task PersistAsync()
+        {
+            var paymentEntity = new Payment
+            {
+                Id = paymentId,
                 PurchaseId = purchaseId,
                 UserId = userId,
-                SellerId = group.Seller.Id,
-                PaymentId = paymentId,
-                ExchangeRateId = rate.Id,
-                Status = OrderStatus.AguardandoPagamento,
+                Method = payment.Method,
+                Status = PaymentStatus.Pendente,
+                Amount = quote.Total.Amount,
+                Currency = CurrencyCode.BRL,
                 CreatedAt = now,
                 UpdatedAt = now,
-                ShippingAddress = address.ToSnapshot(),
-                ShippingOption = option.ToSnapshot(),
-                EstimatedDeliveryMin = BusinessDays.Add(now, handlingDays + option.EstimatedDays.Min),
-                EstimatedDeliveryMax = BusinessDays.Add(now, handlingDays + option.EstimatedDays.Max),
-                SubtotalAmount = group.Subtotal.Amount,
-                ShippingAmount = option.Price.Amount,
-                ImportTaxAmount = taxShare,
-                DiscountAmount = discountShare,
-                TotalAmount = total,
-                TotalReferenceAmount = rate.Convert(Money.Brl(total)).Amount,
-                Items = items,
-                Events = [new OrderEvent { Status = OrderStatus.AguardandoPagamento, OccurredAt = now, Actor = "system" }],
+                ExpiresAt = expiresAt,
+                Gateway = Gateway.Name,
+                PayerDocument = payerDocument,
+                CardBrand = payment.Card?.Brand,
+                CardLast4 = payment.Card?.Last4,
+                Installments = payment.Method == PaymentMethod.Cartao ? payment.Card!.Installments : null,
+                InstallmentAmount = payment.Method == PaymentMethod.Cartao
+                    ? quote.Total.InstallmentAmount(payment.Card!.Installments).Amount
+                    : null,
             };
-            db.Orders.Add(order);
-        }
 
-        quoteRow.ConsumedAt = now;
-        if (quote.Discount.Amount > 0 && !string.IsNullOrWhiteSpace(quoteRow.CouponCode))
-        {
-            purchase.CouponCode = quoteRow.CouponCode;
-            var couponCode = quoteRow.CouponCode;
-            await db.Coupons.Where(c => c.Code == couponCode)
-                .ExecuteUpdateAsync(s => s.SetProperty(c => c.UsedCount, c => c.UsedCount + 1), ct);
+            var purchase = new Purchase
+            {
+                Id = purchaseId,
+                UserId = userId,
+                PaymentId = paymentId,
+                ExchangeRateId = rate.Id,
+                QuoteId = quoteRow.Id,
+                IdempotencyKey = key,
+                TotalAmount = quote.Total.Amount,
+                CreatedAt = now,
+            };
+
+            await using var tx = await db.Database.BeginTransactionAsync(ct);
+            db.Payments.Add(paymentEntity);
+            db.Purchases.Add(purchase);
+
+            var discountLeft = quote.Discount.Amount;
+            var taxLeft = quote.EstimatedImportTax.Amount;
+            for (var gi = 0; gi < quote.Groups.Count; gi++)
+            {
+                var group = quote.Groups[gi];
+                var isLast = gi == quote.Groups.Count - 1;
+                var input = request.Groups?.FirstOrDefault(g => g.SellerId == group.Seller.Id);
+                // Impostos e total foram calculados com a opção selecionada na cotação; mudar o frete exige recotar.
+                if (input?.ShippingOptionId is { } chosen && chosen != group.SelectedShippingOptionId)
+                    throw AppException.Validation("quoteId", "A opção de frete mudou. Atualize o resumo do pedido.");
+                var option = group.ShippingOptions.FirstOrDefault(o => o.Id == group.SelectedShippingOptionId)
+                             ?? group.ShippingOptions[0];
+                // Loja suspensa entre a cotação e o pedido: nada é vendido em nome dela.
+                if (!await db.Sellers.AnyAsync(s => s.Id == group.Seller.Id && s.Status == SellerStatus.Aprovado, ct))
+                    throw AppException.Validation("groups", $"A loja \"{group.Seller.Name}\" não está disponível no momento. Remova os itens dela para continuar.");
+
+                var discountShare = isLast
+                    ? discountLeft
+                    : quote.Subtotal.Amount == 0 ? 0 : Money.RoundDiv(quote.Discount.Amount * group.Subtotal.Amount, quote.Subtotal.Amount);
+                discountLeft -= discountShare;
+                var taxable = group.Subtotal.Amount + option.Price.Amount - discountShare;
+                var taxShare = isLast ? taxLeft : Money.RoundDiv(taxable * quote.ImportTaxRateBasisPoints, 10_000);
+                taxLeft -= taxShare;
+                var total = taxable + taxShare;
+
+                var handlingDays = 0;
+                var items = new List<OrderItem>();
+                foreach (var line in group.Lines)
+                {
+                    var product = await db.Products.AsNoTracking().Include(p => p.Variants).FirstAsync(p => p.Id == line.ProductId, ct);
+                    // Produto arquivado/pausado dentro dos 15 min da cotação: não vende.
+                    if (product.Status != ProductStatus.Ativo)
+                        throw AppException.Validation("items", $"\"{product.Name}\" não está mais disponível. Atualize o resumo do pedido.");
+                    var variant = line.VariantId is { } vid ? product.Variants.First(v => v.Id == vid) : null;
+                    var quantity = line.Quantity;
+                    // Reserva atômica (UPDATE ... WHERE stock >= qtd): duas compras simultâneas não vendem a mesma unidade.
+                    var reserved = variant is not null
+                        ? await db.ProductVariants.Where(v => v.Id == variant.Id && v.Stock >= quantity)
+                            .ExecuteUpdateAsync(s => s.SetProperty(v => v.Stock, v => v.Stock - quantity), ct)
+                        : await db.Products.Where(p => p.Id == product.Id && p.Stock >= quantity)
+                            .ExecuteUpdateAsync(s => s.SetProperty(p => p.Stock, p => p.Stock - quantity), ct);
+                    if (reserved == 0)
+                        throw AppException.Validation("items", $"Estoque insuficiente para \"{product.Name}\".");
+                    if (variant is not null)
+                        await db.Products.Where(p => p.Id == product.Id)
+                            .ExecuteUpdateAsync(s => s.SetProperty(p => p.Stock, p => p.Stock >= quantity ? p.Stock - quantity : 0), ct);
+                    handlingDays = Math.Max(handlingDays, product.HandlingDaysMax);
+                    items.Add(new OrderItem
+                    {
+                        Id = Guid.NewGuid(),
+                        ProductId = product.Id,
+                        ProductSlug = product.Slug,
+                        VariantId = variant?.Id,
+                        Name = product.Name,
+                        VariantLabel = variant?.Label,
+                        ThumbnailUrl = line.ThumbnailUrl,
+                        Quantity = line.Quantity,
+                        UnitPriceAmount = line.UnitPrice.Amount,
+                        LineTotalAmount = line.LineTotal.Amount,
+                    });
+                }
+
+                var order = new Order
+                {
+                    Id = Guid.NewGuid(),
+                    Number = await orders.NextNumberAsync(now, ct),
+                    PurchaseId = purchaseId,
+                    UserId = userId,
+                    SellerId = group.Seller.Id,
+                    PaymentId = paymentId,
+                    ExchangeRateId = rate.Id,
+                    Status = OrderStatus.AguardandoPagamento,
+                    CreatedAt = now,
+                    UpdatedAt = now,
+                    ShippingAddress = address.ToSnapshot(),
+                    ShippingOption = option.ToSnapshot(),
+                    EstimatedDeliveryMin = BusinessDays.Add(now, handlingDays + option.EstimatedDays.Min),
+                    EstimatedDeliveryMax = BusinessDays.Add(now, handlingDays + option.EstimatedDays.Max),
+                    SubtotalAmount = group.Subtotal.Amount,
+                    ShippingAmount = option.Price.Amount,
+                    ImportTaxAmount = taxShare,
+                    DiscountAmount = discountShare,
+                    TotalAmount = total,
+                    TotalReferenceAmount = rate.Convert(Money.Brl(total)).Amount,
+                    Items = items,
+                    Events = [new OrderEvent { Status = OrderStatus.AguardandoPagamento, OccurredAt = now, Actor = "system" }],
+                };
+                db.Orders.Add(order);
+            }
+
+            quoteRow.ConsumedAt = now;
+            if (quote.Discount.Amount > 0 && !string.IsNullOrWhiteSpace(quoteRow.CouponCode))
+            {
+                purchase.CouponCode = quoteRow.CouponCode;
+                var couponCode = quoteRow.CouponCode;
+                // Reconfere limite/validade na hora de fechar: a cotação vale 15 min e o cupom pode ter acabado nesse meio-tempo.
+                var redeemed = await db.Coupons
+                    .Where(c => c.Code == couponCode && c.Active && (c.ExpiresAt == null || c.ExpiresAt > now) && (c.MaxUses == null || c.UsedCount < c.MaxUses))
+                    .ExecuteUpdateAsync(s => s.SetProperty(c => c.UsedCount, c => c.UsedCount + 1), ct);
+                if (redeemed == 0)
+                    throw AppException.Validation("couponCode", "Este cupom não está mais disponível. Atualize o resumo do pedido.");
+            }
+            await db.SaveChangesAsync(ct);
+            await tx.CommitAsync(ct);
         }
-        await db.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
 
         // 2) Gateway (fora da transação): cria a cobrança e aplica o resultado.
         try
@@ -314,6 +355,15 @@ public sealed class CheckoutService(
         }
 
         return await BuildResponseAsync(purchaseId, ct);
+    }
+
+    /// <summary>Violação de índice único em Postgres (23505) ou SQLite ("UNIQUE constraint failed"), sem referenciar os provedores.</summary>
+    private static bool IsUniqueViolation(DbUpdateException ex)
+    {
+        var message = ex.InnerException?.Message ?? ex.Message;
+        return message.Contains("23505", StringComparison.Ordinal)
+               || message.Contains("unique", StringComparison.OrdinalIgnoreCase)
+               || message.Contains("duplicate key", StringComparison.OrdinalIgnoreCase);
     }
 
     private async Task<PlaceOrderResponseDto> BuildResponseAsync(Guid purchaseId, CancellationToken ct)

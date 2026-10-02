@@ -61,7 +61,7 @@ public sealed class AuthService(
             .AddIf(!Documents.IsValidEmail(emailNorm), "email", "E-mail inválido.")
             .AddIf(phone.Length is not (0 or 10 or 11), "phone", "Celular inválido.")
             .AddIf((request.Password?.Length ?? 0) < Options.MinPasswordLength, "password", $"A senha deve ter pelo menos {Options.MinPasswordLength} caracteres.")
-            .AddIf(request.AcceptTerms == false, "acceptTerms", "É preciso aceitar os termos de uso e a política de privacidade.");
+            .AddIf(request.AcceptTerms != true, "acceptTerms", "É preciso aceitar os termos de uso e a política de privacidade.");
         errors.ThrowIfAny();
         if (await db.Users.AnyAsync(u => u.Email == emailNorm, ct))
             throw AppException.Validation("email", "Este e-mail já está cadastrado.");
@@ -118,6 +118,15 @@ public sealed class AuthService(
         {
             if (user.AnonymizedAt is not null) throw AppException.Validation("idToken", "Esta conta foi encerrada.");
             EnsureNotBlocked(user);
+            if (user.GoogleSubject is null && !user.EmailVerified && user.PasswordHash is not null)
+            {
+                // Conta local criada sem verificação de e-mail e agora o Google atesta o dono: a senha pode ser de
+                // outra pessoa (pré-cadastro malicioso com o e-mail da vítima). A senha cai e as sessões abertas são
+                // encerradas; quem precisar de senha usa "Esqueci minha senha".
+                user.PasswordHash = null;
+                await RevokeAllAsync(user.Id, ct);
+                await AuditAsync(user.Id, "auth.google_link_password_reset", ct);
+            }
             user.GoogleSubject ??= identity.Subject;
             user.AvatarUrl ??= identity.Picture;
             user.EmailVerified |= identity.EmailVerified;

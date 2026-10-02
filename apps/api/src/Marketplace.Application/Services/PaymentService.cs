@@ -111,27 +111,30 @@ public sealed class PaymentService(
             // Confirmado depois de expirar/recusar: os pedidos já foram cancelados e o estoque devolvido.
             // O dinheiro entrou, então estorna na hora em vez de deixar o comprador pagando por nada.
             logger.LogWarning("Pagamento {PaymentId} aprovado após {Status}: estornando automaticamente", payment.Id, payment.Status);
-            payment.Status = PaymentStatus.Aprovado;
-            payment.PaidAt = paidAt;
-            var refunded = await refunds.RefundRemainingAsync(payment, ct);
-            payment.Status = PaymentStatus.Estornado;
-            payment.FailureReason = refunded
-                ? "Pago após o prazo: estornado automaticamente."
-                : "Pago após o prazo: estorno pendente de processamento manual.";
-            payment.UpdatedAt = Now;
-            await db.SaveChangesAsync(ct);
+            await RefundOrphanAsync(payment, paidAt, "Pago após o prazo", ct);
             return;
         }
 
-        payment.Status = PaymentStatus.Aprovado;
+        // Job de expiração, webhook e "simular pagamento" podem disputar a mesma cobrança: a troca de status é
+        // atômica (UPDATE ... WHERE status = Pendente) e tudo que depende dela entra na mesma transação.
+        await using var tx = await BeginIfNoneAsync(ct);
+        if (!await TryFinalizeAsync(payment, PaymentStatus.Aprovado, ct))
+        {
+            await ReloadStatusAsync(payment, ct);
+            if (tx is not null) await tx.CommitAsync(ct);
+            // Outro processo expirou/recusou um instante antes: segue pelo caminho do pagamento tardio.
+            if (payment.Status is PaymentStatus.Expirado or PaymentStatus.Recusado) await ApproveAsync(payment, paidAt, ct);
+            return;
+        }
         payment.PaidAt = paidAt;
-        payment.UpdatedAt = Now;
         payment.FailureReason = null;
 
         var list = await orders.FullOrders().Where(o => o.PurchaseId == payment.PurchaseId).ToListAsync(ct);
+        var paidAny = false;
         foreach (var order in list)
         {
             if (order.Status != OrderStatus.AguardandoPagamento) continue;
+            paidAny = true;
             orders.Transition(order, OrderStatus.Pago, null, null, "gateway");
             await payouts.ScheduleForOrderAsync(order, paidAt, ct);
             foreach (var item in order.Items)
@@ -142,24 +145,71 @@ public sealed class PaymentService(
             }
         }
         await db.SaveChangesAsync(ct);
+        if (tx is not null) await tx.CommitAsync(ct);
+
+        if (!paidAny && list.Count > 0)
+        {
+            // O comprador cancelou todos os pedidos antes de pagar e o pagamento entrou mesmo assim (boleto pago no
+            // banco, Pix tardio): nada foi vendido, então o valor volta na hora.
+            logger.LogWarning("Pagamento {PaymentId} aprovado com todos os pedidos já cancelados: estornando automaticamente", payment.Id);
+            await RefundOrphanAsync(payment, paidAt, "Pago após o cancelamento", ct);
+        }
+    }
+
+    /// <summary>Dinheiro recebido por uma compra já encerrada: estorna o que ainda não foi estornado e marca Estornado.</summary>
+    private async Task RefundOrphanAsync(Payment payment, DateTime paidAt, string reason, CancellationToken ct)
+    {
+        payment.Status = PaymentStatus.Aprovado;
+        payment.PaidAt ??= paidAt;
+        var refunded = await refunds.RefundRemainingAsync(payment, ct);
+        payment.Status = PaymentStatus.Estornado;
+        payment.FailureReason = refunded
+            ? $"{reason}: estornado automaticamente."
+            : $"{reason}: estorno pendente de processamento manual.";
+        payment.UpdatedAt = Now;
+        await db.SaveChangesAsync(ct);
     }
 
     public async Task DeclineAsync(Payment payment, string reason, CancellationToken ct)
     {
         if (payment.IsFinal) return;
-        payment.Status = PaymentStatus.Recusado;
+        await using var tx = await BeginIfNoneAsync(ct);
+        if (!await TryFinalizeAsync(payment, PaymentStatus.Recusado, ct)) { await ReloadStatusAsync(payment, ct); return; }
         payment.FailureReason = reason;
-        payment.UpdatedAt = Now;
         await CancelPurchaseOrdersAsync(payment.PurchaseId, "Pagamento recusado.", ct);
+        if (tx is not null) await tx.CommitAsync(ct);
     }
 
     public async Task ExpireAsync(Payment payment, CancellationToken ct)
     {
         if (payment.IsFinal) return;
-        payment.Status = PaymentStatus.Expirado;
-        payment.UpdatedAt = Now;
+        await using var tx = await BeginIfNoneAsync(ct);
+        if (!await TryFinalizeAsync(payment, PaymentStatus.Expirado, ct)) { await ReloadStatusAsync(payment, ct); return; }
         await CancelPurchaseOrdersAsync(payment.PurchaseId, "Pagamento expirado.", ct);
+        if (tx is not null) await tx.CommitAsync(ct);
     }
+
+    /// <summary>Troca o status só se a cobrança ainda estiver Pendente; false = outro processo já a finalizou.</summary>
+    private async Task<bool> TryFinalizeAsync(Payment payment, PaymentStatus to, CancellationToken ct)
+    {
+        var now = Now;
+        var rows = await db.Payments.Where(p => p.Id == payment.Id && p.Status == PaymentStatus.Pendente)
+            .ExecuteUpdateAsync(s => s.SetProperty(p => p.Status, to).SetProperty(p => p.UpdatedAt, now), ct);
+        if (rows == 0) return false;
+        payment.Status = to;
+        payment.UpdatedAt = now;
+        return true;
+    }
+
+    private async Task ReloadStatusAsync(Payment payment, CancellationToken ct)
+    {
+        var fresh = await db.Payments.AsNoTracking().Where(p => p.Id == payment.Id).Select(p => new { p.Status, p.UpdatedAt }).FirstAsync(ct);
+        payment.Status = fresh.Status;
+        payment.UpdatedAt = fresh.UpdatedAt;
+    }
+
+    private async Task<Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction?> BeginIfNoneAsync(CancellationToken ct) =>
+        db.Database.CurrentTransaction is null ? await db.Database.BeginTransactionAsync(ct) : null;
 
     /// <summary>Estorno sinalizado pelo gateway (refunded/charged_back): tudo que puder vira Reembolsado.</summary>
     public async Task RefundAsync(Payment payment, DateTime occurredAt, CancellationToken ct)
@@ -237,20 +287,29 @@ public sealed class PaymentService(
                 await db.SaveChangesAsync(ct);
                 throw AppException.NotFound("Pagamento");
             }
+            if (!payment.Gateway.Equals(gateway.Name, StringComparison.OrdinalIgnoreCase))
+            {
+                // Um gateway não pode aprovar cobrança criada em outro (ex.: webhook fake apontando para um pagamento
+                // do Mercado Pago). Registra e responde 2xx: reenviar não muda nada.
+                record.Error = $"Gateway divergente: evento de {gateway.Name}, pagamento em {payment.Gateway}.";
+                record.ProcessedAt = Now;
+                logger.LogError("Webhook {Gateway}/{EventId} para pagamento {PaymentId} de outro gateway ({PaymentGateway})", gateway.Name, evt.EventId, payment.Id, payment.Gateway);
+                await db.SaveChangesAsync(ct);
+                return true;
+            }
 
             var status = evt.NewStatus;
             var amount = evt.Amount;
             var paidAt = evt.OccurredAt;
-            if (status is null)
+            var gatewayId = payment.GatewayPaymentId ?? evt.GatewayPaymentId;
+            // Sem status no evento, ou aprovação sem valor num gateway real: confirma na fonte antes de liberar os pedidos.
+            var mustConfirm = status is null || (status == PaymentStatus.Aprovado && amount is null && gateway.Name != FakeGatewayName);
+            if (mustConfirm && gatewayId is not null)
             {
-                var gatewayId = payment.GatewayPaymentId ?? evt.GatewayPaymentId;
-                if (gatewayId is not null)
-                {
-                    remote ??= await gateway.GetStatusAsync(gatewayId, ct);
-                    status = remote.Status;
-                    amount ??= remote.Amount;
-                    paidAt = remote.PaidAt ?? paidAt;
-                }
+                remote ??= await gateway.GetStatusAsync(gatewayId, ct);
+                status = remote.Status;
+                amount ??= remote.Amount;
+                paidAt = remote.PaidAt ?? paidAt;
             }
 
             if (status == PaymentStatus.Aprovado && amount is { } paid && (paid.Amount != payment.Amount || paid.Currency != payment.Currency))

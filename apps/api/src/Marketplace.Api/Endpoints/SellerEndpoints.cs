@@ -36,9 +36,19 @@ public static class SellerEndpoints
         });
 
         g.MapGet("/orders", (string? status, int? page, int? pageSize, SellerPanelService svc, CancellationToken ct) =>
-            svc.ListOrdersAsync(Enum.TryParse<OrderStatus>(status, out var s) ? s : null, page, pageSize, ct));
+            svc.ListOrdersAsync(Enum.TryParse<OrderStatus>(status, true, out var s) ? s : null, page, pageSize, ct));
         g.MapPost("/orders/{id:guid}/prepare", (Guid id, SellerPanelService svc, CancellationToken ct) => svc.PrepareOrderAsync(id, ct));
         g.MapPost("/orders/{id:guid}/ship", (Guid id, ShipOrderRequest body, SellerPanelService svc, CancellationToken ct) => svc.ShipOrderAsync(id, body, ct));
+        g.MapPost("/orders/{id:guid}/cancel", (Guid id, CancelOrderRequest? body, SellerPanelService svc, CancellationToken ct) => svc.CancelOrderAsync(id, body, ct));
+
+        g.MapGet("/questions", (bool? unanswered, int? page, int? pageSize, SellerPanelService svc, CancellationToken ct) =>
+            svc.ListQuestionsAsync(unanswered, page, pageSize, ct));
+        g.MapPost("/questions/{id:guid}/answer", (Guid id, AnswerQuestionRequest body, SellerPanelService svc, CancellationToken ct) =>
+            svc.AnswerQuestionAsync(id, body, ct));
+
+        g.MapGet("/payouts", (string? status, int? page, int? pageSize, SellerPanelService svc, CancellationToken ct) =>
+            svc.ListPayoutsAsync(Enum.TryParse<PayoutStatus>(status, true, out var s) ? s : null, page, pageSize, ct));
+        g.MapGet("/payouts/summary", (SellerPanelService svc, CancellationToken ct) => svc.PayoutSummaryAsync(ct));
 
         return api;
     }

@@ -83,17 +83,25 @@ builder.Services.AddCors(o => o.AddDefaultPolicy(p =>
 builder.Services.AddRateLimiter(o =>
 {
     o.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    o.OnRejected = (ctx, _) => new ValueTask(ApiProblems.WriteAsync(ctx.HttpContext, 429, "RATE_LIMITED", "Muitas tentativas. Aguarde um instante."));
+    o.OnRejected = (ctx, _) =>
+    {
+        // Retry-After permite ao cliente (e a proxies) esperar o tempo certo em vez de martelar.
+        var seconds = ctx.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter) ? Math.Max(1, (int)Math.Ceiling(retryAfter.TotalSeconds)) : 60;
+        ctx.HttpContext.Response.Headers.RetryAfter = seconds.ToString();
+        return new ValueTask(ApiProblems.WriteAsync(ctx.HttpContext, 429, "RATE_LIMITED", "Muitas tentativas. Aguarde um instante."));
+    };
+    // Por IP: operadoras móveis brasileiras usam CGNAT (muitos usuários num IP), então o limite é folgado;
+    // a proteção por conta fica a cargo do hash de senha lento e da auditoria de login.
     o.AddPolicy("auth", ctx => RateLimitPartition.GetFixedWindowLimiter(
         ClientIp(ctx),
-        _ => new FixedWindowRateLimiterOptions { PermitLimit = 20, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 40, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
     // Partição pelo id do usuário (claim sub), nunca pelo nome: nomes repetem e são editáveis.
     o.AddPolicy("sensitive", ctx => RateLimitPartition.GetFixedWindowLimiter(
         ctx.User.FindFirstValue(JwtRegisteredClaimNames.Sub) ?? ctx.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? ClientIp(ctx),
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 5, Window = TimeSpan.FromMinutes(10), QueueLimit = 0 }));
     o.AddPolicy("quotes", ctx => RateLimitPartition.GetFixedWindowLimiter(
         ClientIp(ctx),
-        _ => new FixedWindowRateLimiterOptions { PermitLimit = 60, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 120, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
     o.AddPolicy("webhooks", ctx => RateLimitPartition.GetFixedWindowLimiter(
         ClientIp(ctx),
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 300, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
@@ -109,7 +117,7 @@ builder.Services.AddOutputCache(o =>
 
 builder.Services.AddExceptionHandler<ApiProblems.ExceptionHandler>();
 builder.Services.AddOpenApi();
-builder.Services.AddHealthChecks();
+builder.Services.AddHealthChecks().AddCheck<DatabaseHealthCheck>("database");
 
 var app = builder.Build();
 
@@ -126,10 +134,15 @@ app.UseExceptionHandler(_ => { });
 app.UseStatusCodePages(ctx => ApiProblems.WriteStatusAsync(ctx.HttpContext));
 app.UseForwardedHeaders();
 app.UseCors();
-app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
+// Depois da autenticação: a política "sensitive" particiona pelo usuário (antes, ctx.User estava vazio e caía no IP).
+app.UseRateLimiter();
+app.UseAccountStateGuard();
 app.UseOutputCache();
+
+if (!app.Environment.IsDevelopment() && !"Smtp".Equals(config["Email:Provider"], StringComparison.OrdinalIgnoreCase))
+    app.Logger.LogWarning("Email:Provider={Provider}: e-mails (redefinição de senha) vão só para o log. Configure Email:Provider=Smtp em produção.", config["Email:Provider"] ?? "Log");
 
 // OpenAPI/Scalar: sempre em Development; em produção só com OpenApi:Enabled=true.
 if (app.Environment.IsDevelopment() || config.GetValue<bool>("OpenApi:Enabled"))

@@ -31,6 +31,8 @@ public static class DependencyInjection
     {
         services.Configure<DatabaseOptions>(o =>
         {
+            // Recriar o SQLite quando o schema muda é conveniência de dev; em qualquer outro ambiente é perda de dados.
+            o.RecreateSqliteOnSchemaChange = env.IsDevelopment();
             config.GetSection("Database").Bind(o);
             var postgres = config.GetConnectionString("Postgres");
             if (!string.IsNullOrWhiteSpace(postgres))
@@ -38,6 +40,10 @@ public static class DependencyInjection
                 o.Provider = "Postgres";
                 o.PostgresConnectionString = postgres;
             }
+            else if (!env.IsDevelopment() && !o.AllowSqliteOutsideDevelopment)
+                throw new InvalidOperationException(
+                    "ConnectionStrings:Postgres (ou ConnectionStrings__Postgres) é obrigatório fora de Development. " +
+                    "Para homologação descartável em SQLite, ligue Database:AllowSqliteOutsideDevelopment=true.");
         });
         services.Configure<AdminOptions>(config.GetSection("Admin"));
         services.Configure<JwtOptions>(config.GetSection("Auth:Jwt"));
@@ -78,13 +84,16 @@ public static class DependencyInjection
         services.AddDbContext<AppDbContext>((sp, options) =>
         {
             var db = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<DatabaseOptions>>().Value;
+            // Pedidos carregam itens + eventos + rastreio: em consulta única isso vira produto cartesiano.
             if (db.Provider == "Postgres")
-                options.UseNpgsql(db.PostgresConnectionString, o => o.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName));
+                options.UseNpgsql(db.PostgresConnectionString, o => o
+                    .MigrationsAssembly(typeof(AppDbContext).Assembly.FullName)
+                    .UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery));
             else
             {
                 var path = Path.GetFullPath(db.SqlitePath);
                 Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-                options.UseSqlite($"Data Source={path}");
+                options.UseSqlite($"Data Source={path}", o => o.UseQuerySplittingBehavior(QuerySplittingBehavior.SplitQuery));
             }
         });
         services.AddScoped<IAppDbContext>(sp => sp.GetRequiredService<AppDbContext>());

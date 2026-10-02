@@ -13,11 +13,16 @@ public sealed class OrderService(
     IAppDbContext db,
     RefundService refunds,
     ILinkBuilder links,
+    ICatalogCache catalogCache,
     ICurrentUser currentUser,
     TimeProvider clock)
 {
     private DateTime Now => clock.GetUtcNow().UtcDateTime;
 
+    /// <summary>
+    /// Três coleções incluídas: o provedor está configurado com QuerySplittingBehavior.SplitQuery (DependencyInjection),
+    /// senão cada pedido viraria itens × eventos × rastreio linhas numa única consulta.
+    /// </summary>
     public IQueryable<Order> FullOrders() =>
         db.Orders
             .Include(o => o.Seller)
@@ -27,11 +32,16 @@ public sealed class OrderService(
             .Include(o => o.ExchangeRate)
             .Include(o => o.Payment);
 
-    public async Task<PagedResult<OrderDto>> ListAsync(OrderStatus? status, int? page, int? pageSize, CancellationToken ct)
+    private static readonly OrderStatus[] DoneStatuses = [OrderStatus.Concluido, OrderStatus.Cancelado, OrderStatus.Reembolsado];
+
+    /// <param name="group">"active" (em andamento) ou "done" (concluídos/cancelados/reembolsados): as abas da lista filtram no servidor, não só na página carregada.</param>
+    public async Task<PagedResult<OrderDto>> ListAsync(OrderStatus? status, string? group, int? page, int? pageSize, CancellationToken ct)
     {
         var userId = currentUser.RequireUserId();
         var query = FullOrders().AsNoTracking().Where(o => o.UserId == userId);
         if (status is { } s) query = query.Where(o => o.Status == s);
+        if (string.Equals(group, "active", StringComparison.OrdinalIgnoreCase)) query = query.Where(o => !DoneStatuses.Contains(o.Status));
+        else if (string.Equals(group, "done", StringComparison.OrdinalIgnoreCase)) query = query.Where(o => DoneStatuses.Contains(o.Status));
         var paged = await query.OrderByDescending(o => o.CreatedAt).ThenBy(o => o.Number).ToPagedAsync(page, pageSize, 10, ct);
         return paged.Map(o => o.ToDto(currentUser.Locale));
     }
@@ -125,16 +135,50 @@ public sealed class OrderService(
     /// </summary>
     public async Task CommitCancellationAsync(IReadOnlyCollection<Order> cancelled, CancellationToken ct)
     {
+        if (cancelled.Count == 0) return;
         if (db.Database.CurrentTransaction is not null)
         {
             await RestoreStockAsync(cancelled, ct);
+            await CloseOrphanPurchasesAsync(cancelled, ct);
             await db.SaveChangesAsync(ct);
-            return;
         }
-        await using var tx = await db.Database.BeginTransactionAsync(ct);
-        await RestoreStockAsync(cancelled, ct);
-        await db.SaveChangesAsync(ct);
-        await tx.CommitAsync(ct);
+        else
+        {
+            await using var tx = await db.Database.BeginTransactionAsync(ct);
+            await RestoreStockAsync(cancelled, ct);
+            await CloseOrphanPurchasesAsync(cancelled, ct);
+            await db.SaveChangesAsync(ct);
+            await tx.CommitAsync(ct);
+        }
+        // Estoque mudou: a vitrine (cache de 60 s) precisa refletir na hora.
+        await catalogCache.InvalidateAsync(ct);
+    }
+
+    /// <summary>
+    /// Compra sem nenhum pedido aguardando pagamento e cobrança ainda Pendente: a cobrança deixa de ser pagável
+    /// (um boleto pago depois disso cai no estorno automático) e o uso do cupom é devolvido.
+    /// </summary>
+    private async Task CloseOrphanPurchasesAsync(IReadOnlyCollection<Order> cancelled, CancellationToken ct)
+    {
+        // Os pedidos recém-cancelados ainda estão como AguardandoPagamento no banco (o SaveChanges vem depois):
+        // ficam fora da checagem de "ainda há alguém esperando pagamento".
+        var cancelledIds = cancelled.Select(o => o.Id).ToList();
+        foreach (var purchaseId in cancelled.Select(o => o.PurchaseId).Distinct())
+        {
+            var stillPending = await db.Orders.AnyAsync(
+                o => o.PurchaseId == purchaseId && o.Status == OrderStatus.AguardandoPagamento && !cancelledIds.Contains(o.Id), ct);
+            if (stillPending) continue;
+            var payment = cancelled.First(o => o.PurchaseId == purchaseId).Payment
+                          ?? await db.Payments.FirstAsync(p => p.PurchaseId == purchaseId, ct);
+            if (payment.Status != PaymentStatus.Pendente) continue;
+            payment.Status = PaymentStatus.Expirado;
+            payment.FailureReason = "Todos os pedidos da compra foram cancelados antes do pagamento.";
+            payment.UpdatedAt = Now;
+            var couponCode = await db.Purchases.Where(p => p.Id == purchaseId).Select(p => p.CouponCode).FirstOrDefaultAsync(ct);
+            if (!string.IsNullOrEmpty(couponCode))
+                await db.Coupons.Where(c => c.Code == couponCode && c.UsedCount > 0)
+                    .ExecuteUpdateAsync(s => s.SetProperty(c => c.UsedCount, c => c.UsedCount - 1), ct);
+        }
     }
 
     private async Task RestoreStockAsync(IEnumerable<Order> cancelled, CancellationToken ct)

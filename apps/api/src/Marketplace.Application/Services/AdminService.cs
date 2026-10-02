@@ -15,6 +15,7 @@ public sealed class AdminService(
     PaymentService payments,
     PrivacyService privacy,
     RefundService refunds,
+    PayoutService payouts,
     ICatalogCache catalogCache,
     ICurrentUser currentUser,
     TimeProvider clock)
@@ -171,7 +172,16 @@ public sealed class AdminService(
             if (!string.IsNullOrWhiteSpace(request.TrackingCode)) order.TrackingCode = request.TrackingCode.Trim().ToUpperInvariant();
             if (!string.IsNullOrWhiteSpace(request.Carrier)) order.Carrier = request.Carrier.Trim();
         }
+        // "Pago" é decisão do gateway: marcar na mão deixaria o pagamento Pendente, sem repasse e sem baixa de vendas.
+        if (request.Status == OrderStatus.Pago && order.Payment.Status != PaymentStatus.Aprovado)
+            throw AppException.Conflict("PAYMENT_NOT_APPROVED", "O pagamento ainda não foi aprovado pelo gateway. Aguarde a confirmação (ou use o webhook/simulação em desenvolvimento).");
+        // "Reembolsado" sem passar pela disputa só a partir de Devolvido/EmDisputa, e sempre com estorno de verdade;
+        // pedido pago e ainda não enviado se resolve com Cancelado (estorna e devolve o estoque).
+        if (request.Status == OrderStatus.Reembolsado && order.Status is OrderStatus.Pago)
+            throw AppException.Conflict("ORDER_INVALID_TRANSITION", "Para devolver o dinheiro de um pedido ainda não enviado, cancele-o (o estorno e a devolução do estoque são automáticos).");
         orders.Transition(order, request.Status, note, null, "admin");
+        if (request.Status == OrderStatus.Reembolsado) await RefundOrderAsync(order, ct);
+        if (request.Status == OrderStatus.Devolvido) await payouts.CancelForOrderAsync(order.Id, ct);
         if (request.Status == OrderStatus.Enviado && order.TrackingCode is not null && order.TrackingEvents.All(e => e.Code != Domain.Shipping.TrackingCodes.Posted))
             order.TrackingEvents.Add(new TrackingEvent
             {
@@ -193,6 +203,8 @@ public sealed class AdminService(
         var note = string.IsNullOrWhiteSpace(request.Note) ? "Disputa resolvida pela administração." : $"Disputa resolvida: {request.Note.Trim()}";
         orders.Transition(order, request.Outcome, note, null, "admin");
         if (request.Outcome == OrderStatus.Reembolsado) await RefundOrderAsync(order, ct);
+        // Devolvido: o repasse fica retido até o desfecho (Reembolsado cancela de vez).
+        if (request.Outcome == OrderStatus.Devolvido) await payouts.CancelForOrderAsync(order.Id, ct);
         Audit("admin.dispute.resolve", order.Number, request.Outcome.ToString());
         await db.SaveChangesAsync(ct);
         return order.ToDto(currentUser.Locale);
@@ -240,12 +252,23 @@ public sealed class AdminService(
         if (blocked is { } b) query = b ? query.Where(u => u.BlockedAt != null) : query.Where(u => u.BlockedAt == null);
         var ordered = query.OrderByDescending(u => u.CreatedAt);
         var (p, s) = Pagination.Normalize(page, pageSize, 20);
-        // Roles é uma lista gravada como texto (conversor): o filtro por papel roda em memória sobre os ids.
-        var candidates = await ordered.Select(u => new { u.Id, u.Roles }).ToListAsync(ct);
-        var ids = (role is { } r ? candidates.Where(c => c.Roles.Contains(r)) : candidates).Select(c => c.Id).ToList();
-        var pageIds = ids.Skip((p - 1) * s).Take(s).ToList();
+        List<Guid> pageIds;
+        int total;
+        if (role is { } r)
+        {
+            // Roles é uma lista gravada como texto (conversor): só o filtro por papel precisa rodar em memória sobre os ids.
+            var candidates = await ordered.Select(u => new { u.Id, u.Roles }).ToListAsync(ct);
+            var ids = candidates.Where(c => c.Roles.Contains(r)).Select(c => c.Id).ToList();
+            total = ids.Count;
+            pageIds = ids.Skip((p - 1) * s).Take(s).ToList();
+        }
+        else
+        {
+            total = await ordered.CountAsync(ct);
+            pageIds = await ordered.Skip((p - 1) * s).Take(s).Select(u => u.Id).ToListAsync(ct);
+        }
         var items = await UserListQuery().Where(u => pageIds.Contains(u.User.Id)).ToListAsync(ct);
-        return new PagedResult<AdminUserListItemDto>(pageIds.Select(id => ToUserItem(items.First(i => i.User.Id == id))).ToList(), p, s, ids.Count);
+        return new PagedResult<AdminUserListItemDto>(pageIds.Select(id => ToUserItem(items.First(i => i.User.Id == id))).ToList(), p, s, total);
     }
 
     private async Task<AdminUserListItemDto?> UserSummaryAsync(Guid id, CancellationToken ct)
@@ -486,6 +509,10 @@ public sealed class AdminService(
         var payout = await db.Payouts.FirstOrDefaultAsync(p => p.Id == id, ct) ?? throw AppException.NotFound("Repasse");
         if (payout.Status == PayoutStatus.Pago && status != PayoutStatus.Pago)
             throw AppException.Conflict("PAYOUT_ALREADY_PAID", "Repasse já pago não pode voltar.");
+        // Pedido cancelado/devolvido/reembolsado não gera repasse: "tentar de novo" pagaria o vendedor por uma venda desfeita.
+        var orderStatus = await db.Orders.AsNoTracking().Where(o => o.Id == payout.OrderId).Select(o => o.Status).FirstAsync(ct);
+        if (status != PayoutStatus.Falhou && orderStatus is OrderStatus.Cancelado or OrderStatus.Reembolsado or OrderStatus.Devolvido)
+            throw AppException.Conflict("PAYOUT_ORDER_REFUNDED", $"O pedido está {orderStatus}: este repasse não pode ser pago.");
         payout.Status = status;
         payout.PaidAt = status == PayoutStatus.Pago ? Now : null;
         payout.FailureReason = status == PayoutStatus.Falhou ? payout.FailureReason ?? "Marcado como falho pela administração." : null;
