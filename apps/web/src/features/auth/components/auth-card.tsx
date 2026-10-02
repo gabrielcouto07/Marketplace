@@ -48,15 +48,6 @@ export function ApiErrorNotice({ message }: { message: string | null }) {
   return <ErrorState compact title={message} />;
 }
 
-/** Caixa azul-suave com a dica de acesso à demo. */
-export function DemoHint({ children }: { children: ReactNode }) {
-  return (
-    <p role="note" className="rounded-md bg-primary-soft p-3 text-center text-caption text-primary">
-      {children}
-    </p>
-  );
-}
-
 /** Divisor "ou". */
 export function OrDivider() {
   const t = useTranslations("auth");
