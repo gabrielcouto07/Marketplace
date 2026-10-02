@@ -28,17 +28,21 @@ layout raiz; `appleWebApp` + `apple-touch-icon` para iOS; `viewport-fit=cover`.
 | Alvo                                                                            | Estratégia                                           | Limites                           |
 | ------------------------------------------------------------------------------- | ---------------------------------------------------- | --------------------------------- |
 | App shell (`/_next/static/*`, páginas prerenderizadas, `/offline`, logo, ícone) | **Precache** (injetado no build)                     | revisão por hash                  |
-| `GET /api/{home,categories,products,sellers,exchange-rates}`                    | **StaleWhileRevalidate** (`api-catalog`)             | 200 entradas, 1 h                 |
-| `GET /api/{orders,payments,purchases,me,checkout,auth,shipping,postal-codes}`   | **NetworkFirst** (`api-transactional`, timeout 10 s) | 50 entradas, 5 min                |
+| `GET /api/{home,products,sellers}` (preço e estoque)                            | **NetworkFirst** (`api-catalog`, timeout 3 s)        | 200 entradas, 10 min (só offline) |
+| `GET /api/{categories,exchange-rates}` (estáveis)                               | **StaleWhileRevalidate** (`api-catalog-stable`)      | 20 entradas, 1 h                  |
+| `GET /api/{orders,payments,purchases,me,checkout,auth,shipping,postal-codes,seller,admin}` | **NetworkFirst** (`api-transactional`, timeout 10 s); respostas de `/me`, `/seller`, `/admin` ou com `Authorization` **não** são guardadas | 50 entradas, 5 min; apagado no logout (`CLEAR_API_CACHES`) |
 | Imagens (`/images/*`, `/icons/*`, `/_next/image`, `destination: image`)         | **CacheFirst** (`images`)                            | 300 entradas, 30 dias (last-used) |
 | Demais (`defaultCache` do Serwist: fontes, JS, CSS, RSC payloads)               | padrões do `@serwist/next/worker`                    |                                   |
 | Navegações `document` que falham                                                | **fallback `/offline`**                              | página precacheada                |
 
-`skipWaiting` + `clientsClaim` = atualizações imediatas; `navigationPreload` acelera a primeira navegação.
+`skipWaiting` + `clientsClaim` = atualizações imediatas; `navigationPreload` acelera a primeira navegação. Quando um
+SW novo assume uma aba aberta depois de um deploy (`controlling` com `isUpdate`), o `PwaProvider` recarrega a página
+uma vez: os chunks antigos já não existem no servidor e a próxima navegação daria `ChunkLoadError`.
 
-> Nota: o MSW também registra um service worker (`/mockServiceWorker.js`). Em dev, apenas ele fica ativo; em
-> produção sem mock, apenas o Serwist. Se precisar dos dois ao mesmo tempo (`NEXT_PUBLIC_SW_DEV=true` +
-> mock), o MSW deve ser iniciado depois e ambos convivem em escopos distintos — cenário apenas para testes.
+> Nota: o MSW também registra um service worker (`/mockServiceWorker.js`) **no mesmo escopo "/"**, e o navegador só
+> mantém um por escopo. Por isso o SW do app fica desligado sempre que `NEXT_PUBLIC_API_MOCKING=true` (inclusive no
+> build de demonstração): se os dois subissem, o Serwist venceria, as chamadas `/api` iriam para a rede sem backend e
+> toda tela cairia em erro até o próximo reload. `public/mockServiceWorker.js` também fica fora do precache.
 
 ## Offline
 

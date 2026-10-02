@@ -20,8 +20,14 @@ API_PROXY_URL=http://localhost:5210   # next.config.ts encaminha /api/* → back
 Alternativa sem proxy: `NEXT_PUBLIC_API_URL=http://localhost:5210/api` e a origem do front em `Cors:Origins` da API.
 
 Sem `ConnectionStrings:Postgres` a API usa SQLite (`.data/marketplace.dev.db`, `EnsureCreated`, sem migrations). Quando as
-entidades mudam, o arquivo é recriado automaticamente na subida (hash do schema guardado em `__schema_hash`; o seed roda
-de novo). `Database:RecreateSqliteOnSchemaChange=false` troca a recriação por um erro pedindo para apagar o arquivo.
+entidades mudam, o arquivo é recriado automaticamente na subida **em Development** (hash do schema guardado em
+`__schema_hash`; o seed roda de novo). Fora de Development o padrão é `RecreateSqliteOnSchemaChange=false` (erro claro em
+vez de apagar dados) e **a API se recusa a subir sem Postgres** — uma variável `ConnectionStrings__Postgres` esquecida no
+Railway não pode virar um banco SQLite descartável. Para homologação em SQLite, `Database:AllowSqliteOutsideDevelopment=true`.
+
+O catálogo de demonstração (lojas, produtos, avaliações, banners e o cupom `PARAGUAI10`) só é semeado com
+`Database:SeedDemoData=true` (Development). Em produção o banco nasce com configurações, zonas de frete, câmbio inicial,
+categorias e o admin; vendedores e admin cadastram o resto.
 
 Com o mock desligado, `MockProvider` não bloqueia a renderização e `instrumentation.ts` não registra o MSW.
 

@@ -345,7 +345,17 @@ Só `Note` (texto extra, ex.: "Reembolso solicitado") vai para o banco.
     gateway fora do ar, tenta de novo dali a 1 min). Com o gateway fake em dev,
     aprova sozinho após 20 s (imita o mock).
   - Pagamento confirmado DEPOIS de expirar/recusar (pedidos já cancelados) é
-    estornado automaticamente — o comprador não paga por nada.
+    estornado automaticamente — o comprador não paga por nada. O mesmo vale
+    quando o comprador cancelou TODOS os pedidos antes de pagar: a cobrança
+    vira Expirado na hora (OrderService.CloseOrphanPurchasesAsync, que também
+    devolve o uso do cupom) e, se o banco confirmar o boleto mesmo assim,
+    ApproveAsync não encontra pedido para pagar e estorna (RefundOrphanAsync).
+  - Aprovar/expirar/recusar troca o status com UPDATE ... WHERE status =
+    Pendente (PaymentService.TryFinalizeAsync) dentro de uma transação: job de
+    expiração, webhook e "simular pagamento" disputando a mesma cobrança não se
+    atropelam (o perdedor relê o status e segue o caminho certo).
+  - Webhook de um gateway para cobrança criada em outro é registrado e ignorado;
+    aprovação sem valor num gateway real confirma com GetStatusAsync antes.
   - Cancelar pedido pago (comprador ou admin) → RefundService estorna só a parte
     daquele pedido no gateway de ORIGEM (idempotente por pedido;
     refunded_amount/last_refund_id no pagamento), cancela o repasse e, quando
@@ -369,11 +379,22 @@ Só `Note` (texto extra, ex.: "Reembolso solicitado") vai para o banco.
   `[Authorize]`/`.RequireAuthorization()` bloqueia sem token (401 em JSON).
 - `ICurrentUser` (Api/Infrastructure/CurrentUser.cs) lê o usuário do token
   em qualquer Service: `currentUser.RequireUserId()` → Guid ou 401.
-- Refresh: POST /auth/refresh com o token (body ou cookie httpOnly
-  `mktpy_refresh`) → gira o token (o antigo é revogado). Reutilizar um token
-  já girado revoga TODOS (proteção contra roubo).
-- Access token dura 7 dias hoje porque o front ainda não renova sozinho.
-  Quando o interceptor 401→refresh existir, reduza `Auth:Jwt:AccessTokenMinutes`.
+- Refresh: POST /auth/refresh com o token (cookie httpOnly `mktpy_refresh`
+  tem preferência sobre o body: ele é sempre o token mais novo do navegador,
+  enquanto cada aba guarda uma cópia que pode estar velha) → gira o token (o
+  antigo é revogado). Reutilizar um token já girado revoga TODOS (proteção
+  contra roubo). O front sincroniza a sessão entre abas pelo evento `storage`.
+- Access token dura 60 min (`Auth:Jwt:AccessTokenMinutes`); o front renova em
+  401 (single-flight) e só encerra a sessão quando a API responde 401/403 —
+  rede caída ou 429 não derrubam o usuário.
+- Bloqueio/exclusão valem na hora: `AccountStateGuard` (Api/Infrastructure)
+  checa BlockedAt/AnonymizedAt por requisição autenticada (cache de 30 s) e
+  responde 403 ACCOUNT_BLOCKED / 401 mesmo com JWT válido.
+- Google: ao vincular a uma conta local cujo e-mail nunca foi verificado, a
+  senha antiga é apagada e as sessões revogadas (um pré-cadastro malicioso com
+  o e-mail da vítima não sobrevive); quem precisar de senha usa "Esqueci".
+- Redefinição: POST /auth/reset-password (link /redefinir-senha?token= do
+  e-mail) troca a senha e revoga todas as sessões.
 - Senha: `PasswordHasher` do ASP.NET Identity (PBKDF2). Login errado → 422
   no campo `password` sem dizer se o e-mail existe.
 - Google: valida o idToken com a biblioteca oficial; exige Auth:Google:ClientId.
@@ -398,7 +419,17 @@ Só `Note` (texto extra, ex.: "Reembolso solicitado") vai para o banco.
 - Só produtos `Ativo` de lojas `Aprovado` aparecem na vitrine (CatalogService
   filtra sempre).
 - Pedidos: GET /seller/orders, POST .../prepare (Pago→EmPreparacao),
-  POST .../ship { carrier, trackingCode } (→ Enviado + evento POSTED).
+  POST .../ship { carrier, trackingCode } (→ Enviado + evento POSTED),
+  POST .../cancel { reason? } (Pago/EmPreparacao → Cancelado: estorna a parte
+  do pedido no gateway, cancela o repasse e devolve o estoque, igual ao
+  cancelamento pelo comprador).
+- Perguntas: GET /seller/questions?unanswered (sem resposta primeiro, mais
+  antigas no topo) e POST /seller/questions/{id}/answer { text } — a resposta
+  aparece em GET /products/{id}/questions. Pergunta de produto de outra loja
+  = 404 (não vaza que existe).
+- Repasses: GET /seller/payouts?status (ledger por pedido) e
+  GET /seller/payouts/summary (líquido por situação). Só leitura: quem muda o
+  status do repasse é o admin.
 - Imagens: POST /seller/uploads assina uma URL; o navegador faz PUT direto.
   Provider Local grava em .data/media e serve em GET /api/media/{key}
   (com proteção contra "../"). Provider R2 gera URL pré-assinada S3.

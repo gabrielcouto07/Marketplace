@@ -221,7 +221,9 @@ O imposto é **estimativa** (exibida como tal); o valor cobrado pela Receita pod
 - Uma compra (`purchaseId`) gera **N pedidos** (um por vendedor) e **1 pagamento** com split entre vendedores (ver §6).
 - Status inicial: `AguardandoPagamento` (Pix/boleto) ou `Pago` (cartão aprovado).
 
-### ✅ `GET /orders?status&page&pageSize` (auth) → `PagedResult<OrderDto>`
+### ✅ `GET /orders?status&group&page&pageSize` (auth) → `PagedResult<OrderDto>`
+
+`group=active` (em andamento) ou `group=done` (`Concluido|Cancelado|Reembolsado`): as abas da lista filtram no servidor.
 
 ### ✅ `GET /orders/{id}` (auth) → `OrderDto` (aceita `id` ou `number`)
 
@@ -283,11 +285,11 @@ Modelo sugerido: gateway com **split de pagamento** (ex.: Pagar.me/Asaas/Mercado
 `PlaceOrderResponseDto.payment` é uma cobrança única com regras de split por vendedor
 (`amount - platformFee - paymentFee`), respeitando o câmbio travado (`exchangeRateId`) para o repasse em PYG/USD.
 
-### 🔜 `GET /seller/payouts?page&pageSize` (auth vendedor) → `PagedResult<PayoutDto>`
+### ✅ `GET /seller/payouts?status&page&pageSize` (auth vendedor) → `PagedResult<PayoutDto>`
 
-`PayoutDto { id, sellerId, period {min,max}, gross, platformFee, paymentFee, net, status: Agendado|Processando|Pago|Falhou, scheduledFor, paidAt }`
+`PayoutDto { id, sellerId, sellerName, orderId, orderNumber, period {min,max}, gross, platformFee, paymentFee, net, status: Agendado|Processando|Pago|Falhou, scheduledFor, paidAt, failureReason }`
 
-### 🔜 `GET /seller/payouts/{id}` → `PayoutDto` + itens
+### ✅ `GET /seller/payouts/summary` → `SellerPayoutSummaryDto { scheduled, processing, paid, failed: Money, scheduledCount }`
 
 ### 🔜 `GET /admin/payouts`, `POST /admin/payouts/{id}/retry`
 
@@ -318,7 +320,7 @@ Efeitos esperados: `payment.approved` → todos os pedidos da compra passam a `P
 | ✅ POST    | `/auth/register`        | `{ fullName, email, phone, password }`                              | `201 AuthResponseDto`                                                               |
 | ✅ POST    | `/auth/google`          | `{ idToken }` (Google Identity Services)                            | `AuthResponseDto`                                                                   |
 | ✅ POST    | `/auth/forgot-password` | `{ email }`                                                         | `202` (sempre, sem revelar existência)                                              |
-| 🔜 POST    | `/auth/reset-password`  | `{ token, password }`                                               | `204`                                                                               |
+| ✅ POST    | `/auth/reset-password`  | `{ token, password }` (link `/redefinir-senha?token=` do e-mail)   | `204` (revoga todas as sessões); token inválido/vencido → 422 em `token`             |
 | ✅ POST    | `/auth/refresh`         | cookie/`{ refreshToken }`                                           | `AuthResponseDto`                                                                   |
 | ✅ POST    | `/auth/logout`          | —                                                                   | `204`                                                                               |
 | ✅ GET     | `/me`                   | —                                                                   | `UserProfileDto { id, fullName, email, phone, cpf, avatarUrl, roles[], createdAt }` |
@@ -340,10 +342,10 @@ Mock: usuário `demo@mktpy.com` / `123456`. Comprador identificado por **CPF**; 
 | -------- | ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | GET      | `/seller/dashboard?from&to`                                                           | `SellerDashboardDto { grossSales, ordersCount, pendingShipments, openQuestions, reputationLevel }`                                              |
 | GET/POST | `/seller/products` · PUT/DELETE `/seller/products/{id}`                               | CRUD de produtos e variantes; upload de imagens via URL pré-assinada do **Cloudflare R2** (`POST /seller/uploads` → `{ uploadUrl, publicUrl }`) |
-| GET      | `/seller/orders?status` · POST `/seller/orders/{id}/ship` `{ carrier, trackingCode }` | pedidos da loja e postagem                                                                                                                      |
-| GET      | `/seller/questions?unanswered` · POST `/seller/questions/{id}/answer` `{ text }`      |                                                                                                                                                 |
+| GET      | `/seller/orders?status` · POST `/seller/orders/{id}/prepare` · POST `.../ship` `{ carrier, trackingCode }` · POST `.../cancel` `{ reason? }` | pedidos da loja, preparação, postagem e cancelamento pela loja (Pago/EmPreparacao → Cancelado com estorno + estoque)                            |
+| GET      | `/seller/questions?unanswered&page&pageSize` → `PagedResult<SellerQuestionDto>` · POST `/seller/questions/{id}/answer` `{ text }` → `SellerQuestionDto` | perguntas dos compradores nos produtos da loja (sem resposta primeiro); a resposta aparece em `GET /products/{id}/questions`                     |
 | GET/PUT  | `/seller/profile`                                                                     | dados da loja, RUC, política de troca                                                                                                           |
-| GET      | `/seller/payouts`                                                                     | ver §6                                                                                                                                          |
+| GET      | `/seller/payouts?status` · `/seller/payouts/summary`                                  | ver §6                                                                                                                                          |
 
 ## 9. Admin — 🔜
 
@@ -386,3 +388,22 @@ Mudanças aditivas: clientes antigos continuam funcionando. O backend em `apps/a
 | Erros | 404/405/415 também em `application/problem+json`; novos códigos 409 `DATA_CONFLICT`, 502 `UPSTREAM_UNAVAILABLE`, 504 `UPSTREAM_TIMEOUT`, 422 `SHIPPING_UNAVAILABLE` |
 | Cartão | `card.brand` é o `payment_method_id` do Mercado Pago (`visa`, `master`, `amex`, `elo`, `hipercard`); o front tokeniza com o SDK JS (`NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY`) |
 | Front | envia `Accept-Language` e `credentials: include`, timeout de 20 s; `POST /auth/logout` com `{ refreshToken }`; access token de 60 min renovado em 401 |
+
+## Atualizações de 2026-10-02 (revisão funcional)
+
+Mudanças aditivas ou de regra; clientes antigos continuam funcionando.
+
+| Onde | O que mudou |
+| --- | --- |
+| `RegisterRequest` | `+ acceptTerms: boolean` (obrigatório `true`; o backend grava o consentimento LGPD com data/IP/versão) |
+| `POST /auth/reset-password` | implementado no front (página `/redefinir-senha?token=`); `POST /auth/refresh` prefere o cookie `mktpy_refresh` ao corpo (sempre o token mais novo do navegador) |
+| `GET /orders` | `+ group=active\|done` |
+| `POST /orders` | revalida loja `Aprovado` e produto `Ativo` na hora de fechar (422 `groups`/`items`); cupom reconferido (422 `couponCode`); colisão de número de pedido é refeita sozinha |
+| `PaymentDto.status` | compra com todos os pedidos cancelados antes do pagamento → `Expirado`; pagamento confirmado depois disso → `Estornado` automaticamente |
+| `/seller/questions`, `/seller/questions/{id}/answer`, `/seller/payouts`, `/seller/payouts/summary`, `/seller/orders/{id}/cancel` | novos (§8) |
+| `SellerProductInput.hsCode` | agora editável no formulário do painel |
+| Admin | `POST /admin/orders/{id}/transition` recusa `Pago` sem pagamento aprovado (409 `PAYMENT_NOT_APPROVED`) e `Pago → Reembolsado` (use `Cancelado`); `Reembolsado`/`Devolvido` estornam/retêm o repasse; `POST /admin/payouts/{id}/retry\|mark-paid\|processing` recusa pedidos cancelados/reembolsados (409 `PAYOUT_ORDER_REFUNDED`) |
+| Sessão | usuário bloqueado/excluído perde o acesso em até 30 s mesmo com JWT válido (403 `ACCOUNT_BLOCKED` / 401) |
+| Rate limit | `429` traz `Retry-After`; `GET /postal-codes/{cep}` e `POST /shipping/quotes` entram na política `quotes` (120/min por IP); `auth` 40/min por IP |
+| Webhooks de pagamento | evento de um gateway para cobrança de outro é registrado e ignorado; aprovação sem valor em gateway real confirma `GetStatus` antes de liberar |
+| Cache público | o front chama `/home`, `/products*`, `/categories*`, `/sellers*` e `/exchange-rates` **sem** `Authorization` para o cache de saída (60 s) valer para quem está logado; o cache é invalidado quando o estoque muda (pedido, cancelamento) |
