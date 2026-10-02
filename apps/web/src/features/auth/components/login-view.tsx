@@ -1,6 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import { UserPlus } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -12,7 +13,7 @@ import { useLogin } from "@/features/auth/api";
 import { Link } from "@/i18n/navigation";
 import { loginSchema, type LoginFormValues } from "@/lib/validation/schemas";
 
-import { ApiErrorNotice, AuthCard, DemoHint, GoogleSignIn } from "./auth-card";
+import { ApiErrorNotice, AuthCard, GoogleSignIn } from "./auth-card";
 import { FormField, PasswordInput, applyApiErrors, fieldError } from "./form-field";
 import { useAuthRedirect, useRedirectIfAuthenticated } from "./use-auth-redirect";
 
@@ -44,18 +45,7 @@ export function LoginView() {
   });
 
   return (
-    <AuthCard
-      title={t("loginTitle")}
-      subtitle={t("loginSubtitle")}
-      footer={
-        <>
-          {t("noAccount")}
-          <Button variant="link" render={<Link href="/cadastrar" />}>
-            {t("signUp")}
-          </Button>
-        </>
-      }
-    >
+    <AuthCard title={t("loginTitle")} subtitle={t("loginSubtitle")}>
       <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
         <ApiErrorNotice message={apiError} />
         <FormField label={t("email")} error={fieldError(formState.errors, "email")}>
@@ -83,7 +73,10 @@ export function LoginView() {
         <Button type="submit" variant="primary" fullWidth loading={login.isPending}>
           {t("signIn")}
         </Button>
-        <DemoHint>{t("demoHint")}</DemoHint>
+        <Button variant="soft" fullWidth render={<Link href="/cadastrar" />}>
+          <UserPlus data-icon="inline-start" strokeWidth={2} aria-hidden />
+          {t("signUp")}
+        </Button>
       </form>
       <GoogleSignIn />
     </AuthCard>

@@ -9,7 +9,6 @@ import { ErrorState } from "@/components/shared/states";
 import { Button } from "@/components/ui/button";
 import { GOOGLE_LOGIN_ENABLED, useGoogleLogin } from "@/features/auth/api";
 import { GoogleIdentityError } from "@/lib/auth/google-identity";
-import { env } from "@/lib/env";
 
 import { useAuthRedirect } from "./use-auth-redirect";
 
@@ -48,16 +47,6 @@ export function AuthCard({ title, subtitle, children, footer }: AuthCardProps) {
 export function ApiErrorNotice({ message }: { message: string | null }) {
   if (!message) return null;
   return <ErrorState compact title={message} />;
-}
-
-/** Caixa azul-suave com a dica de acesso à demo. Só existe no mock: a API real não tem contas demo. */
-export function DemoHint({ children }: { children: ReactNode }) {
-  if (!env.apiMocking) return null;
-  return (
-    <p role="note" className="rounded-md bg-primary-soft p-3 text-center text-caption text-primary">
-      {children}
-    </p>
-  );
 }
 
 /** Divisor "ou". */
