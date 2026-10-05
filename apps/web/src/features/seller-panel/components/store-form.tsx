@@ -1,6 +1,6 @@
 "use client";
 
-import type { SellerProfileInput } from "@marketplace/contracts";
+import type { SellerProfileInput, SellerVerificationDto } from "@marketplace/contracts";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslations } from "next-intl";
 import { useEffect, type ReactNode } from "react";
@@ -25,6 +25,7 @@ import { storeSchema, type StoreFormOutput, type StoreFormValues } from "@/lib/v
 
 import { useSellerCities } from "../api";
 import { SingleImageUpload } from "./image-upload";
+import { VerificationSection } from "./verification-section";
 
 /** `+595 61 500 123` → `+595 61 500 123` (mantém só dígitos, espaços e o "+" inicial). */
 function normalizePhoneInput(value: string): string {
@@ -48,6 +49,8 @@ export interface StoreFormProps {
   footer?: ReactNode;
   /** Só no cadastro: o RUC não pode ser alterado depois pelo painel. */
   rucEditable?: boolean;
+  /** Situação da verificação de documentos (perfil). */
+  verification?: SellerVerificationDto | null;
 }
 
 const EMPTY: StoreFormValues = {
@@ -61,6 +64,13 @@ const EMPTY: StoreFormValues = {
   categoryIds: [],
   originPostalCode: "",
   phone: "",
+  legalAddress: "",
+  responsibleName: "",
+  responsibleDocumentType: "CedulaPy",
+  responsibleDocument: "",
+  documentOnFile: false,
+  identityDocumentUrl: null,
+  rucCertificateUrl: null,
 };
 
 /** Dados da loja: nome, logo, banner, RUC, cidade de envio, bio, categorias e política de troca. */
@@ -72,6 +82,7 @@ export function StoreForm({
   serverErrors,
   footer,
   rucEditable = true,
+  verification,
 }: StoreFormProps) {
   const t = useTranslations("sellerPanel");
   const categories = useCategories();
@@ -106,6 +117,12 @@ export function StoreForm({
       categoryIds: values.categoryIds,
       originPostalCode: values.originPostalCode ? onlyDigits(values.originPostalCode) : null,
       phone: values.phone ? normalizePhone(values.phone) : null,
+      legalAddress: values.legalAddress,
+      responsibleName: values.responsibleName,
+      responsibleDocumentType: values.responsibleDocumentType,
+      responsibleDocument: values.responsibleDocument || null,
+      identityDocumentUrl: values.identityDocumentUrl,
+      rucCertificateUrl: values.rucCertificateUrl,
     }),
   );
 
@@ -315,6 +332,14 @@ export function StoreForm({
           </FormField>
         </div>
       </section>
+
+      <VerificationSection
+        control={control}
+        register={register}
+        errors={errors}
+        verification={verification ?? null}
+        describedBy={describedBy}
+      />
 
       <section className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-xs sm:p-6">
         <FormField

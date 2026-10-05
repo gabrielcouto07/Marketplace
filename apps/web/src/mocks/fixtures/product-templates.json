@@ -1,7 +1,7 @@
 {
   "eletronicos": [
     {
-      "name": "Smart TV 55\" 4K UHD com HDR e sistema inteligente",
+      "name": "Smart TV 55\" 4K UHD com HDR e sistema inteligente", "ncm": "85287200",
       "price": 249900,
       "compareAt": 319900,
       "attrs": [
@@ -15,7 +15,7 @@
       "warranty": 12
     },
     {
-      "name": "Fone de ouvido Bluetooth com cancelamento ativo de ruído",
+      "name": "Fone de ouvido Bluetooth com cancelamento ativo de ruído", "ncm": "85183000",
       "price": 89900,
       "compareAt": 129900,
       "attrs": [
@@ -29,7 +29,7 @@
       "warranty": 12
     },
     {
-      "name": "Caixa de som portátil à prova d'água 40 W",
+      "name": "Caixa de som portátil à prova d'água 40 W", "ncm": "85182200",
       "price": 45900,
       "compareAt": null,
       "attrs": [
@@ -43,7 +43,7 @@
       "warranty": 6
     },
     {
-      "name": "Caixa de som inteligente com assistente de voz",
+      "name": "Caixa de som inteligente com assistente de voz", "ncm": "85176299",
       "price": 39900,
       "compareAt": 49900,
       "attrs": [
@@ -57,7 +57,7 @@
       "warranty": 12
     },
     {
-      "name": "Câmera DSLR 24 MP com lente 18-55 mm",
+      "name": "Câmera DSLR 24 MP com lente 18-55 mm", "ncm": "85258929",
       "price": 349900,
       "compareAt": 419900,
       "attrs": [
@@ -69,7 +69,7 @@
       "warranty": 12
     },
     {
-      "name": "Câmera instantânea com impressão de fotos",
+      "name": "Câmera instantânea com impressão de fotos", "ncm": "90064000",
       "price": 59900,
       "compareAt": 74900,
       "attrs": [
@@ -83,7 +83,7 @@
       "warranty": 6
     },
     {
-      "name": "Smartwatch com GPS e monitor cardíaco",
+      "name": "Smartwatch com GPS e monitor cardíaco", "ncm": "85176299",
       "price": 69900,
       "compareAt": 99900,
       "attrs": [
@@ -97,7 +97,7 @@
       "warranty": 12
     },
     {
-      "name": "Fone intra-auricular TWS com estojo de carga",
+      "name": "Fone intra-auricular TWS com estojo de carga", "ncm": "85183000",
       "price": 19900,
       "compareAt": 29900,
       "attrs": [
@@ -113,7 +113,7 @@
   ],
   "perfumes": [
     {
-      "name": "Eau de Parfum feminino floral amadeirado 100 ml",
+      "name": "Eau de Parfum feminino floral amadeirado 100 ml", "ncm": "33030010",
       "price": 32900,
       "compareAt": 49900,
       "attrs": [
@@ -127,7 +127,7 @@
       "warranty": null
     },
     {
-      "name": "Eau de Toilette masculino cítrico aromático 100 ml",
+      "name": "Eau de Toilette masculino cítrico aromático 100 ml", "ncm": "33030020",
       "price": 27900,
       "compareAt": 39900,
       "attrs": [
@@ -141,7 +141,7 @@
       "warranty": null
     },
     {
-      "name": "Perfume oriental especiado unissex 75 ml",
+      "name": "Perfume oriental especiado unissex 75 ml", "ncm": "33030010",
       "price": 41900,
       "compareAt": null,
       "attrs": [
@@ -153,7 +153,7 @@
       "warranty": null
     },
     {
-      "name": "Kit perfume + loção corporal + gel de banho",
+      "name": "Kit perfume + loção corporal + gel de banho", "ncm": "33079000",
       "price": 36900,
       "compareAt": 52900,
       "attrs": [
@@ -165,7 +165,7 @@
       "warranty": null
     },
     {
-      "name": "Perfume infantil colônia suave 200 ml",
+      "name": "Perfume infantil colônia suave 200 ml", "ncm": "33030020",
       "price": 9900,
       "compareAt": 14900,
       "attrs": [
@@ -177,7 +177,7 @@
       "warranty": null
     },
     {
-      "name": "Body splash frutal 236 ml",
+      "name": "Body splash frutal 236 ml", "ncm": "33030020",
       "price": 7900,
       "compareAt": 11900,
       "attrs": [
@@ -191,7 +191,7 @@
       "warranty": null
     },
     {
-      "name": "Eau de Parfum masculino amadeirado intenso 125 ml",
+      "name": "Eau de Parfum masculino amadeirado intenso 125 ml", "ncm": "33030010",
       "price": 45900,
       "compareAt": 62900,
       "attrs": [
@@ -203,7 +203,7 @@
       "warranty": null
     },
     {
-      "name": "Miniatura decant 10 ml fragrância nicho",
+      "name": "Miniatura decant 10 ml fragrância nicho", "ncm": "33030010",
       "price": 5900,
       "compareAt": null,
       "attrs": [
@@ -217,7 +217,7 @@
   ],
   "informatica": [
     {
-      "name": "Notebook 15.6\" Core i5 16 GB RAM SSD 512 GB",
+      "name": "Notebook 15.6\" Core i5 16 GB RAM SSD 512 GB", "ncm": "84713019",
       "price": 329900,
       "compareAt": 419900,
       "attrs": [
@@ -231,7 +231,7 @@
       "warranty": 12
     },
     {
-      "name": "Monitor gamer 27\" 165 Hz IPS 1 ms",
+      "name": "Monitor gamer 27\" 165 Hz IPS 1 ms", "ncm": "85285200",
       "price": 129900,
       "compareAt": 159900,
       "attrs": [
@@ -243,7 +243,7 @@
       "warranty": 12
     },
     {
-      "name": "Kit memória RAM DDR5 32 GB (2 x 16 GB) 6000 MHz",
+      "name": "Kit memória RAM DDR5 32 GB (2 x 16 GB) 6000 MHz", "ncm": "84733042",
       "price": 69900,
       "compareAt": 79900,
       "attrs": [
@@ -257,7 +257,7 @@
       "warranty": 36
     },
     {
-      "name": "Teclado mecânico sem fio switch tátil RGB",
+      "name": "Teclado mecânico sem fio switch tátil RGB", "ncm": "84716052",
       "price": 34900,
       "compareAt": null,
       "attrs": [
@@ -271,7 +271,7 @@
       "warranty": 12
     },
     {
-      "name": "Mouse gamer sem fio 26.000 DPI 60 g",
+      "name": "Mouse gamer sem fio 26.000 DPI 60 g", "ncm": "84716053",
       "price": 24900,
       "compareAt": 32900,
       "attrs": [
@@ -285,7 +285,7 @@
       "warranty": 12
     },
     {
-      "name": "Placa de vídeo 8 GB GDDR6 ray tracing",
+      "name": "Placa de vídeo 8 GB GDDR6 ray tracing", "ncm": "84733049",
       "price": 199900,
       "compareAt": 249900,
       "attrs": [
@@ -297,7 +297,7 @@
       "warranty": 12
     },
     {
-      "name": "Roteador Wi-Fi 6 mesh dual band AX3000",
+      "name": "Roteador Wi-Fi 6 mesh dual band AX3000", "ncm": "85176241",
       "price": 44900,
       "compareAt": 59900,
       "attrs": [
@@ -311,7 +311,7 @@
       "warranty": 12
     },
     {
-      "name": "Óculos de realidade virtual 128 GB standalone",
+      "name": "Óculos de realidade virtual 128 GB standalone", "ncm": "85285900",
       "price": 249900,
       "compareAt": 289900,
       "attrs": [
@@ -327,7 +327,7 @@
   ],
   "celulares": [
     {
-      "name": "Smartphone 6.7\" 256 GB 5G câmera tripla 50 MP",
+      "name": "Smartphone 6.7\" 256 GB 5G câmera tripla 50 MP", "ncm": "85171300",
       "price": 279900,
       "compareAt": 349900,
       "attrs": [
@@ -342,7 +342,7 @@
       "warranty": 12
     },
     {
-      "name": "Smartphone 6.1\" 128 GB dual chip 4G",
+      "name": "Smartphone 6.1\" 128 GB dual chip 4G", "ncm": "85171300",
       "price": 99900,
       "compareAt": 129900,
       "attrs": [
@@ -356,7 +356,7 @@
       "warranty": 12
     },
     {
-      "name": "Smartphone premium 6.8\" 512 GB titânio",
+      "name": "Smartphone premium 6.8\" 512 GB titânio", "ncm": "85171300",
       "price": 599900,
       "compareAt": 749900,
       "attrs": [
@@ -370,7 +370,7 @@
       "warranty": 12
     },
     {
-      "name": "Capa protetora antichoque transparente",
+      "name": "Capa protetora antichoque transparente", "ncm": "39269090",
       "price": 3900,
       "compareAt": 6900,
       "attrs": [
@@ -382,7 +382,7 @@
       "warranty": null
     },
     {
-      "name": "Carregador magnético sem fio 15 W com cabo USB-C",
+      "name": "Carregador magnético sem fio 15 W com cabo USB-C", "ncm": "85044010",
       "price": 9900,
       "compareAt": 14900,
       "attrs": [
@@ -394,7 +394,7 @@
       "warranty": 6
     },
     {
-      "name": "Smartphone 6.5\" 128 GB bateria 6000 mAh",
+      "name": "Smartphone 6.5\" 128 GB bateria 6000 mAh", "ncm": "85171300",
       "price": 89900,
       "compareAt": 109900,
       "attrs": [
@@ -408,7 +408,7 @@
       "warranty": 12
     },
     {
-      "name": "Tablet 11\" 128 GB Wi-Fi com caneta",
+      "name": "Tablet 11\" 128 GB Wi-Fi com caneta", "ncm": "84713012",
       "price": 189900,
       "compareAt": 239900,
       "attrs": [
@@ -422,7 +422,7 @@
       "warranty": 12
     },
     {
-      "name": "Película de vidro 9H com aplicador",
+      "name": "Película de vidro 9H com aplicador", "ncm": "70071900",
       "price": 2900,
       "compareAt": null,
       "attrs": [
@@ -436,7 +436,7 @@
   ],
   "bebidas": [
     {
-      "name": "Whisky escocês blended 12 anos 1 L",
+      "name": "Whisky escocês blended 12 anos 1 L", "ncm": "22083020",
       "price": 18900,
       "compareAt": 24900,
       "attrs": [
@@ -448,7 +448,7 @@
       "warranty": null
     },
     {
-      "name": "Vodka premium destilada 5x 1 L",
+      "name": "Vodka premium destilada 5x 1 L", "ncm": "22086000",
       "price": 9900,
       "compareAt": 13900,
       "attrs": [
@@ -460,7 +460,7 @@
       "warranty": null
     },
     {
-      "name": "Gin london dry artesanal 750 ml",
+      "name": "Gin london dry artesanal 750 ml", "ncm": "22085000",
       "price": 12900,
       "compareAt": null,
       "attrs": [
@@ -472,7 +472,7 @@
       "warranty": null
     },
     {
-      "name": "Vinho tinto malbec reserva 750 ml",
+      "name": "Vinho tinto malbec reserva 750 ml", "ncm": "22042100",
       "price": 6900,
       "compareAt": 9900,
       "attrs": [
@@ -486,7 +486,7 @@
       "warranty": null
     },
     {
-      "name": "Espumante brut rosé 750 ml",
+      "name": "Espumante brut rosé 750 ml", "ncm": "22041090",
       "price": 5900,
       "compareAt": null,
       "attrs": [
@@ -498,7 +498,7 @@
       "warranty": null
     },
     {
-      "name": "Licor de creme irlandês 750 ml",
+      "name": "Licor de creme irlandês 750 ml", "ncm": "22087000",
       "price": 8900,
       "compareAt": 11900,
       "attrs": [
@@ -510,7 +510,7 @@
       "warranty": null
     },
     {
-      "name": "Tequila reposado 100% agave 750 ml",
+      "name": "Tequila reposado 100% agave 750 ml", "ncm": "22089000",
       "price": 15900,
       "compareAt": 19900,
       "attrs": [
@@ -522,7 +522,7 @@
       "warranty": null
     },
     {
-      "name": "Energético lata 250 ml caixa com 24",
+      "name": "Energético lata 250 ml caixa com 24", "ncm": "22029900",
       "price": 11900,
       "compareAt": 14900,
       "attrs": [
@@ -538,7 +538,7 @@
   ],
   "casa": [
     {
-      "name": "Robô aspirador com mapeamento e mop 4000 Pa",
+      "name": "Robô aspirador com mapeamento e mop 4000 Pa", "ncm": "85081100",
       "price": 149900,
       "compareAt": 199900,
       "attrs": [
@@ -550,7 +550,7 @@
       "warranty": 12
     },
     {
-      "name": "Fritadeira elétrica sem óleo 6 L digital",
+      "name": "Fritadeira elétrica sem óleo 6 L digital", "ncm": "85166000",
       "price": 39900,
       "compareAt": 54900,
       "attrs": [
@@ -564,7 +564,7 @@
       "warranty": 12
     },
     {
-      "name": "Cafeteira espresso automática com moedor",
+      "name": "Cafeteira espresso automática com moedor", "ncm": "85167100",
       "price": 219900,
       "compareAt": 279900,
       "attrs": [
@@ -576,7 +576,7 @@
       "warranty": 12
     },
     {
-      "name": "Jogo de panelas antiaderente 10 peças",
+      "name": "Jogo de panelas antiaderente 10 peças", "ncm": "76151000",
       "price": 29900,
       "compareAt": 39900,
       "attrs": [
@@ -588,7 +588,7 @@
       "warranty": 12
     },
     {
-      "name": "Aspirador de pó vertical sem fio 2 em 1",
+      "name": "Aspirador de pó vertical sem fio 2 em 1", "ncm": "85081100",
       "price": 79900,
       "compareAt": 99900,
       "attrs": [
@@ -600,7 +600,7 @@
       "warranty": 12
     },
     {
-      "name": "Luminária de mesa articulada com lâmpada inteligente Wi-Fi",
+      "name": "Luminária de mesa articulada com lâmpada inteligente Wi-Fi", "ncm": "94052100",
       "price": 14900,
       "compareAt": null,
       "attrs": [
@@ -614,7 +614,7 @@
       "warranty": 12
     },
     {
-      "name": "Liquidificador de alta potência 1400 W",
+      "name": "Liquidificador de alta potência 1400 W", "ncm": "85094010",
       "price": 24900,
       "compareAt": 32900,
       "attrs": [
@@ -626,7 +626,7 @@
       "warranty": 12
     },
     {
-      "name": "Jogo de cama 400 fios 4 peças",
+      "name": "Jogo de cama 400 fios 4 peças", "ncm": "63023100",
       "price": 19900,
       "compareAt": null,
       "attrs": [
@@ -643,7 +643,7 @@
   ],
   "esportes": [
     {
-      "name": "Bicicleta ergométrica magnética dobrável",
+      "name": "Bicicleta ergométrica magnética dobrável", "ncm": "95069100",
       "price": 89900,
       "compareAt": 119900,
       "attrs": [
@@ -655,7 +655,7 @@
       "warranty": 12
     },
     {
-      "name": "Tênis de corrida com placa de carbono",
+      "name": "Tênis de corrida com placa de carbono", "ncm": "64041100",
       "price": 79900,
       "compareAt": 99900,
       "attrs": [
@@ -670,7 +670,7 @@
       "warranty": null
     },
     {
-      "name": "Kit halteres ajustáveis 2 x 24 kg",
+      "name": "Kit halteres ajustáveis 2 x 24 kg", "ncm": "95069100",
       "price": 119900,
       "compareAt": 149900,
       "attrs": [
@@ -682,7 +682,7 @@
       "warranty": 12
     },
     {
-      "name": "Relógio GPS multiesporte com mapas",
+      "name": "Relógio GPS multiesporte com mapas", "ncm": "85176299",
       "price": 199900,
       "compareAt": 259900,
       "attrs": [
@@ -694,7 +694,7 @@
       "warranty": 12
     },
     {
-      "name": "Mochila de hidratação trail 12 L",
+      "name": "Mochila de hidratação trail 12 L", "ncm": "42029200",
       "price": 24900,
       "compareAt": null,
       "attrs": [
@@ -706,7 +706,7 @@
       "warranty": null
     },
     {
-      "name": "Barraca de camping 4 pessoas impermeável",
+      "name": "Barraca de camping 4 pessoas impermeável", "ncm": "63062200",
       "price": 34900,
       "compareAt": 44900,
       "attrs": [
@@ -718,7 +718,7 @@
       "warranty": null
     },
     {
-      "name": "Prancha de stand up paddle inflável 10'6",
+      "name": "Prancha de stand up paddle inflável 10'6", "ncm": "95062900",
       "price": 129900,
       "compareAt": 169900,
       "attrs": [
@@ -730,7 +730,7 @@
       "warranty": 6
     },
     {
-      "name": "Bola de futebol oficial termocolada",
+      "name": "Bola de futebol oficial termocolada", "ncm": "95066200",
       "price": 12900,
       "compareAt": 16900,
       "attrs": [
@@ -744,7 +744,7 @@
   ],
   "moda": [
     {
-      "name": "Óculos de sol polarizado armação acetato",
+      "name": "Óculos de sol polarizado armação acetato", "ncm": "90041000",
       "price": 39900,
       "compareAt": 59900,
       "attrs": [
@@ -758,7 +758,7 @@
       "warranty": 12
     },
     {
-      "name": "Relógio analógico aço inoxidável 42 mm",
+      "name": "Relógio analógico aço inoxidável 42 mm", "ncm": "91021110",
       "price": 49900,
       "compareAt": 69900,
       "attrs": [
@@ -772,7 +772,7 @@
       "warranty": 24
     },
     {
-      "name": "Bolsa transversal couro legítimo",
+      "name": "Bolsa transversal couro legítimo", "ncm": "42022100",
       "price": 29900,
       "compareAt": null,
       "attrs": [
@@ -786,7 +786,7 @@
       "warranty": null
     },
     {
-      "name": "Jaqueta corta-vento impermeável unissex",
+      "name": "Jaqueta corta-vento impermeável unissex", "ncm": "62014000",
       "price": 24900,
       "compareAt": 34900,
       "attrs": [
@@ -801,7 +801,7 @@
       "warranty": null
     },
     {
-      "name": "Tênis casual couro branco",
+      "name": "Tênis casual couro branco", "ncm": "64039990",
       "price": 34900,
       "compareAt": 44900,
       "attrs": [
@@ -815,7 +815,7 @@
       "warranty": null
     },
     {
-      "name": "Carteira slim RFID couro",
+      "name": "Carteira slim RFID couro", "ncm": "42023100",
       "price": 8900,
       "compareAt": 12900,
       "attrs": [
@@ -829,7 +829,7 @@
       "warranty": null
     },
     {
-      "name": "Cinto de couro reversível com fivela automática",
+      "name": "Cinto de couro reversível com fivela automática", "ncm": "42033000",
       "price": 6900,
       "compareAt": null,
       "attrs": [
@@ -841,7 +841,7 @@
       "warranty": null
     },
     {
-      "name": "Boné aba curva algodão bordado",
+      "name": "Boné aba curva algodão bordado", "ncm": "65050090",
       "price": 4900,
       "compareAt": 7900,
       "attrs": [

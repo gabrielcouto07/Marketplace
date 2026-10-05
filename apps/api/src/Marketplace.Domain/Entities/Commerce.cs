@@ -92,9 +92,15 @@ public class Order
     public DateTime EstimatedDeliveryMin { get; set; }
     public DateTime EstimatedDeliveryMax { get; set; }
 
+    /// <summary>CPF do destinatário no momento da compra (somente dígitos; cifrado em repouso) — vai para a DIR.</summary>
+    public string? RecipientDocument { get; set; }
+
     public long SubtotalAmount { get; set; }
     public long ShippingAmount { get; set; }
+    /// <summary>Total de tributos (II + ICMS + IBS + CBS) cobrado nesta remessa.</summary>
     public long ImportTaxAmount { get; set; }
+    /// <summary>Tributos discriminados e câmbio usados na compra (nulo em pedidos anteriores à discriminação).</summary>
+    public ImportTaxBreakdown? TaxBreakdown { get; set; }
     public long DiscountAmount { get; set; }
     public long TotalAmount { get; set; }
     /// <summary>Total convertido para PYG com a taxa travada.</summary>
@@ -103,6 +109,8 @@ public class Order
     public List<OrderItem> Items { get; set; } = [];
     public List<OrderEvent> Events { get; set; } = [];
     public List<TrackingEvent> TrackingEvents { get; set; } = [];
+    /// <summary>Remessa no operador logístico (declaração + etiqueta), criada pelo vendedor ao preparar o envio.</summary>
+    public Shipment? Shipment { get; set; }
 
     public bool CanBeCancelled => OrderStateMachine.CanCancel(Status);
     public bool CanOpenDispute => OrderStateMachine.CanDispute(Status);
@@ -252,12 +260,36 @@ public class WebhookEvent
 /// <summary>Parâmetros da plataforma (linha única). Editáveis pelo admin.</summary>
 public class PlatformSettings
 {
+    public const string DefaultProtectedBrands =
+        "Apple, iPhone, AirPods, Samsung, Xiaomi, Sony, PlayStation, Xbox, Nintendo, JBL, Bose, GoPro, Nike, Adidas, " +
+        "Puma, Lacoste, Ray-Ban, Oakley, Rolex, Casio, Michael Kors, Louis Vuitton, Gucci, Prada, Chanel, Dior, " +
+        "Carolina Herrera, Paco Rabanne, Calvin Klein, Hugo Boss, Johnnie Walker, Chivas, Absolut";
+
     public int Id { get; set; } = 1;
-    public ImportTaxMode ImportTaxMode { get; set; } = ImportTaxMode.Flat;
+    public ImportTaxMode ImportTaxMode { get; set; } = ImportTaxMode.RemessaConforme;
     /// <summary>Alíquota estimada de importação no modo Flat (6000 = 60%).</summary>
     public int ImportTaxBasisPoints { get; set; } = 6000;
-    /// <summary>ICMS aplicado no modo RemessaConforme (1700 = 17%).</summary>
+    /// <summary>ICMS padrão no modo RemessaConforme (1700 = 17%).</summary>
     public int IcmsBasisPoints { get; set; } = 1700;
+    /// <summary>Exceções de ICMS por UF em pontos-base, ex.: "SP=2000; RJ=2000". Vazio = ICMS padrão em todas.</summary>
+    public string IcmsStateOverrides { get; set; } = string.Empty;
+    /// <summary>IBS estadual e municipal e CBS (LC 214/2025), sobre valor aduaneiro + II. Padrão 0 até a consultoria confirmar.</summary>
+    public int IbsStateBasisPoints { get; set; }
+    public int IbsMunicipalBasisPoints { get; set; }
+    public int CbsBasisPoints { get; set; }
+    /// <summary>Seguro da remessa sobre o valor dos produtos (0 = sem seguro; a linha aparece zerada).</summary>
+    public int InsuranceBasisPoints { get; set; }
+    /// <summary>Outras despesas fixas por remessa, em centavos (entram no valor aduaneiro).</summary>
+    public long OtherExpensesAmount { get; set; }
+    /// <summary>Ocorrências confirmadas na janela que descredenciam a loja automaticamente.</summary>
+    public int SellerStrikeLimit { get; set; } = 3;
+    public int StrikeWindowDays { get; set; } = 365;
+    /// <summary>Produto com preço abaixo deste % da mediana do mesmo NCM vai para análise (risco de subvaloração).</summary>
+    public int PriceFloorPercent { get; set; } = 40;
+    /// <summary>Marcas que exigem análise antes de ir à vitrine (risco de contrafação), separadas por vírgula.</summary>
+    public string ProtectedBrands { get; set; } = DefaultProtectedBrands;
+    /// <summary>Envio só com etiqueta emitida pela plataforma (critério iii). Desligar só em testes.</summary>
+    public bool RequirePlatformLabel { get; set; } = true;
     /// <summary>Comissão da plataforma sobre o subtotal do vendedor.</summary>
     public int PlatformFeeBasisPoints { get; set; } = 1200;
     /// <summary>Custo do meio de pagamento repassado no ledger.</summary>
@@ -273,4 +305,144 @@ public class PlatformSettings
     public string TermsVersion { get; set; } = "2026-09-01";
     public string PrivacyPolicyVersion { get; set; } = "2026-09-01";
     public DateTime UpdatedAt { get; set; }
+
+    /// <summary>ICMS da UF de destino: exceção configurada ou o padrão.</summary>
+    public int IcmsBasisPointsFor(string? state)
+    {
+        if (string.IsNullOrWhiteSpace(state)) return IcmsBasisPoints;
+        return ParseIcmsOverrides(IcmsStateOverrides).TryGetValue(state.Trim().ToUpperInvariant(), out var bp) ? bp : IcmsBasisPoints;
+    }
+
+    /// <summary>"SP=2000; RJ=2000" → {SP: 2000, RJ: 2000}. Entradas inválidas são ignoradas (o admin valida ao salvar).</summary>
+    public static Dictionary<string, int> ParseIcmsOverrides(string? raw)
+    {
+        var result = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(raw)) return result;
+        foreach (var part in raw.Split([';', ',', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            var kv = part.Split('=', 2, StringSplitOptions.TrimEntries);
+            if (kv.Length == 2 && kv[0].Length == 2 && int.TryParse(kv[1], out var bp) && bp is >= 0 and <= 5000)
+                result[kv[0].ToUpperInvariant()] = bp;
+        }
+        return result;
+    }
+
+    public IReadOnlyList<string> ProtectedBrandList() =>
+        (ProtectedBrands ?? string.Empty).Split([',', ';', '\n'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(b => b.Length >= 2).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+}
+
+/// <summary>
+/// Remessa de um pedido na transportadora/operador logístico: declaração antecipada (dados da DIR) e etiqueta com
+/// marca, nome comercial e CNPJ/TIN da plataforma (Portaria Coana 130/2023, art. 8º, I e III).
+/// </summary>
+public class Shipment
+{
+    public Guid Id { get; set; }
+    public Guid OrderId { get; set; }
+    public Order Order { get; set; } = null!;
+    public Guid SellerId { get; set; }
+    /// <summary>Provedor que emitiu (sandbox, http…).</summary>
+    public required string Provider { get; set; }
+    public ShipmentStatus Status { get; set; } = ShipmentStatus.Pendente;
+    public string? ProviderReference { get; set; }
+    /// <summary>Número da declaração/registro devolvido pelo operador (a DIR de 12 dígitos chega depois, pelo Siscomex).</summary>
+    public string? DeclarationNumber { get; set; }
+    /// <summary>Número da remessa (S10) — o mesmo do rastreio e do campo numeroRemessa da DIR.</summary>
+    public string? TrackingCode { get; set; }
+    public string? Carrier { get; set; }
+    /// <summary>PDF guardado em <see cref="ShipmentLabel"/> (fora daqui para as listagens não carregarem o arquivo).</summary>
+    public bool HasLabelFile { get; set; }
+    public string? LabelUrl { get; set; }
+    /// <summary>Dados enviados ao operador, com documentos mascarados (auditoria).</summary>
+    public string RequestJson { get; set; } = "{}";
+    public string? LastError { get; set; }
+    public int Attempts { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public DateTime? LabelIssuedAt { get; set; }
+    public DateTime? PostedAt { get; set; }
+    public DateTime? CancelledAt { get; set; }
+    /// <summary>Quando o operador confirmou o cancelamento (o job tenta até conseguir).</summary>
+    public DateTime? CancelConfirmedAt { get; set; }
+
+    // ----- Situação aduaneira (consulta de remessas da ECE no Portal Único) -----
+    public string? DirNumber { get; set; }
+    public int? CustomsStatusCode { get; set; }
+    public string? CustomsStatus { get; set; }
+    public DateTime? CustomsCheckedAt { get; set; }
+}
+
+/// <summary>Etiqueta em PDF devolvida pelo operador (ou gerada no sandbox).</summary>
+public class ShipmentLabel
+{
+    public Guid ShipmentId { get; set; }
+    public required byte[] Pdf { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+/// <summary>Repasse dos tributos de uma remessa ao operador (que recolhe à Receita e aos estados).</summary>
+public class TaxRemittance
+{
+    public Guid Id { get; set; }
+    public Guid OrderId { get; set; }
+    public Guid ShipmentId { get; set; }
+    public required string Provider { get; set; }
+    public TaxRemittanceStatus Status { get; set; } = TaxRemittanceStatus.Pendente;
+    public long ImportDutyAmount { get; set; }
+    public long IcmsAmount { get; set; }
+    public long IbsStateAmount { get; set; }
+    public long IbsMunicipalAmount { get; set; }
+    public long CbsAmount { get; set; }
+    public long TotalAmount { get; set; }
+    public string? Reference { get; set; }
+    public string? LastError { get; set; }
+    public int Attempts { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime? SentAt { get; set; }
+    public DateTime? ConfirmedAt { get; set; }
+}
+
+/// <summary>
+/// Ocorrência que derruba um dos três indicadores da Portaria Coana 193/2026 (contrafação, subvaloração, qualidade da
+/// declaração). Vem do despacho (rastreio), da consulta ao Siscomex, da ouvidoria, de denúncia procedente ou da equipe.
+/// </summary>
+public class ComplianceOccurrence
+{
+    public Guid Id { get; set; }
+    public ComplianceIndicator Indicator { get; set; }
+    public OccurrenceSource Source { get; set; }
+    public OccurrenceStatus Status { get; set; } = OccurrenceStatus.Confirmada;
+    /// <summary>Subtipo, ex.: CPF_DESTINATARIO, DADOS_REMETENTE, DESCRICAO, REGIME, CONTEUDO, VALOR_MAJORADO, FALSIFICADO.</summary>
+    public required string Code { get; set; }
+    public string Description { get; set; } = string.Empty;
+    public Guid? SellerId { get; set; }
+    public Guid? ProductId { get; set; }
+    public Guid? OrderId { get; set; }
+    public Guid? ShipmentId { get; set; }
+    /// <summary>Identificador na origem (ex.: idOcorrencia do Siscomex) — evita duplicar na sincronização.</summary>
+    public string? ExternalId { get; set; }
+    /// <summary>Data do fato (despacho); define o mês da apuração.</summary>
+    public DateTime OccurredAt { get; set; }
+    public DateTime RegisteredAt { get; set; }
+    public Guid? RegisteredByUserId { get; set; }
+    public string? StatusReason { get; set; }
+    public DateTime? StatusChangedAt { get; set; }
+}
+
+/// <summary>Denúncia de produto feita por um usuário (falsificação, preço suspeito, descrição errada…).</summary>
+public class ProductReport
+{
+    public Guid Id { get; set; }
+    public Guid ProductId { get; set; }
+    public Guid SellerId { get; set; }
+    public Guid? ReporterUserId { get; set; }
+    public ProductReportReason Reason { get; set; }
+    public string Details { get; set; } = string.Empty;
+    public ProductReportStatus Status { get; set; } = ProductReportStatus.Aberta;
+    public DateTime CreatedAt { get; set; }
+    public DateTime? ResolvedAt { get; set; }
+    public Guid? ResolvedByUserId { get; set; }
+    public string? ResolutionNote { get; set; }
+    public Guid? OccurrenceId { get; set; }
 }

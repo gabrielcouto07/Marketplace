@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { PageContainer } from "@/components/layout/store-shell";
 import { OrderStatusBadge, OrderTimeline } from "@/components/shared/order-status";
 import { ErrorState } from "@/components/shared/states";
+import { TaxBreakdown } from "@/components/shared/tax-breakdown";
 import { DeliveryWindow, ImportTaxLine } from "@/components/shared/trust-badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -367,6 +368,10 @@ function OrderDetail({ order }: { order: OrderDto }) {
 
         {/* Totais */}
         <Section title={t("totals")}>
+          {order.totals.taxes ? (
+            <TaxBreakdown taxes={order.totals.taxes} />
+          ) : (
+          <>
           <dl className="flex flex-col gap-2 text-body-sm">
             <Row label={tCheckout("subtotal")} value={formatMoney(order.totals.subtotal)} />
             <Row label={tCheckout("shipping")} value={formatMoney(order.totals.shipping)} />
@@ -379,6 +384,8 @@ function OrderDetail({ order }: { order: OrderDto }) {
             ) : null}
           </dl>
           <ImportTaxLine amount={order.totals.importTax} />
+          </>
+          )}
           <div className="flex flex-col gap-1 border-t border-border pt-3">
             <div className="flex items-baseline justify-between gap-3">
               <span className="text-body font-semibold text-foreground">{tCheckout("total")}</span>

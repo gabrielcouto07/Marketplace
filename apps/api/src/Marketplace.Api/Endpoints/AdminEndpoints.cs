@@ -1,3 +1,4 @@
+using Marketplace.Application.Abstractions;
 using Marketplace.Application.Contracts;
 using Marketplace.Application.Services;
 using Marketplace.Domain;
@@ -74,6 +75,37 @@ public static class AdminEndpoints
         g.MapGet("/settings", (AdminService svc, CancellationToken ct) => svc.GetSettingsAsync(ct));
         g.MapPut("/settings", (PlatformSettingsDto body, AdminService svc, CancellationToken ct) => svc.UpdateSettingsAsync(body, ct));
         g.MapGet("/audit", (string? q, int? page, int? pageSize, AdminService svc, CancellationToken ct) => svc.ListAuditAsync(q, page, pageSize, ct));
+
+        // ----- Remessa Conforme: conformidade, denúncias, moderação, remessas e integrações -----
+        g.MapGet("/compliance", (int? cycle, ComplianceService svc, CancellationToken ct) => svc.DashboardAsync(cycle, ct));
+        g.MapGet("/compliance/occurrences", (string? indicator, Guid? sellerId, string? status, int? page, int? pageSize, ComplianceService svc, CancellationToken ct) =>
+            svc.ListOccurrencesAsync(Enum.TryParse<ComplianceIndicator>(indicator, true, out var i) ? i : null, sellerId,
+                Enum.TryParse<OccurrenceStatus>(status, true, out var s) ? s : null, page, pageSize, ct));
+        g.MapPost("/compliance/occurrences", async (ComplianceOccurrenceInput body, ComplianceService svc, CancellationToken ct) =>
+            Results.Created("/api/admin/compliance/occurrences", await svc.RegisterOccurrenceAsync(body, ct)));
+        g.MapPost("/compliance/occurrences/{id:guid}/status", (Guid id, OccurrenceStatusRequest body, ComplianceService svc, CancellationToken ct) =>
+            svc.SetOccurrenceStatusAsync(id, body, ct));
+
+        g.MapGet("/reports", (string? status, int? page, int? pageSize, ComplianceService svc, CancellationToken ct) =>
+            svc.ListReportsAsync(Enum.TryParse<ProductReportStatus>(status, true, out var s) ? s : null, page, pageSize, ct));
+        g.MapPost("/reports/{id:guid}/resolve", (Guid id, ProductReportResolveRequest body, ComplianceService svc, CancellationToken ct) =>
+            svc.ResolveReportAsync(id, body, ct));
+
+        g.MapPost("/products/{id:guid}/moderate", (Guid id, ProductModerationRequest body, ComplianceService svc, CancellationToken ct) =>
+            svc.ModerateProductAsync(id, body, ct));
+        g.MapPost("/sellers/{id:guid}/verify", (Guid id, SellerVerificationRequest body, AdminService svc, CancellationToken ct) =>
+            svc.VerifySellerAsync(id, body, ct));
+
+        g.MapGet("/shipments", (string? status, string? q, int? page, int? pageSize, RemessaService svc, CancellationToken ct) =>
+            svc.ListAsync(Enum.TryParse<ShipmentStatus>(status, true, out var s) ? s : null, q, page, pageSize, ct));
+        g.MapGet("/shipments/{id:guid}/label", async (Guid id, RemessaService svc, CancellationToken ct) =>
+        {
+            var (pdf, name) = await svc.AdminLabelAsync(id, ct);
+            return Results.File(pdf, "application/pdf", name);
+        });
+        g.MapPost("/shipments/{id:guid}/retry", (Guid id, RemessaService svc, CancellationToken ct) => svc.RetryAsync(id, ct));
+
+        g.MapGet("/integrations", (IIntegrationStatusReporter svc, CancellationToken ct) => svc.GetAsync(ct));
 
         return api;
     }

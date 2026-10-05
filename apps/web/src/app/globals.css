@@ -165,6 +165,11 @@
   --brand-roxo: var(--roxo-500);
   --brand-roxo-soft: var(--roxo-100);
 
+  /* Medalhas do selo Remessa Conforme (Portaria Coana 193/2026): faixa Ouro, Prata e Bronze. */
+  --selo-ouro: #e2b23a;
+  --selo-prata: #b8c2cc;
+  --selo-bronze: #c47d45;
+
   /* ---------- Tokens shadcn/ui (mapeados) ---------- */
   --foreground: var(--text);
   --card: var(--surface);
@@ -350,6 +355,9 @@
   --color-brand-azul-soft: var(--brand-azul-soft);
   --color-brand-verde: var(--brand-verde);
   --color-brand-verde-soft: var(--brand-verde-soft);
+  --color-selo-ouro: var(--selo-ouro);
+  --color-selo-prata: var(--selo-prata);
+  --color-selo-bronze: var(--selo-bronze);
   --color-brand-amarelo: var(--brand-amarelo);
   --color-brand-amarelo-soft: var(--brand-amarelo-soft);
   --color-brand-laranja: var(--brand-laranja);

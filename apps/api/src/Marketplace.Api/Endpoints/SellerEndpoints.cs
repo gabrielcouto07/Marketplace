@@ -38,7 +38,17 @@ public static class SellerEndpoints
         g.MapGet("/orders", (string? status, int? page, int? pageSize, SellerPanelService svc, CancellationToken ct) =>
             svc.ListOrdersAsync(Enum.TryParse<OrderStatus>(status, out var s) ? s : null, page, pageSize, ct));
         g.MapPost("/orders/{id:guid}/prepare", (Guid id, SellerPanelService svc, CancellationToken ct) => svc.PrepareOrderAsync(id, ct));
-        g.MapPost("/orders/{id:guid}/ship", (Guid id, ShipOrderRequest body, SellerPanelService svc, CancellationToken ct) => svc.ShipOrderAsync(id, body, ct));
+        g.MapPost("/orders/{id:guid}/ship", (Guid id, ShipOrderRequest? body, SellerPanelService svc, CancellationToken ct) => svc.ShipOrderAsync(id, body ?? new ShipOrderRequest(null, null), ct));
+
+        // Remessa Conforme: declaração antecipada + etiqueta da plataforma (critérios i e iii)
+        g.MapPost("/orders/{id:guid}/shipment", async (Guid id, SellerPanelService svc, CancellationToken ct) =>
+            Results.Created($"/api/seller/orders/{id}/shipment", await svc.CreateShipmentAsync(id, ct)));
+        g.MapGet("/orders/{id:guid}/shipment", (Guid id, SellerPanelService svc, CancellationToken ct) => svc.GetShipmentAsync(id, ct));
+        g.MapGet("/orders/{id:guid}/shipment/label", async (Guid id, SellerPanelService svc, CancellationToken ct) =>
+        {
+            var (pdf, name) = await svc.ShipmentLabelAsync(id, ct);
+            return Results.File(pdf, "application/pdf", name);
+        });
 
         return api;
     }

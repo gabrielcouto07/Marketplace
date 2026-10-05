@@ -94,7 +94,21 @@ public static class SeedCatalog
         ("É bivolt?", "Sim, 110/220 V automático."),
     ];
 
-    private sealed record Template(string Name, long Price, long? CompareAt, List<string[]> Attrs, Dictionary<string, List<string>>? Variants, int? Warranty);
+    private sealed record Template(string Name, string? Ncm, long Price, long? CompareAt, List<string[]> Attrs, Dictionary<string, List<string>>? Variants, int? Warranty);
+
+    /// <summary>Responsáveis das lojas de demonstração (documento fictício, verificação já feita).</summary>
+    private static readonly string[] Responsibles =
+    [
+        "Carlos Benítez", "María Fernanda Ortiz", "Jorge Duarte", "Ana Lucía Giménez", "Hiroshi Tanaka", "Rodrigo Acosta", "Paula Villalba", "Diego Cáceres",
+    ];
+
+    private static readonly Dictionary<string, string> Streets = new()
+    {
+        ["Ciudad del Este"] = "Av. Monseñor Rodríguez",
+        ["Asunción"] = "Av. Mariscal López",
+        ["Salto del Guairá"] = "Av. Paraguay",
+        ["Pedro Juan Caballero"] = "Calle Teniente Herrero",
+    };
 
     private static Dictionary<string, List<Template>> LoadTemplates()
     {
@@ -132,6 +146,13 @@ public static class SeedCatalog
             Description = s.Description,
             Ruc = s.Ruc,
             MemberSince = DaysAgo(s.MemberSinceDays),
+            LegalAddress = $"{Streets.GetValueOrDefault(s.City, "Av. Mcal. López")} {120 + Array.IndexOf(Sellers, s) * 85}, Microcentro",
+            ResponsibleName = Responsibles[Array.IndexOf(Sellers, s) % Responsibles.Length],
+            ResponsibleDocumentType = SellerDocumentType.CedulaPy,
+            ResponsibleDocument = $"{3_100_000 + Array.IndexOf(Sellers, s) * 271_113}",
+            IdentityDocumentUrl = "/images/kyc/documento-responsavel.svg",
+            RucCertificateUrl = "/images/kyc/constancia-ruc.svg",
+            VerifiedAt = DaysAgo(s.MemberSinceDays - 1),
             ExchangePolicy = ExchangePolicy,
             SalesCount = s.SalesCount,
             PositiveRatingPercent = s.Positive,
@@ -202,6 +223,7 @@ public static class SeedCatalog
                     HandlingDaysMin = 1,
                     HandlingDaysMax = 3,
                     WarrantyMonths = t.Warranty,
+                    HsCode = t.Ncm,
                     Status = ProductStatus.Ativo,
                     CreatedAt = DaysAgo(createdDaysAgo),
                     UpdatedAt = DaysAgo(createdDaysAgo),

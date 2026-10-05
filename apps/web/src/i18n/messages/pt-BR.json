@@ -1181,6 +1181,10 @@
     "deliveryLabel": "Prazo de entrega",
     "deliveryHint": "Dias úteis, do envio no Paraguai até a sua casa.",
     "reputationLabel": "Reputação",
-    "onTimeShort": "{percent}% no prazo"
+    "onTimeShort": "{percent}% no prazo",
+    "remessaConformeTitle": "Remessa Conforme",
+    "remessaConformeHint": "Loja certificada no programa da Receita Federal: os impostos são pagos aqui, na compra, e a entrega chega sem cobrança extra.",
+    "remessaConformeProgram": "Programa da Receita Federal",
+    "remessaConformeAde": "Certificação ADE Coana nº {number}"
   }
 }

@@ -17,6 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useIsAuthenticated } from "@/features/auth/store";
+import { useTaxEstimate } from "@/features/compliance/api";
 import {
   groupBySeller,
   selectItemCount,
@@ -37,8 +38,8 @@ import { cn } from "@/lib/utils";
 const FREE_SHIPPING_THRESHOLD_CENTS = 30000;
 
 /**
- * Estimativa informativa dos impostos de importação (60 %), a mesma da página de produto e do mock
- * do checkout. O valor exato vem na cotação do checkout (`estimatedImportTax`).
+ * Alíquota de reserva enquanto a estimativa da API (`/taxes/estimate`, regras do Remessa Conforme) não chega. O valor
+ * por remessa, com frete, sai na cotação do checkout.
  */
 const IMPORT_TAX_BASIS_POINTS = 6000;
 
@@ -217,7 +218,8 @@ function CartSummary({
   className?: string;
 }) {
   const t = useTranslations("cart");
-  const estimatedTax = multiplyBasisPoints(subtotal, IMPORT_TAX_BASIS_POINTS);
+  const estimate = useTaxEstimate(subtotal.amount);
+  const estimatedTax = estimate.data?.totalTaxes ?? multiplyBasisPoints(subtotal, IMPORT_TAX_BASIS_POINTS);
   const estimatedTotal: Money = {
     amount: subtotal.amount + estimatedTax.amount,
     currency: subtotal.currency,
@@ -244,7 +246,16 @@ function CartSummary({
         <SummaryRow
           label={t("estimatedTaxes")}
           value={formatMoney(estimatedTax)}
-          hint={t("estimatedTaxesHint")}
+          hint={
+            estimate.data
+              ? t("estimatedTaxesItemized", {
+                  ii: formatMoney(estimate.data.importDuty),
+                  icms: formatMoney(estimate.data.icms),
+                  ibs: formatMoney(estimate.data.ibs),
+                  cbs: formatMoney(estimate.data.cbs),
+                })
+              : t("estimatedTaxesHint")
+          }
         />
         <SummaryRow
           label={t("shipping")}

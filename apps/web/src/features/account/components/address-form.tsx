@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { usePostalCodeLookup } from "@/features/shipping/api";
-import { formatCep, formatPhoneBr, onlyDigits } from "@/lib/validation/documents";
+import { formatCep, formatCpf, formatPhoneBr, onlyDigits } from "@/lib/validation/documents";
 import {
   addressSchema,
   type AddressFormOutput,
@@ -39,6 +39,7 @@ const EMPTY: AddressFormValues = {
   city: "",
   state: "",
   phone: "",
+  recipientCpf: "",
   isDefault: false,
 };
 
@@ -93,6 +94,7 @@ export function AddressForm({
       city: values.city,
       state: values.state.toUpperCase(),
       phone: values.phone ? values.phone : null,
+      recipientCpf: values.recipientCpf,
       isDefault: values.isDefault,
     };
     return onSubmit(payload);
@@ -223,6 +225,34 @@ export function AddressForm({
           />
         </FormField>
       </div>
+
+      <FormField
+        id="addr-cpf"
+        label={t("recipientCpf")}
+        hint={t("recipientCpfHint")}
+        error={errors.recipientCpf?.message}
+      >
+        <Controller
+          control={control}
+          name="recipientCpf"
+          render={({ field }) => (
+            <Input
+              id="addr-cpf"
+              inputMode="numeric"
+              autoComplete="off"
+              placeholder="000.000.000-00"
+              className="tabular-nums"
+              aria-invalid={Boolean(errors.recipientCpf) || undefined}
+              aria-describedby={describedBy("addr-cpf", Boolean(errors.recipientCpf), true)}
+              value={formatCpf(field.value ?? "")}
+              onChange={(e) => field.onChange(onlyDigits(e.target.value).slice(0, 11))}
+              onBlur={field.onBlur}
+              name={field.name}
+              ref={field.ref}
+            />
+          )}
+        />
+      </FormField>
 
       <FormField id="addr-phone" label={t("phone")} optional error={errors.phone?.message}>
         <Controller

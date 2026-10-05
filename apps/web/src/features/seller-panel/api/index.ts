@@ -14,6 +14,7 @@ import type {
   SellerProfileInput,
   SellerRegisterRequest,
   SellerRegisterResponseDto,
+  ShipmentDto,
   ShipOrderRequest,
   UploadRequest,
 } from "@marketplace/contracts";
@@ -43,6 +44,9 @@ export const sellerPanelApi = {
   prepareOrder: (id: string) => api.post<OrderDto>(`/seller/orders/${id}/prepare`),
   shipOrder: (id: string, body: ShipOrderRequest) =>
     api.post<OrderDto>(`/seller/orders/${id}/ship`, body),
+  /** Declaração antecipada + etiqueta da plataforma no operador (Remessa Conforme, critérios i e iii). */
+  createShipment: (id: string) => api.post<ShipmentDto>(`/seller/orders/${id}/shipment`),
+  shipment: (id: string) => api.get<ShipmentDto>(`/seller/orders/${id}/shipment`),
   presignUpload: (body: UploadRequest) => api.post<PresignedUploadDto>("/seller/uploads", body),
 };
 
@@ -167,6 +171,11 @@ function useInvalidateSellerOrders() {
 export function usePrepareOrder() {
   const invalidate = useInvalidateSellerOrders();
   return useMutation({ mutationFn: sellerPanelApi.prepareOrder, onSuccess: invalidate });
+}
+
+export function useCreateShipment() {
+  const invalidate = useInvalidateSellerOrders();
+  return useMutation({ mutationFn: (id: string) => sellerPanelApi.createShipment(id), onSuccess: invalidate });
 }
 
 export function useShipOrder() {

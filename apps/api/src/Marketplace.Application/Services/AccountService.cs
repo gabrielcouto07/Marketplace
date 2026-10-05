@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Marketplace.Application.Services;
 
-public sealed class AccountService(IAppDbContext db, ICurrentUser currentUser, TimeProvider clock)
+public sealed class AccountService(IAppDbContext db, ICurrentUser currentUser, ITaxpayerRegistry taxpayers, TimeProvider clock)
 {
     private DateTime Now => clock.GetUtcNow().UtcDateTime;
 
@@ -64,6 +64,7 @@ public sealed class AccountService(IAppDbContext db, ICurrentUser currentUser, T
     {
         var userId = currentUser.RequireUserId();
         var validated = Validate(input);
+        await EnsureRecipientCpfAsync(validated.RecipientCpf, ct);
         var others = await db.Addresses.Where(a => a.UserId == userId && a.DeletedAt == null).ToListAsync(ct);
         var address = new Address
         {
@@ -79,6 +80,7 @@ public sealed class AccountService(IAppDbContext db, ICurrentUser currentUser, T
             City = validated.City,
             State = validated.State,
             Phone = validated.Phone,
+            RecipientDocument = validated.RecipientCpf,
             IsDefault = input.IsDefault || others.Count == 0,
             CreatedAt = Now,
         };
@@ -94,6 +96,7 @@ public sealed class AccountService(IAppDbContext db, ICurrentUser currentUser, T
         var address = await db.Addresses.FirstOrDefaultAsync(a => a.Id == id && a.UserId == userId && a.DeletedAt == null, ct)
                       ?? throw AppException.NotFound("Endereço");
         var validated = Validate(input);
+        await EnsureRecipientCpfAsync(validated.RecipientCpf, ct);
         address.Label = validated.Label;
         address.RecipientName = validated.RecipientName;
         address.PostalCode = validated.PostalCode;
@@ -104,6 +107,7 @@ public sealed class AccountService(IAppDbContext db, ICurrentUser currentUser, T
         address.City = validated.City;
         address.State = validated.State;
         address.Phone = validated.Phone;
+        address.RecipientDocument = validated.RecipientCpf;
         if (input.IsDefault && !address.IsDefault)
         {
             var others = await db.Addresses.Where(a => a.UserId == userId && a.Id != id && a.DeletedAt == null).ToListAsync(ct);
@@ -127,12 +131,21 @@ public sealed class AccountService(IAppDbContext db, ICurrentUser currentUser, T
         await db.SaveChangesAsync(ct);
     }
 
-    private sealed record ValidatedAddress(string Label, string RecipientName, string PostalCode, string Street, string Number, string? Complement, string Neighborhood, string City, string State, string? Phone);
+    private sealed record ValidatedAddress(string Label, string RecipientName, string PostalCode, string Street, string Number, string? Complement, string Neighborhood, string City, string State, string? Phone, string RecipientCpf);
+
+    /// <summary>Com a Consulta CPF do Serpro configurada, recusa CPF cancelado, nulo, inexistente ou de titular falecido.</summary>
+    private async Task EnsureRecipientCpfAsync(string cpf, CancellationToken ct)
+    {
+        var check = await taxpayers.CheckCpfAsync(cpf, ct);
+        if (check.BlocksDeclaration)
+            throw AppException.Validation("recipientCpf", "Este CPF não está regular na Receita Federal. Confira o número de quem vai receber.");
+    }
 
     private static ValidatedAddress Validate(AddressInput input)
     {
         var cep = Documents.OnlyDigits(input.PostalCode);
         var phone = Documents.OnlyDigits(input.Phone);
+        var recipientCpf = Documents.OnlyDigits(input.RecipientCpf);
         var state = (input.State ?? string.Empty).Trim().ToUpperInvariant();
         new ValidationErrors()
             .AddIf(string.IsNullOrWhiteSpace(input.Label), "label", "Dê um nome para o endereço (ex.: Casa).")
@@ -144,11 +157,12 @@ public sealed class AccountService(IAppDbContext db, ICurrentUser currentUser, T
             .AddIf(string.IsNullOrWhiteSpace(input.City), "city", "Informe a cidade.")
             .AddIf(!BrazilianStates.Contains(state), "state", "UF inválida.")
             .AddIf(phone.Length is not (0 or 10 or 11), "phone", "Telefone inválido.")
+            .AddIf(!Documents.IsValidCpf(recipientCpf), "recipientCpf", "Informe o CPF de quem vai receber (vai na declaração de importação).")
             .ThrowIfAny();
         return new ValidatedAddress(
             input.Label!.Trim(), input.RecipientName!.Trim(), cep, input.Street!.Trim(), input.Number!.Trim(),
             string.IsNullOrWhiteSpace(input.Complement) ? null : input.Complement.Trim(),
-            input.Neighborhood!.Trim(), input.City!.Trim(), state, phone.Length == 0 ? null : phone);
+            input.Neighborhood!.Trim(), input.City!.Trim(), state, phone.Length == 0 ? null : phone, recipientCpf);
     }
 
     // ----- Favoritos / carrinho (sincronização do estado local) -----

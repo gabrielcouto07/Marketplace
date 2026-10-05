@@ -13,7 +13,13 @@ import { QuantityStepper } from "@/components/shared/quantity-stepper";
 import { RatingStars } from "@/components/shared/rating-stars";
 import { ReputationMeter, SellerBadge } from "@/components/shared/seller-badge";
 import { EmptyState, ErrorState } from "@/components/shared/states";
-import { DeliveryWindow, GuaranteeBadge, ImportTaxLine } from "@/components/shared/trust-badge";
+import {
+  DeliveryWindow,
+  GuaranteeBadge,
+  ImportTaxLine,
+  RemessaConformeBadge,
+  RemessaConformeSeal,
+} from "@/components/shared/trust-badge";
 import { Badge } from "@/components/ui/badge";
 import {
   BottomSheet,
@@ -386,7 +392,7 @@ export function TrustSection() {
         </div>
       </Demo>
       <Demo
-        label="Garantia, impostos e prazo"
+        label="Garantia, impostos, prazo e Remessa Conforme"
         hint="sempre com uma linha explicando o que significa"
         bare
       >
@@ -398,6 +404,13 @@ export function TrustSection() {
             variant="card"
           />
           <DeliveryWindow range={{ min: 7, max: 12 }} variant="card" />
+          <RemessaConformeBadge variant="card" preview />
+          <div className="rounded-lg bg-brand-deep p-4">
+            <p className="mb-3 text-caption font-medium text-white/80 uppercase">
+              Selo no rodapé (só com NEXT_PUBLIC_REMESSA_CONFORME=true)
+            </p>
+            <RemessaConformeSeal preview />
+          </div>
           <div className="rounded-lg border border-border bg-surface p-4 shadow-xs">
             <p className="mb-3 text-caption font-medium text-foreground-secondary uppercase">
               Inline (resumo do checkout)

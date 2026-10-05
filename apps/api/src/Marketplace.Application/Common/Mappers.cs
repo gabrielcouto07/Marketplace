@@ -1,4 +1,5 @@
 using Marketplace.Application.Contracts;
+using Marketplace.Domain;
 using Marketplace.Domain.Common;
 using Marketplace.Domain.Entities;
 
@@ -66,7 +67,7 @@ public static class Mappers
 
     public static AddressDto ToDto(this Address a) =>
         new(a.Id, a.Label, a.RecipientName, a.PostalCode, a.Street, a.Number, a.Complement, a.Neighborhood, a.City,
-            a.State, a.Country, a.Phone, a.IsDefault);
+            a.State, a.Country, a.Phone, a.IsDefault, a.RecipientDocument);
 
     public static AddressSnapshot ToSnapshot(this Address a) =>
         new(a.Id, a.Label, a.RecipientName, a.PostalCode, a.Street, a.Number, a.Complement, a.Neighborhood, a.City,
@@ -111,8 +112,42 @@ public static class Mappers
 
     public static TrackingEventDto ToDto(this TrackingEvent e) => new(e.Code, e.Description, e.Location, e.OccurredAt);
 
-    /// <summary>Requer Seller, Items, Events, TrackingEvents, ExchangeRate e Payment carregados.</summary>
-    public static OrderDto ToDto(this Order o, string locale) =>
+    public static ImportTaxBreakdownDto ToDto(this ImportTaxBreakdown t) =>
+        new(
+            t.Regime, t.IsFinal, t.Products, t.Freight, t.Insurance, t.OtherExpenses, t.Discount, t.CustomsValue,
+            t.CustomsValueUsdCents is { } usd ? new Money(usd, CurrencyCode.USD) : null,
+            t.ImportDuty, t.ImportDutyBasisPoints, t.ImportDutyDeduction,
+            t.Icms, t.IcmsBasisPoints, t.IcmsState,
+            t.Ibs, t.IbsBasisPoints, t.IbsState, t.IbsStateBasisPoints, t.IbsMunicipal, t.IbsMunicipalBasisPoints,
+            t.Cbs, t.CbsBasisPoints,
+            t.TotalTaxes, t.Total, t.EffectiveBasisPoints,
+            t.UsdRate is { } r ? new UsdRateDto(r.Numerator, r.Denominator, r.Display, r.QuotedAt, r.Source) : null,
+            t.ExceedsSimplifiedLimit);
+
+    public static TaxRemittanceDto ToDto(this TaxRemittance r) =>
+        new(r.Status, Money.Brl(r.ImportDutyAmount), Money.Brl(r.IcmsAmount), Money.Brl(r.IbsStateAmount),
+            Money.Brl(r.IbsMunicipalAmount), Money.Brl(r.CbsAmount), Money.Brl(r.TotalAmount), r.Reference, r.CreatedAt,
+            r.SentAt, r.ConfirmedAt, r.LastError);
+
+    /// <param name="labelUrl">Rota de download da etiqueta (só para vendedor/admin); nulo para o comprador.</param>
+    public static ShipmentDto ToDto(this Shipment s, TaxRemittance? remittance, bool sandbox, string? labelUrl = null) =>
+        new(s.Id, s.OrderId, s.Status, s.Provider, sandbox, s.Carrier, s.TrackingCode, s.DeclarationNumber,
+            s.HasLabelFile || !string.IsNullOrEmpty(s.LabelUrl),
+            s.HasLabelFile ? labelUrl : s.LabelUrl,
+            s.CreatedAt, s.LabelIssuedAt, s.PostedAt, s.LastError, s.DirNumber, s.CustomsStatus, s.CustomsCheckedAt,
+            remittance?.ToDto());
+
+    /// <summary>"52998224725" → "***.982.247-**"; outros documentos mantêm os 3 últimos caracteres.</summary>
+    public static string? MaskDocument(string? document)
+    {
+        if (string.IsNullOrWhiteSpace(document)) return null;
+        var d = document.Trim();
+        if (d.Length == 11 && d.All(char.IsAsciiDigit)) return $"***.{d[3..6]}.{d[6..9]}-**";
+        return d.Length <= 3 ? new string('*', d.Length) : new string('*', d.Length - 3) + d[^3..];
+    }
+
+    /// <summary>Requer Seller, Items, Events, TrackingEvents, ExchangeRate e Payment carregados (Shipment opcional).</summary>
+    public static OrderDto ToDto(this Order o, string locale, ShipmentDto? shipment = null) =>
         new(
             o.Id, o.Number, o.PurchaseId, o.Status, o.CreatedAt, o.UpdatedAt, o.Seller.ToSummary(),
             o.Items.Select(ToDto).ToList(),
@@ -124,10 +159,12 @@ public static class Mappers
             new DateRange(o.EstimatedDeliveryMin, o.EstimatedDeliveryMax),
             new OrderTotalsDto(
                 Money.Brl(o.SubtotalAmount), Money.Brl(o.ShippingAmount), Money.Brl(o.ImportTaxAmount),
-                Money.Brl(o.DiscountAmount), Money.Brl(o.TotalAmount), Money.Pyg(o.TotalReferenceAmount)),
+                Money.Brl(o.DiscountAmount), Money.Brl(o.TotalAmount), Money.Pyg(o.TotalReferenceAmount),
+                o.TaxBreakdown?.ToDto()),
             o.ExchangeRate.ToDto(),
             new OrderPaymentRefDto(o.PaymentId, o.Payment.Method, o.Payment.Status),
             o.Events.OrderBy(e => e.OccurredAt).ThenBy(e => e.Id)
                 .Select(e => new OrderTimelineEventDto(e.Status, e.OccurredAt, e.Note ?? Messages.TimelineDescription(e.Status, locale), e.Location))
-                .ToList());
+                .ToList(),
+            shipment ?? (o.Shipment is { } sh ? sh.ToDto(null, sh.Provider.Equals("sandbox", StringComparison.OrdinalIgnoreCase)) : null));
 }

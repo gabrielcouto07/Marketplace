@@ -99,7 +99,9 @@ public sealed record AdminSellerListItemDto(
     int ProductCount,
     int OrdersCount,
     Money Gross30d,
-    int OpenDisputes);
+    int OpenDisputes,
+    bool Verified = false,
+    int Occurrences = 0);
 
 public sealed record AdminSellerDetailDto(
     AdminSellerListItemDto Summary,
@@ -110,7 +112,9 @@ public sealed record AdminSellerDetailDto(
     int ReviewCount,
     IReadOnlyList<CategoryRefDto> Categories,
     IReadOnlyList<AdminOrderListItemDto> RecentOrders,
-    IReadOnlyList<PayoutDto> RecentPayouts);
+    IReadOnlyList<PayoutDto> RecentPayouts,
+    SellerVerificationDto? Verification = null,
+    IReadOnlyList<ComplianceOccurrenceDto>? Occurrences = null);
 
 public sealed record AdminSellerUpdateRequest(
     string? Name,
@@ -118,7 +122,9 @@ public sealed record AdminSellerUpdateRequest(
     string? Description,
     SellerStatus? Status,
     int? ReputationLevel,
-    bool? IsOfficialStore);
+    bool? IsOfficialStore,
+    /// <summary>Obrigatório ao suspender (fica no histórico e aparece para o vendedor).</summary>
+    string? SuspensionReason = null);
 
 // Produtos
 public sealed record AdminProductListItemDto(
@@ -133,7 +139,10 @@ public sealed record AdminProductListItemDto(
     string SellerName,
     string CategoryName,
     int SoldCount,
-    DateTime UpdatedAt);
+    DateTime UpdatedAt,
+    string? ModerationReason = null,
+    string? HsCode = null,
+    int OpenReports = 0);
 
 public sealed record AdminProductUpdateRequest(ProductStatus? Status, long? PriceAmount, int? Stock, string? Name);
 
@@ -212,7 +221,18 @@ public sealed record PlatformSettingsDto(
     int AutoCompleteDays,
     string TermsVersion,
     string PrivacyPolicyVersion,
-    DateTime UpdatedAt);
+    DateTime UpdatedAt,
+    string IcmsStateOverrides = "",
+    int IbsStateBasisPoints = 0,
+    int IbsMunicipalBasisPoints = 0,
+    int CbsBasisPoints = 0,
+    int InsuranceBasisPoints = 0,
+    long OtherExpensesAmount = 0,
+    int SellerStrikeLimit = 3,
+    int StrikeWindowDays = 365,
+    int PriceFloorPercent = 40,
+    string ProtectedBrands = "",
+    bool RequirePlatformLabel = true);
 
 // Auditoria
 public sealed record AdminAuditLogDto(long Id, Guid? UserId, string? UserEmail, string Action, string? Target, DateTime OccurredAt, string? IpAddress);

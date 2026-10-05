@@ -1181,6 +1181,10 @@
     "deliveryLabel": "Plazo de entrega",
     "deliveryHint": "Días hábiles, desde el envío en Paraguay hasta tu casa.",
     "reputationLabel": "Reputación",
-    "onTimeShort": "{percent}% a tiempo"
+    "onTimeShort": "{percent}% a tiempo",
+    "remessaConformeTitle": "Remessa Conforme",
+    "remessaConformeHint": "Tienda certificada en el programa de la Receita Federal de Brasil: los impuestos se pagan acá, en la compra, y el paquete llega sin cobros extra.",
+    "remessaConformeProgram": "Programa de la Receita Federal de Brasil",
+    "remessaConformeAde": "Certificación ADE Coana nº {number}"
   }
 }

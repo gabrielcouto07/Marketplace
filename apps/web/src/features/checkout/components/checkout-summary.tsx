@@ -5,7 +5,13 @@ import { AlertCircle, Clock, RefreshCw } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
-import { DeliveryWindow, GuaranteeBadge, ImportTaxLine } from "@/components/shared/trust-badge";
+import { TaxBreakdown } from "@/components/shared/tax-breakdown";
+import {
+  DeliveryWindow,
+  GuaranteeBadge,
+  ImportTaxLine,
+  RemessaConformeBadge,
+} from "@/components/shared/trust-badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatCountdown } from "@/hooks/use-countdown";
@@ -58,6 +64,9 @@ export function CheckoutSummary({
       className={cn("flex flex-col gap-4 transition-opacity", quoting && "opacity-60")}
       aria-busy={quoting}
     >
+      {quote.taxes ? (
+        <TaxBreakdown taxes={quote.taxes} />
+      ) : (
       <dl className="flex flex-col gap-2">
         <SummaryRow label={t("subtotal")} value={formatMoney(quote.subtotal)} />
         <SummaryRow
@@ -73,9 +82,11 @@ export function CheckoutSummary({
           />
         ) : null}
       </dl>
+      )}
 
       <div className="flex flex-col gap-4 border-y border-border py-4">
-        <ImportTaxLine amount={quote.estimatedImportTax} ratePercent={ratePercent} />
+        {quote.taxes ? null : <ImportTaxLine amount={quote.estimatedImportTax} ratePercent={ratePercent} />}
+        <RemessaConformeBadge />
         {deliveryRange ? <DeliveryWindow range={deliveryRange} /> : null}
         <GuaranteeBadge />
       </div>

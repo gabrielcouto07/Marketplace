@@ -19,10 +19,27 @@ public static class TrackingCodes
     public const string Returned = "RETURNED";
     public const string Info = "INFO";
 
+    // Ocorrências do despacho que derrubam indicador de conformidade (Portaria Coana 193/2026).
+    /// <summary>Valor declarado aumentado pela fiscalização (subvaloração).</summary>
+    public const string CustomsValueAdjusted = "CUSTOMS_VALUE_ADJUSTED";
+    /// <summary>Retenção por contrafação confirmada.</summary>
+    public const string SeizedCounterfeit = "SEIZED_COUNTERFEIT";
+    /// <summary>Erro na declaração (CPF do destinatário, remetente, descrição, regime ou conteúdo).</summary>
+    public const string DeclarationError = "DECLARATION_ERROR";
+
     public static readonly IReadOnlySet<string> All = new HashSet<string>(StringComparer.Ordinal)
     {
         Posted, Export, InTransit, ArrivedBr, Customs, TaxPending, CustomsReleased, OutForDelivery, DeliveryFailed,
-        Delivered, Returned, Info,
+        Delivered, Returned, Info, CustomsValueAdjusted, SeizedCounterfeit, DeclarationError,
+    };
+
+    /// <summary>Indicador de conformidade afetado pelo evento (null = nenhum).</summary>
+    public static ComplianceIndicator? ComplianceIndicatorFor(string code) => code switch
+    {
+        CustomsValueAdjusted => ComplianceIndicator.Subvaloracao,
+        SeizedCounterfeit => ComplianceIndicator.Contrafacao,
+        DeclarationError => ComplianceIndicator.QualidadeDeclaracao,
+        _ => null,
     };
 
     /// <summary>Normaliza um código recebido (trim/upper, hífen e espaço → underscore); desconhecido vira INFO.</summary>
@@ -36,7 +53,7 @@ public static class TrackingCodes
     /// <summary>Status do pedido implicado pelo evento (null = não muda o status).</summary>
     public static OrderStatus? TargetStatus(string code) => code switch
     {
-        ArrivedBr or Customs or TaxPending or CustomsReleased or OutForDelivery => OrderStatus.EmTransitoInternacional,
+        ArrivedBr or Customs or TaxPending or CustomsReleased or OutForDelivery or CustomsValueAdjusted or DeclarationError => OrderStatus.EmTransitoInternacional,
         Delivered => OrderStatus.Entregue,
         _ => null,
     };

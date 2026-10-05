@@ -18,7 +18,9 @@ public sealed record AddressDto(
     string State,
     string Country,
     string? Phone,
-    bool IsDefault);
+    bool IsDefault,
+    /// <summary>CPF de quem recebe (somente dígitos). Só o dono do endereço vê.</summary>
+    string? RecipientCpf = null);
 
 public sealed record AddressInput(
     string? Label,
@@ -31,7 +33,8 @@ public sealed record AddressInput(
     string? City,
     string? State,
     string? Phone,
-    bool IsDefault);
+    bool IsDefault,
+    string? RecipientCpf = null);
 
 public sealed record PostalCodeLookupDto(string PostalCode, string Street, string Neighborhood, string City, string State);
 
@@ -45,6 +48,44 @@ public sealed record ShippingOptionDto(Guid Id, string Provider, string ServiceC
 public sealed record ShippingDestinationDto(string City, string State);
 
 public sealed record ShippingQuoteDto(string PostalCode, ShippingDestinationDto Destination, Guid SellerId, IReadOnlyList<ShippingOptionDto> Options);
+
+// ----- Tributos (Remessa Conforme) -----
+
+public sealed record UsdRateDto(long Numerator, long Denominator, string DisplayRate, DateTime QuotedAt, string Source);
+
+/// <summary>
+/// Tributos discriminados de uma remessa (ou a soma das remessas da compra): o que o site mostra ao comprador
+/// (Portaria Coana 130/2023, art. 8º, II). Regime RemessaConforme = valor definitivo, cobrado na compra.
+/// </summary>
+public sealed record ImportTaxBreakdownDto(
+    ImportTaxRegime Regime,
+    bool IsFinal,
+    Money Products,
+    Money Freight,
+    Money Insurance,
+    Money OtherExpenses,
+    Money Discount,
+    Money CustomsValue,
+    Money? CustomsValueUsd,
+    Money ImportDuty,
+    int ImportDutyBasisPoints,
+    Money ImportDutyDeduction,
+    Money Icms,
+    int IcmsBasisPoints,
+    string? IcmsState,
+    Money Ibs,
+    int IbsBasisPoints,
+    Money IbsState,
+    int IbsStateBasisPoints,
+    Money IbsMunicipal,
+    int IbsMunicipalBasisPoints,
+    Money Cbs,
+    int CbsBasisPoints,
+    Money TotalTaxes,
+    Money Total,
+    int EffectiveBasisPoints,
+    UsdRateDto? UsdRate,
+    bool ExceedsSimplifiedLimit);
 
 // ----- Checkout -----
 
@@ -60,7 +101,11 @@ public sealed record CheckoutGroupDto(
     Money Subtotal,
     IReadOnlyList<ShippingOptionDto> ShippingOptions,
     Guid? SelectedShippingOptionId,
-    Money Shipping);
+    Money Shipping,
+    /// <summary>Tributos desta remessa (cada loja envia um pacote, com sua própria declaração).</summary>
+    ImportTaxBreakdownDto? Taxes = null,
+    /// <summary>Desconto rateado para esta remessa.</summary>
+    Money? Discount = null);
 
 public sealed record CheckoutQuoteDto(
     Guid QuoteId,
@@ -75,7 +120,9 @@ public sealed record CheckoutQuoteDto(
     ExchangeRateDto ExchangeRate,
     DateTime LockedUntil,
     string PostalCode,
-    string? CouponCode);
+    string? CouponCode,
+    /// <summary>Soma discriminada das remessas.</summary>
+    ImportTaxBreakdownDto? Taxes = null);
 
 public sealed record CardPaymentInput(string? Token, string? HolderName, string? Brand, string? Last4, int Installments);
 
@@ -109,7 +156,43 @@ public sealed record OrderTimelineEventDto(OrderStatus Status, DateTime Occurred
 
 public sealed record TrackingEventDto(string Code, string Description, string Location, DateTime OccurredAt);
 
-public sealed record OrderTotalsDto(Money Subtotal, Money Shipping, Money ImportTax, Money Discount, Money Total, Money TotalReference);
+public sealed record OrderTotalsDto(Money Subtotal, Money Shipping, Money ImportTax, Money Discount, Money Total, Money TotalReference, ImportTaxBreakdownDto? Taxes = null);
+
+/// <summary>Repasse dos tributos da remessa ao operador logístico.</summary>
+public sealed record TaxRemittanceDto(
+    TaxRemittanceStatus Status,
+    Money ImportDuty,
+    Money Icms,
+    Money IbsState,
+    Money IbsMunicipal,
+    Money Cbs,
+    Money Total,
+    string? Reference,
+    DateTime CreatedAt,
+    DateTime? SentAt,
+    DateTime? ConfirmedAt,
+    string? LastError);
+
+/// <summary>Remessa do pedido no operador: declaração antecipada, etiqueta e situação aduaneira.</summary>
+public sealed record ShipmentDto(
+    Guid Id,
+    Guid OrderId,
+    ShipmentStatus Status,
+    string Provider,
+    bool Sandbox,
+    string? Carrier,
+    string? TrackingCode,
+    string? DeclarationNumber,
+    bool HasLabel,
+    string? LabelUrl,
+    DateTime CreatedAt,
+    DateTime? LabelIssuedAt,
+    DateTime? PostedAt,
+    string? LastError,
+    string? DirNumber,
+    string? CustomsStatus,
+    DateTime? CustomsCheckedAt,
+    TaxRemittanceDto? Remittance);
 
 public sealed record OrderPaymentRefDto(Guid Id, PaymentMethod Method, PaymentStatus Status);
 
@@ -131,7 +214,8 @@ public sealed record OrderDto(
     OrderTotalsDto Totals,
     ExchangeRateDto ExchangeRate,
     OrderPaymentRefDto Payment,
-    IReadOnlyList<OrderTimelineEventDto> Timeline);
+    IReadOnlyList<OrderTimelineEventDto> Timeline,
+    ShipmentDto? Shipment = null);
 
 public sealed record OrderTrackingDto(string? TrackingCode, string? Carrier, string? TrackingUrl, IReadOnlyList<TrackingEventDto> Events);
 

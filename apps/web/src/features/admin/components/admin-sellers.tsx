@@ -55,6 +55,7 @@ import {
   rowButtonClass,
   useAdminErrorToast,
 } from "./admin-widgets";
+import { SellerVerificationSection } from "./admin-compliance";
 
 const STATUSES: SellerStatus[] = ["Aprovado", "Pendente", "Suspenso"];
 type Filter = "all" | SellerStatus;
@@ -73,6 +74,7 @@ function SellerDetail({ id, onClose }: { id: string | null; onClose: () => void 
   const [statusEdit, setStatus] = useState<SellerStatus | null>(null);
   const [reputationEdit, setReputation] = useState<number | null>(null);
   const [officialEdit, setOfficial] = useState<boolean | null>(null);
+  const [suspensionReason, setSuspensionReason] = useState("");
   const d = detail.data;
   const name = nameEdit ?? d?.summary.name ?? "";
   const city = cityEdit ?? d?.summary.city ?? "";
@@ -146,6 +148,8 @@ function SellerDetail({ id, onClose }: { id: string | null; onClose: () => void 
             />
           </SheetSection>
 
+          <SellerVerificationSection detail={d} />
+
           <SheetSection title={t("editSeller")}>
             <FormField id="seller-status" label={t("colStatus")} hint={t("sellerStatusHint")}>
               <Select
@@ -189,6 +193,16 @@ function SellerDetail({ id, onClose }: { id: string | null; onClose: () => void 
                 <Switch checked={official} onCheckedChange={setOfficial} />
               </label>
             </div>
+            {status === "Suspenso" && d.summary.status !== "Suspenso" ? (
+              <FormField id="seller-suspension" label={t("suspensionReason")} hint={t("suspensionReasonHint")}>
+                <Textarea
+                  id="seller-suspension"
+                  rows={2}
+                  value={suspensionReason}
+                  onChange={(e) => setSuspensionReason(e.target.value)}
+                />
+              </FormField>
+            ) : null}
             <FormField id="seller-name" label={t("colSeller")}>
               <Input id="seller-name" value={name} onChange={(e) => setName(e.target.value)} />
             </FormField>
@@ -217,6 +231,7 @@ function SellerDetail({ id, onClose }: { id: string | null; onClose: () => void 
                       status,
                       reputationLevel: reputation,
                       isOfficialStore: official,
+                      suspensionReason: suspensionReason.trim() || null,
                     },
                   },
                   { onSuccess: () => toast.success(t("saved")), onError },

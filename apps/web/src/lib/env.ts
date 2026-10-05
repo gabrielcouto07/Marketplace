@@ -22,4 +22,29 @@ export const env = {
   googleClientId: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || null,
   /** Public key do Mercado Pago (tokenização de cartão no navegador). */
   mercadoPagoPublicKey: process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY || null,
+  /**
+   * Selo do Programa Remessa Conforme. Só ligar ("true") em produção depois do Ato Declaratório Executivo da Coana:
+   * exibir o selo sem a certificação é propaganda enganosa. "simulacao" mostra o selo com a etiqueta "Simulação"
+   * (pré-visualização de como o site fica certificado).
+   */
+  remessaConforme: remessaConformeMode() !== "off",
+  remessaConformeMode: remessaConformeMode(),
+  /** Número do ADE de certificação, mostrado no rodapé e no header junto ao selo (opcional). */
+  remessaConformeAde: process.env.NEXT_PUBLIC_REMESSA_CONFORME_ADE || null,
+  /** Faixa conquistada no ciclo (Portaria Coana 193/2026): selos saem em dezembro para quem passa de 100 mil remessas. */
+  remessaConformeSelo: complianceTier(process.env.NEXT_PUBLIC_REMESSA_CONFORME_SELO),
+  /** Ciclo do selo (ex.: "2026/2027"), mostrado junto da medalha. */
+  remessaConformeCiclo: process.env.NEXT_PUBLIC_REMESSA_CONFORME_CICLO || null,
 } as const;
+
+function remessaConformeMode(): "off" | "simulacao" | "certificado" {
+  const raw = (process.env.NEXT_PUBLIC_REMESSA_CONFORME ?? "").trim().toLowerCase();
+  if (raw === "true" || raw === "certificado") return "certificado";
+  if (raw === "simulacao" || raw === "simulação" || raw === "preview") return "simulacao";
+  return "off";
+}
+
+function complianceTier(raw: string | undefined): "ouro" | "prata" | "bronze" | null {
+  const v = (raw ?? "").trim().toLowerCase();
+  return v === "ouro" || v === "prata" || v === "bronze" ? v : null;
+}

@@ -40,6 +40,8 @@ import { BLUR_DATA_URL, isDirectImage } from "@/lib/images";
 import { formatMoney } from "@/lib/money";
 
 import { useAdminProductUpdate, useAdminProducts } from "../api";
+import { moderationKey } from "../../seller-panel/moderation";
+import { ModerationSection } from "./admin-compliance";
 import {
   DetailSheet,
   KeyValueList,
@@ -51,7 +53,7 @@ import {
   useAdminErrorToast,
 } from "./admin-widgets";
 
-const STATUSES: ProductStatus[] = ["Ativo", "Rascunho", "Arquivado"];
+const STATUSES: ProductStatus[] = ["Ativo", "Rascunho", "Arquivado", "EmAnalise", "Bloqueado"];
 type Filter = "all" | ProductStatus;
 
 function ProductDetail({
@@ -135,6 +137,7 @@ function ProductDetail({
               ]}
             />
           </SheetSection>
+          <ModerationSection product={p} onDone={onClose} />
           <SheetSection title={t("editProduct")}>
             <FormField id="prod-name" label={t("colProduct")}>
               <Input id="prod-name" value={name} onChange={(e) => setName(e.target.value)} />
@@ -224,6 +227,8 @@ export function AdminProducts() {
     Ativo: t("productStatus.Ativo"),
     Rascunho: t("productStatus.Rascunho"),
     Arquivado: t("productStatus.Arquivado"),
+    EmAnalise: t("productStatus.EmAnalise"),
+    Bloqueado: t("productStatus.Bloqueado"),
   };
 
   return (
@@ -320,6 +325,16 @@ export function AdminProducts() {
                     </TableCell>
                     <TableCell>
                       <ProductStatusBadge status={p.status} />
+                      {p.moderationReason ? (
+                        <span className="mt-1 block text-caption text-foreground-secondary">
+                          {t(`moderation.${moderationKey(p.moderationReason)}`)}
+                        </span>
+                      ) : null}
+                      {p.openReports ? (
+                        <span className="mt-1 block text-caption font-medium text-danger">
+                          {t("openReportsCount", { count: p.openReports })}
+                        </span>
+                      ) : null}
                     </TableCell>
                   </TableRow>
                 ))}

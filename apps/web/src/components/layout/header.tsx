@@ -8,12 +8,14 @@ import { useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode 
 
 import { BrandMark } from "@/components/layout/brand-mark";
 import { BackButton } from "@/components/shared/back-button";
+import { RemessaConformeEmblem, RemessaConformeHeaderSeal } from "@/components/shared/trust-badge";
 import { readStoredCep } from "@/components/shared/cep-shipping-calculator";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/features/auth/store";
 import { selectItemCount, useCartHydrated, useCartStore } from "@/features/cart/store";
 import { useStoreHydrated } from "@/hooks/use-store-hydrated";
 import { Link, usePathname, useRouter } from "@/i18n/navigation";
+import { env } from "@/lib/env";
 import { cn } from "@/lib/utils";
 import { formatCep } from "@/lib/validation/documents";
 
@@ -75,6 +77,7 @@ export function Header({
             <SearchPill />
           </div>
           <DeliverToStrip />
+          <RemessaConformeHeaderSeal variant="strip" />
         </div>
       ) : (
         <div className="flex h-14 items-center gap-2 px-3 md:hidden">
@@ -160,6 +163,7 @@ function DesktopBar({ cartCount }: { cartCount: number }) {
     <div className="hidden md:block">
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center gap-2 px-4">
         <BrandMark className="mr-2" />
+        <RemessaConformeHeaderSeal variant="bar" className="hidden lg:flex" />
         <DeliverToLink />
         <form
           role="search"
@@ -373,7 +377,15 @@ function DepartmentsBar({ pathname }: { pathname: string }) {
             </Link>
           </li>
         ))}
-        <li className="ml-auto">
+        {env.remessaConforme ? (
+          <li className="ml-auto lg:hidden">
+            <Link href="/remessa-conforme" className={cn(DEPARTMENT_LINK, "font-bold")}>
+              <RemessaConformeEmblem className="size-5" />
+              Remessa Conforme
+            </Link>
+          </li>
+        ) : null}
+        <li className={env.remessaConforme ? "lg:ml-auto" : "ml-auto"}>
           <Link href="/vendedor/cadastro" className={cn(DEPARTMENT_LINK, "-mr-2 font-bold")}>
             {t("sell")}
           </Link>

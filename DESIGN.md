@@ -316,6 +316,9 @@ burocráticos:
   marca e quatro diferenciais em pills chapadas (Azul e Vermelho 600 com texto branco, Verde e
   Amarelo com texto `on-bright`).
 - Prazo em faixa de dias úteis.
+- Selo Remessa Conforme (`RemessaConformeBadge` / `RemessaConformeSeal`): disco serrilhado Verde com
+  anel pontilhado e check em Tinta. Aparece na PDP, no resumo do checkout e no rodapé, e só com
+  `NEXT_PUBLIC_REMESSA_CONFORME=true`, que se liga depois do Ato Declaratório da Coana.
 
 ## Navegação
 

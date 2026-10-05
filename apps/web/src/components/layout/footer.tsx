@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 
 import { BrandMark } from "@/components/layout/brand-mark";
+import { RemessaConformeSeal } from "@/components/shared/trust-badge";
 import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
 
@@ -77,6 +78,7 @@ export function Footer({ className }: { className?: string }) {
       <div className="border-t border-white/15">
         <div className="mx-auto flex w-full max-w-6xl flex-col items-center gap-3 px-4 py-6 text-center md:flex-row md:justify-between md:text-left">
           <BrandMark size="sm" />
+          <RemessaConformeSeal />
           <p className="text-caption text-white/80">
             {t("tagline")} {t("copyright", { year })}
           </p>

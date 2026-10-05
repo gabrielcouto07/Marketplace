@@ -23,6 +23,10 @@ public static class DependencyInjection
         services.AddScoped<PrivacyService>();
         services.AddScoped<SellerPanelService>();
         services.AddScoped<AdminService>();
+        services.AddScoped<ImportTaxService>();
+        services.AddScoped<ComplianceService>();
+        services.AddScoped<RemessaService>();
+        services.AddScoped<SiscomexSyncService>();
         return services;
     }
 }

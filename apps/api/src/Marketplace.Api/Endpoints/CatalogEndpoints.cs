@@ -1,5 +1,8 @@
+using Marketplace.Application.Abstractions;
+using Marketplace.Application.Common;
 using Marketplace.Application.Contracts;
 using Marketplace.Application.Services;
+using Marketplace.Domain.Compliance;
 
 namespace Marketplace.Api.Endpoints;
 
@@ -47,6 +50,24 @@ public static class CatalogEndpoints
         g.MapPost("/products/{id:guid}/questions", async (Guid id, AskQuestionRequest body, CatalogService svc, CancellationToken ct) =>
                 Results.Created($"/api/products/{id}/questions", await svc.AskQuestionAsync(id, body, ct)))
             .RequireAuthorization();
+
+        g.MapPost("/products/{id:guid}/reports", async (Guid id, ProductReportRequest body, ComplianceService svc, CancellationToken ct) =>
+                Results.Created($"/api/products/{id}/reports", await svc.ReportProductAsync(id, body, ct)))
+            .RequireAuthorization();
+
+        // ----- Remessa Conforme: tributos discriminados e tabela NCM oficial -----
+        g.MapGet("/taxes/estimate", (long amount, string? state, ImportTaxService svc, CancellationToken ct) => svc.EstimateAsync(amount, state, ct));
+        g.MapGet("/ncm", async (string? q, INcmCatalog catalog, CancellationToken ct) =>
+            (await catalog.SearchAsync(q ?? string.Empty, 20, ct)).Select(e => new NcmLookupDto(e.Code, Ncm.Format(e.Code), e.Description, true)));
+        g.MapGet("/ncm/{code}", async (string code, INcmCatalog catalog, CancellationToken ct) =>
+        {
+            var normalized = Ncm.Normalize(code);
+            if (normalized is null || !Ncm.IsWellFormed(normalized)) throw AppException.Validation("code", "O NCM tem 8 dígitos, ex.: 8517.13.00.");
+            var entry = await catalog.FindAsync(normalized, ct);
+            if (entry is not null) return Results.Ok(new NcmLookupDto(entry.Code, Ncm.Format(entry.Code), entry.Description, true));
+            if (catalog.IsLoaded) throw AppException.NotFound("NCM na tabela vigente");
+            return Results.Ok(new NcmLookupDto(normalized, Ncm.Format(normalized), "", false));
+        });
 
         return api;
     }

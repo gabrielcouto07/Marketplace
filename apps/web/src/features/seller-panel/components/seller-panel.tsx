@@ -71,7 +71,8 @@ import {
   useUpdateSellerProfile,
 } from "../api";
 import { SellerGate } from "./seller-gate";
-import { ShipOrderSheet } from "./ship-order-sheet";
+import { moderationKey } from "../moderation";
+import { OrderShipmentActions } from "./order-shipment-actions";
 import { StoreForm } from "./store-form";
 
 const brl = (amount: number) => formatMoney({ amount, currency: "BRL" });
@@ -252,27 +253,7 @@ function OrdersTable({
             </TableCell>
             {withActions ? (
               <TableCell className="text-right">
-                {o.status === "Pago" && onPrepare ? (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    loading={preparingId === o.id}
-                    onClick={() => onPrepare(o)}
-                  >
-                    <PackageCheck data-icon="inline-start" strokeWidth={1.75} />{" "}
-                    {t("actionPrepare")}
-                  </Button>
-                ) : null}
-                {(o.status === "Pago" || o.status === "EmPreparacao") && onShip ? (
-                  <Button variant="primary" size="sm" className="ml-2" onClick={() => onShip(o)}>
-                    <Truck data-icon="inline-start" strokeWidth={1.75} /> {t("actionShip")}
-                  </Button>
-                ) : null}
-                {o.trackingCode ? (
-                  <span className="block text-caption text-foreground-secondary tabular-nums">
-                    {o.trackingCode}
-                  </span>
-                ) : null}
+                <OrderShipmentActions order={o} onPrepare={onPrepare} preparing={preparingId === o.id} />
               </TableCell>
             ) : null}
           </TableRow>
@@ -301,7 +282,6 @@ export function SellerOrders() {
   const ts = useTranslations("orders.status");
   const tErrors = useTranslations("errors");
   const [status, setStatus] = useState<OrderFilter>("all");
-  const [shipping, setShipping] = useState<OrderDto | null>(null);
   const orders = useSellerOrders({
     status: status === "all" ? undefined : (status as OrderStatus),
     pageSize: 50,
@@ -334,9 +314,8 @@ export function SellerOrders() {
             onError: (e) => toast.error(isApiError(e) ? e.message : tErrors("genericTitle")),
           })
         }
-        onShip={setShipping}
+        onShip={() => undefined}
       />
-      <ShipOrderSheet order={shipping} onClose={() => setShipping(null)} />
     </div>
   );
 }
@@ -347,10 +326,12 @@ export function SellerOrders() {
 
 type ProductFilter = "all" | ProductStatus;
 
-const PRODUCT_BADGE: Record<ProductStatus, "success" | "neutral" | "warning"> = {
+const PRODUCT_BADGE: Record<ProductStatus, "success" | "neutral" | "warning" | "danger"> = {
   Ativo: "success",
   Rascunho: "neutral",
   Arquivado: "warning",
+  EmAnalise: "warning",
+  Bloqueado: "danger",
 };
 
 export function SellerProducts() {
@@ -372,6 +353,8 @@ export function SellerProducts() {
     Ativo: t("productActive"),
     Rascunho: t("productDraft"),
     Arquivado: t("productArchived"),
+    EmAnalise: t("productInReview"),
+    Bloqueado: t("productBlocked"),
   };
   const items: Record<ProductFilter, string> = { all: t("filterAllStatus"), ...stateLabel };
 
@@ -478,6 +461,11 @@ export function SellerProducts() {
                   </TableCell>
                   <TableCell>
                     <Badge variant={PRODUCT_BADGE[p.status]}>{stateLabel[p.status]}</Badge>
+                    {p.moderationReason ? (
+                      <span className="mt-1 block text-caption text-foreground-secondary">
+                        {t(`moderationReason.${moderationKey(p.moderationReason)}`)}
+                      </span>
+                    ) : null}
                   </TableCell>
                   <TableCell className="text-right whitespace-nowrap">
                     <Button
@@ -618,7 +606,15 @@ export function SellerSettings() {
           categoryIds: p.categories.map((c) => c.id),
           originPostalCode: p.originPostalCode ?? "",
           phone: p.phone ?? "",
+          legalAddress: p.verification?.legalAddress ?? "",
+          responsibleName: p.verification?.responsibleName ?? "",
+          responsibleDocumentType: p.verification?.responsibleDocumentType ?? "CedulaPy",
+          responsibleDocument: "",
+          documentOnFile: Boolean(p.verification?.responsibleDocumentMasked),
+          identityDocumentUrl: p.verification?.identityDocumentUrl ?? null,
+          rucCertificateUrl: p.verification?.rucCertificateUrl ?? null,
         }}
+        verification={p.verification ?? null}
         submitLabel={tc("save")}
         submitting={update.isPending}
         serverErrors={serverErrors}

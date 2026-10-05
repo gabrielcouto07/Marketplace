@@ -40,6 +40,12 @@ public interface IAppDbContext
     DbSet<WebhookEvent> WebhookEvents { get; }
     DbSet<PlatformSettings> PlatformSettings { get; }
 
+    DbSet<Shipment> Shipments { get; }
+    DbSet<ShipmentLabel> ShipmentLabels { get; }
+    DbSet<TaxRemittance> TaxRemittances { get; }
+    DbSet<ComplianceOccurrence> ComplianceOccurrences { get; }
+    DbSet<ProductReport> ProductReports { get; }
+
     DatabaseFacade Database { get; }
     ChangeTracker ChangeTracker { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);

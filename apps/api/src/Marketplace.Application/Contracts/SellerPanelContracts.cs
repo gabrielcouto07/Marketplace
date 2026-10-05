@@ -24,7 +24,20 @@ public sealed record SellerProfileDto(
     DateTime MemberSince,
     IReadOnlyList<CategoryRefDto> Categories,
     string? OriginPostalCode,
-    string? Phone);
+    string? Phone,
+    SellerVerificationDto? Verification = null);
+
+/// <summary>Dados de admissão do vendedor (critério v). O documento volta mascarado.</summary>
+public sealed record SellerVerificationDto(
+    string? LegalAddress,
+    string? ResponsibleName,
+    SellerDocumentType? ResponsibleDocumentType,
+    string? ResponsibleDocumentMasked,
+    string? IdentityDocumentUrl,
+    string? RucCertificateUrl,
+    bool Complete,
+    DateTime? VerifiedAt,
+    string? SuspensionReason);
 
 public sealed record SellerRegisterRequest(
     string? Name,
@@ -37,7 +50,13 @@ public sealed record SellerRegisterRequest(
     IReadOnlyList<Guid>? CategoryIds,
     bool? AcceptTerms,
     string? OriginPostalCode = null,
-    string? Phone = null);
+    string? Phone = null,
+    string? LegalAddress = null,
+    string? ResponsibleName = null,
+    SellerDocumentType? ResponsibleDocumentType = null,
+    string? ResponsibleDocument = null,
+    string? IdentityDocumentUrl = null,
+    string? RucCertificateUrl = null);
 
 public sealed record SellerProfileInput(
     string? Name,
@@ -49,7 +68,14 @@ public sealed record SellerProfileInput(
     string? ExchangePolicy,
     IReadOnlyList<Guid>? CategoryIds,
     string? OriginPostalCode = null,
-    string? Phone = null);
+    string? Phone = null,
+    string? LegalAddress = null,
+    string? ResponsibleName = null,
+    SellerDocumentType? ResponsibleDocumentType = null,
+    /// <summary>Nulo mantém o documento atual (o perfil só devolve a versão mascarada).</summary>
+    string? ResponsibleDocument = null,
+    string? IdentityDocumentUrl = null,
+    string? RucCertificateUrl = null);
 
 /// <summary>Cadastro devolve a loja e uma nova sessão (o JWT passa a carregar o papel Vendedor).</summary>
 public sealed record SellerRegisterResponseDto(SellerProfileDto Seller, AuthResponseDto Session);
@@ -78,7 +104,9 @@ public sealed record SellerProductListItemDto(
     int Stock,
     ProductStatus Status,
     int SoldCount,
-    DateTime UpdatedAt);
+    DateTime UpdatedAt,
+    string? ModerationReason = null,
+    string? HsCode = null);
 
 public sealed record SellerProductDto(
     Guid Id,
@@ -102,7 +130,10 @@ public sealed record SellerProductDto(
     DateTime UpdatedAt,
     int? WeightGrams,
     ParcelDimensionsDto? Dimensions,
-    string? HsCode);
+    string? HsCode,
+    string? ModerationReason = null,
+    string? ModerationNote = null,
+    string? HsCodeDescription = null);
 
 public sealed record SellerProductInput(
     string? Name,

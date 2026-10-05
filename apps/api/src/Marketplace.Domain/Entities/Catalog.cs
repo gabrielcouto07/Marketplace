@@ -37,6 +37,26 @@ public class Seller
     public SellerStatus Status { get; set; } = SellerStatus.Aprovado;
     public Guid? OwnerUserId { get; set; }
 
+    // ----- Remetente e verificação de identidade (critério v: política de admissão) -----
+    /// <summary>Endereço completo de origem (rua, número, bairro): remetente da declaração e da etiqueta.</summary>
+    public string? LegalAddress { get; set; }
+    public string? ResponsibleName { get; set; }
+    public SellerDocumentType? ResponsibleDocumentType { get; set; }
+    /// <summary>Documento do responsável (cifrado em repouso).</summary>
+    public string? ResponsibleDocument { get; set; }
+    /// <summary>Foto do documento do responsável e constância do RUC (uploads do vendedor).</summary>
+    public string? IdentityDocumentUrl { get; set; }
+    public string? RucCertificateUrl { get; set; }
+    public DateTime? VerifiedAt { get; set; }
+    public Guid? VerifiedByUserId { get; set; }
+    public string? SuspensionReason { get; set; }
+    public DateTime? SuspendedAt { get; set; }
+
+    public bool HasVerificationDocuments =>
+        !string.IsNullOrWhiteSpace(ResponsibleName) && ResponsibleDocumentType is not null &&
+        !string.IsNullOrWhiteSpace(ResponsibleDocument) && !string.IsNullOrWhiteSpace(IdentityDocumentUrl) &&
+        !string.IsNullOrWhiteSpace(RucCertificateUrl) && !string.IsNullOrWhiteSpace(LegalAddress);
+
     public int SalesCount { get; set; }
     public int PositiveRatingPercent { get; set; }
     public int OnTimeShippingPercent { get; set; }
@@ -85,9 +105,16 @@ public class Product
     public int? LengthCm { get; set; }
     public int? WidthCm { get; set; }
     public int? HeightCm { get; set; }
-    /// <summary>Código NCM/HS para a declaração aduaneira.</summary>
+    /// <summary>Código NCM (8 dígitos) para a declaração aduaneira. Obrigatório para o produto ir à vitrine.</summary>
     public string? HsCode { get; set; }
     public ProductStatus Status { get; set; } = ProductStatus.Ativo;
+    /// <summary>Por que está em análise ou bloqueado (MARCA_PROTEGIDA, PRECO_ABAIXO_REFERENCIA, CONTRAFACAO…).</summary>
+    public string? ModerationReason { get; set; }
+    public string? ModerationNote { get; set; }
+    public DateTime? ModeratedAt { get; set; }
+    /// <summary>Nome e preço que o admin liberou: mudar qualquer um dos dois volta o produto para análise.</summary>
+    public string? ApprovedName { get; set; }
+    public long? ApprovedPriceAmount { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 

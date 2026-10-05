@@ -25,7 +25,8 @@ public sealed class OrderService(
             .Include(o => o.Events)
             .Include(o => o.TrackingEvents)
             .Include(o => o.ExchangeRate)
-            .Include(o => o.Payment);
+            .Include(o => o.Payment)
+            .Include(o => o.Shipment);
 
     public async Task<PagedResult<OrderDto>> ListAsync(OrderStatus? status, int? page, int? pageSize, CancellationToken ct)
     {
@@ -114,6 +115,24 @@ public sealed class OrderService(
         order.Events.Add(new OrderEvent { OrderId = order.Id, Status = to, OccurredAt = now, Note = note, Location = location, Actor = actor });
     }
 
+    /// <summary>
+    /// Remessas com etiqueta de pedidos cancelados: marca Cancelada e descarta o repasse pendente. O RemessaJob avisa o
+    /// operador (a etiqueta deixa de valer).
+    /// </summary>
+    private async Task CancelShipmentsAsync(IReadOnlyCollection<Order> cancelled, CancellationToken ct)
+    {
+        var ids = cancelled.Select(o => o.Id).ToList();
+        var shipments = await db.Shipments.Where(s => ids.Contains(s.OrderId) && s.Status != ShipmentStatus.Cancelada).ToListAsync(ct);
+        foreach (var s in shipments)
+        {
+            s.Status = ShipmentStatus.Cancelada;
+            s.CancelledAt = Now;
+            s.UpdatedAt = Now;
+        }
+        var remittances = await db.TaxRemittances.Where(r => ids.Contains(r.OrderId) && r.Status == TaxRemittanceStatus.Pendente).ToListAsync(ct);
+        db.TaxRemittances.RemoveRange(remittances);
+    }
+
     /// <summary>Transita para Cancelado sem persistir. Conclua com <see cref="CommitCancellationAsync"/>.</summary>
     public void MarkCancelled(Order order, string? note, string actor) =>
         Transition(order, OrderStatus.Cancelado, note, null, actor);
@@ -125,6 +144,7 @@ public sealed class OrderService(
     /// </summary>
     public async Task CommitCancellationAsync(IReadOnlyCollection<Order> cancelled, CancellationToken ct)
     {
+        await CancelShipmentsAsync(cancelled, ct);
         if (db.Database.CurrentTransaction is not null)
         {
             await RestoreStockAsync(cancelled, ct);

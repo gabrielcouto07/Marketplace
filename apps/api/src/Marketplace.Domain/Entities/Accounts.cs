@@ -71,6 +71,8 @@ public class Address
     public required string State { get; set; }
     public string Country { get; set; } = "BR";
     public string? Phone { get; set; }
+    /// <summary>CPF de quem recebe (somente dígitos; cifrado em repouso). Vai na declaração da remessa.</summary>
+    public string? RecipientDocument { get; set; }
     public bool IsDefault { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? DeletedAt { get; set; }

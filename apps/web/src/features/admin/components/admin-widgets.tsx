@@ -168,10 +168,12 @@ const PAYOUT_BADGE: Record<PayoutStatus, "neutral" | "soft" | "success" | "dange
   Pago: "success",
   Falhou: "danger",
 };
-const PRODUCT_BADGE: Record<ProductStatus, "success" | "neutral" | "warning"> = {
+const PRODUCT_BADGE: Record<ProductStatus, "success" | "neutral" | "warning" | "danger"> = {
   Ativo: "success",
   Rascunho: "neutral",
   Arquivado: "warning",
+  EmAnalise: "warning",
+  Bloqueado: "danger",
 };
 
 export function SellerStatusBadge({ status }: { status: SellerStatus }) {

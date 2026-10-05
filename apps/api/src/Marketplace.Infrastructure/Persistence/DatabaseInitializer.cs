@@ -3,6 +3,7 @@ using System.Text;
 using Marketplace.Application.Abstractions;
 using Marketplace.Application.Common;
 using Marketplace.Application.Services;
+using Marketplace.Domain;
 using Marketplace.Domain.Common;
 using Marketplace.Domain.Entities;
 using Marketplace.Infrastructure.Persistence.Seed;
@@ -176,6 +177,7 @@ public sealed class DatabaseInitializer(
         var sellers = await db.Sellers.ToListAsync(ct);
         var rate = await db.ExchangeRates.FirstAsync(r => r.From == CurrencyCode.BRL && r.To == CurrencyCode.PYG, ct);
         var zones = await db.ShippingZones.ToDictionaryAsync(z => z.Prefix, ct);
+        var usd = await db.ExchangeRates.Where(r => r.From == CurrencyCode.USD && r.To == CurrencyCode.BRL).OrderByDescending(r => r.QuotedAt).FirstOrDefaultAsync(ct);
 
         var demo = SeedDemo.BuildOrders(products, sellers, rate, addresses[0],
             (seller, cep, units, free) =>
@@ -185,12 +187,18 @@ public sealed class DatabaseInitializer(
                     .Select(o => o.ToSnapshot())
                     .ToList();
             },
-            settings.ImportTaxBasisPoints,
+            (subtotal, freight, state) => ImportTaxCalculator.Calculate(
+                new ImportTaxInput(Money.Brl(subtotal), Money.Brl(freight), Money.ZeroBrl, state), settings, usd),
             clock.GetUtcNow().UtcDateTime);
 
         db.Payments.AddRange(demo.Payments);
         db.Purchases.AddRange(demo.Purchases);
         db.Orders.AddRange(demo.Orders);
+        db.TaxRemittances.AddRange(demo.Remittances);
+        var compliance = SeedDemo.Compliance(products, sellers, demo.Orders, products.First(p => p.Category.Slug == "eletronicos").Category);
+        db.ComplianceOccurrences.AddRange(compliance.Occurrences);
+        db.ProductReports.AddRange(compliance.Reports);
+        db.Sellers.Add(compliance.PendingSeller);
         await db.SaveChangesAsync(ct);
         logger.LogInformation("Seed demo: usuário {Email} com {Orders} pedidos", SeedDemo.DemoEmail, demo.Orders.Count);
     }

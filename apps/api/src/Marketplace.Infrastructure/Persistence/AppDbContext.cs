@@ -45,6 +45,11 @@ public sealed partial class AppDbContext(DbContextOptions<AppDbContext> options,
     public DbSet<Payout> Payouts => Set<Payout>();
     public DbSet<WebhookEvent> WebhookEvents => Set<WebhookEvent>();
     public DbSet<PlatformSettings> PlatformSettings => Set<PlatformSettings>();
+    public DbSet<Shipment> Shipments => Set<Shipment>();
+    public DbSet<ShipmentLabel> ShipmentLabels => Set<ShipmentLabel>();
+    public DbSet<TaxRemittance> TaxRemittances => Set<TaxRemittance>();
+    public DbSet<ComplianceOccurrence> ComplianceOccurrences => Set<ComplianceOccurrence>();
+    public DbSet<ProductReport> ProductReports => Set<ProductReport>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -70,6 +75,14 @@ public sealed partial class AppDbContext(DbContextOptions<AppDbContext> options,
             e.Property(x => x.Phone).HasMaxLength(32);
             e.Property(x => x.Country).HasMaxLength(2);
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(16);
+            e.Property(x => x.LegalAddress).HasMaxLength(300);
+            e.Property(x => x.ResponsibleName).HasMaxLength(160);
+            e.Property(x => x.ResponsibleDocumentType).HasConversion<string>().HasMaxLength(16);
+            e.Property(x => x.ResponsibleDocument).HasConversion(encrypted).HasMaxLength(512);
+            e.Property(x => x.IdentityDocumentUrl).HasMaxLength(1024);
+            e.Property(x => x.RucCertificateUrl).HasMaxLength(1024);
+            e.Property(x => x.SuspensionReason).HasMaxLength(500);
+            e.Ignore(x => x.HasVerificationDocuments);
         });
 
         b.Entity<SellerCategory>(e =>
@@ -90,6 +103,9 @@ public sealed partial class AppDbContext(DbContextOptions<AppDbContext> options,
             e.Property(x => x.SearchText).HasMaxLength(400);
             e.Property(x => x.HsCode).HasMaxLength(16);
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(16);
+            e.Property(x => x.ModerationReason).HasMaxLength(64);
+            e.Property(x => x.ModerationNote).HasMaxLength(500);
+            e.Property(x => x.ApprovedName).HasMaxLength(200);
             e.Property(x => x.VariantOptions).HasConversion(Json<List<VariantOption>>(), ListComparer<VariantOption>());
             e.Property(x => x.Attributes).HasConversion(Json<List<ProductAttribute>>(), ListComparer<ProductAttribute>());
             e.HasOne(x => x.Seller).WithMany(s => s.Products).HasForeignKey(x => x.SellerId);
@@ -162,6 +178,7 @@ public sealed partial class AppDbContext(DbContextOptions<AppDbContext> options,
             e.Property(x => x.PostalCode).HasMaxLength(8);
             e.Property(x => x.State).HasMaxLength(2);
             e.Property(x => x.Country).HasMaxLength(2);
+            e.Property(x => x.RecipientDocument).HasConversion(encrypted).HasMaxLength(512);
         });
 
         b.Entity<Favorite>(e => e.HasKey(x => new { x.UserId, x.ProductId }));
@@ -223,6 +240,11 @@ public sealed partial class AppDbContext(DbContextOptions<AppDbContext> options,
             e.Property(x => x.Status).HasConversion<string>().HasMaxLength(32);
             e.Property(x => x.ShippingAddress).HasConversion(JsonRecord<AddressSnapshot>());
             e.Property(x => x.ShippingOption).HasConversion(JsonRecord<ShippingOptionSnapshot>());
+            e.Property(x => x.TaxBreakdown).HasConversion(new ValueConverter<ImportTaxBreakdown?, string?>(
+                v => v == null ? null : JsonSerializer.Serialize(v, JsonOptions),
+                v => v == null ? null : JsonSerializer.Deserialize<ImportTaxBreakdown>(v, JsonOptions)));
+            e.Property(x => x.RecipientDocument).HasConversion(encrypted).HasMaxLength(512);
+            e.HasOne(x => x.Shipment).WithOne(s => s.Order).HasForeignKey<Shipment>(s => s.OrderId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne(x => x.Seller).WithMany().HasForeignKey(x => x.SellerId);
             e.HasOne(x => x.ExchangeRate).WithMany().HasForeignKey(x => x.ExchangeRateId);
             e.HasOne(x => x.Payment).WithMany().HasForeignKey(x => x.PaymentId);
@@ -273,6 +295,65 @@ public sealed partial class AppDbContext(DbContextOptions<AppDbContext> options,
         {
             e.Property(x => x.Id).ValueGeneratedNever();
             e.Property(x => x.ImportTaxMode).HasConversion<string>().HasMaxLength(24);
+            e.Property(x => x.IcmsStateOverrides).HasMaxLength(400);
+            e.Property(x => x.ProtectedBrands).HasMaxLength(2000);
+        });
+
+        b.Entity<Shipment>(e =>
+        {
+            e.HasIndex(x => x.OrderId).IsUnique();
+            e.HasIndex(x => x.TrackingCode);
+            e.HasIndex(x => new { x.Status, x.UpdatedAt });
+            e.Property(x => x.Provider).HasMaxLength(32);
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(24);
+            e.Property(x => x.ProviderReference).HasMaxLength(128);
+            e.Property(x => x.DeclarationNumber).HasMaxLength(64);
+            e.Property(x => x.TrackingCode).HasMaxLength(40);
+            e.Property(x => x.Carrier).HasMaxLength(80);
+            e.Property(x => x.LabelUrl).HasMaxLength(1024);
+            e.Property(x => x.LastError).HasMaxLength(1000);
+            e.Property(x => x.DirNumber).HasMaxLength(16);
+            e.Property(x => x.CustomsStatus).HasMaxLength(120);
+        });
+
+        b.Entity<ShipmentLabel>(e =>
+        {
+            e.HasKey(x => x.ShipmentId);
+            e.HasOne<Shipment>().WithOne().HasForeignKey<ShipmentLabel>(x => x.ShipmentId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<TaxRemittance>(e =>
+        {
+            e.HasIndex(x => x.OrderId).IsUnique();
+            e.HasIndex(x => new { x.Status, x.CreatedAt });
+            e.Property(x => x.Provider).HasMaxLength(32);
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(16);
+            e.Property(x => x.Reference).HasMaxLength(128);
+            e.Property(x => x.LastError).HasMaxLength(1000);
+        });
+
+        b.Entity<ComplianceOccurrence>(e =>
+        {
+            e.HasIndex(x => new { x.Indicator, x.OccurredAt });
+            e.HasIndex(x => new { x.SellerId, x.Status });
+            e.HasIndex(x => new { x.Source, x.ExternalId });
+            e.Property(x => x.Indicator).HasConversion<string>().HasMaxLength(24);
+            e.Property(x => x.Source).HasConversion<string>().HasMaxLength(16);
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(16);
+            e.Property(x => x.Code).HasMaxLength(60);
+            e.Property(x => x.Description).HasMaxLength(1000);
+            e.Property(x => x.ExternalId).HasMaxLength(64);
+            e.Property(x => x.StatusReason).HasMaxLength(500);
+        });
+
+        b.Entity<ProductReport>(e =>
+        {
+            e.HasIndex(x => new { x.Status, x.CreatedAt });
+            e.HasIndex(x => x.ProductId);
+            e.Property(x => x.Reason).HasConversion<string>().HasMaxLength(24);
+            e.Property(x => x.Status).HasConversion<string>().HasMaxLength(16);
+            e.Property(x => x.Details).HasMaxLength(1000);
+            e.Property(x => x.ResolutionNote).HasMaxLength(500);
         });
 
         ApplyConventions(b);

@@ -74,6 +74,8 @@ export const addressSchema = z.object({
   city: z.string().trim().min(1, "required"),
   state: z.string().trim().length(2, "invalidState"),
   phone: phoneBrSchema.optional().or(z.literal("")),
+  /** CPF de quem recebe: vai na declaração da remessa (Remessa Conforme). */
+  recipientCpf: cpfSchema,
   isDefault: z.boolean().default(false),
 });
 export type AddressFormValues = z.input<typeof addressSchema>;
@@ -124,6 +126,26 @@ export const storeSchema = z.object({
   categoryIds: z.array(z.string()).min(1, "categoryRequired"),
   originPostalCode: originPostalCodeSchema,
   phone: optionalPhoneSchema,
+  // Política de admissão (Remessa Conforme, critério v) e remetente da declaração/etiqueta.
+  legalAddress: z.string().trim().min(10, "legalAddressMin").max(300, "descriptionMax"),
+  responsibleName: z.string().trim().min(5, "nameMin").max(160, "descriptionMax"),
+  responsibleDocumentType: z.enum(["CedulaPy", "Cpf", "Passaporte"], { message: "required" }),
+  /** Vazio no perfil mantém o documento já enviado (ele só volta mascarado). */
+  responsibleDocument: z.string().trim().default(""),
+  documentOnFile: z.boolean().default(false),
+  identityDocumentUrl: z.string().min(1, "identityDocumentRequired").nullable().refine((v) => Boolean(v), "identityDocumentRequired"),
+  rucCertificateUrl: z.string().min(1, "rucCertificateRequired").nullable().refine((v) => Boolean(v), "rucCertificateRequired"),
+}).superRefine((v, ctx) => {
+  const doc = v.responsibleDocument.trim();
+  if (!doc && v.documentOnFile) return;
+  const digits = onlyDigits(doc);
+  const ok =
+    v.responsibleDocumentType === "Cpf"
+      ? isValidCpf(digits)
+      : v.responsibleDocumentType === "CedulaPy"
+        ? digits.length >= 5 && digits.length <= 9
+        : /^[A-Za-z0-9]{6,12}$/.test(doc.replace(/[\s-]/g, ""));
+  if (!ok) ctx.addIssue({ code: "custom", path: ["responsibleDocument"], message: doc ? "documentInvalid" : "required" });
 });
 export type StoreFormValues = z.input<typeof storeSchema>;
 export type StoreFormOutput = z.output<typeof storeSchema>;
@@ -175,6 +197,16 @@ export const productSchema = z
       .min(1, "imagesMin")
       .max(8, "imagesMax"),
     status: z.enum(["Ativo", "Rascunho"]).default("Ativo"),
+    /** NCM de 8 dígitos (obrigatório para publicar: vai na declaração de importação). */
+    hsCode: z.string().trim().default(""),
+  })
+  .refine((v) => v.status === "Rascunho" || onlyDigits(v.hsCode ?? "").length === 8, {
+    path: ["hsCode"],
+    message: "ncmRequired",
+  })
+  .refine((v) => v.status === "Rascunho" || v.description.trim().length >= 40, {
+    path: ["description"],
+    message: "descriptionMinListed",
   })
   .refine((v) => v.compareAtAmount === null || v.compareAtAmount > v.priceAmount, {
     path: ["compareAtAmount"],

@@ -14,12 +14,23 @@ import { QuantityStepper } from "@/components/shared/quantity-stepper";
 import { RatingStars } from "@/components/shared/rating-stars";
 import { SellerBadge } from "@/components/shared/seller-badge";
 import { ErrorState } from "@/components/shared/states";
-import { DeliveryWindow, GuaranteeBadge, ImportTaxLine } from "@/components/shared/trust-badge";
+import {
+  ImportedProductNotice,
+  TaxBreakdown,
+  TaxBreakdownSkeleton,
+} from "@/components/shared/tax-breakdown";
+import {
+  DeliveryWindow,
+  GuaranteeBadge,
+  ImportTaxLine,
+  RemessaConformeBadge,
+} from "@/components/shared/trust-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useProduct } from "@/features/catalog/api";
 import { useCartStore } from "@/features/cart/store";
+import { useTaxEstimate } from "@/features/compliance/api";
 import { useSeller } from "@/features/seller/api";
 import { useExchangeRates } from "@/features/shipping/api";
 import { Link, useRouter } from "@/i18n/navigation";
@@ -29,6 +40,7 @@ import { cn } from "@/lib/utils";
 import { ProductGallery } from "./product-gallery";
 import { ProductQuestions } from "./product-questions";
 import { ProductReviews } from "./product-reviews";
+import { ReportProductButton } from "./report-product-sheet";
 import { RelatedProducts } from "./related-products";
 import { VariantSelector, findVariant } from "./variant-selector";
 
@@ -56,6 +68,7 @@ export function ProductView({ slug }: { slug: string }) {
 
 function ProductContent({ product }: { product: ProductDetailDto }) {
   const t = useTranslations("product");
+  const tTaxes = useTranslations("taxes");
   const tc = useTranslations("common");
   const tcat = useTranslations("catalog");
   const format = useFormatter();
@@ -103,7 +116,10 @@ function ProductContent({ product }: { product: ProductDetailDto }) {
       null,
     ) ?? null;
   const deliveryRange = cheapest?.estimatedDays ?? product.handlingDays;
-  const importTax = multiplyBasisPoints(
+  // Tributos pelas regras do checkout (Remessa Conforme: II por faixa + ICMS + IBS + CBS); a alíquota fixa só
+  // cobre o instante antes da resposta.
+  const estimate = useTaxEstimate(price.amount * quantity);
+  const importTax = estimate.data?.totalTaxes ?? multiplyBasisPoints(
     { amount: price.amount * quantity, currency: price.currency },
     IMPORT_TAX_RATE_PERCENT * 100,
   );
@@ -273,16 +289,27 @@ function ProductContent({ product }: { product: ProductDetailDto }) {
           </section>
 
           <section aria-label={t("trustTitle")} className={cn(CARD, "flex flex-col gap-4")}>
-            <div className="flex flex-col divide-y divide-border">
-              <GuaranteeBadge className="pb-4" />
-              <DeliveryWindow range={deliveryRange} className="py-4" />
+            <div className="flex flex-col divide-y divide-border *:py-4 *:first:pt-0 *:last:pb-0">
+              <GuaranteeBadge />
+              <DeliveryWindow range={deliveryRange} />
               <ImportTaxLine
                 amount={importTax}
-                ratePercent={IMPORT_TAX_RATE_PERCENT}
-                className="pt-4"
+                ratePercent={estimate.data ? undefined : IMPORT_TAX_RATE_PERCENT}
+                final={estimate.data?.isFinal}
               />
+              <RemessaConformeBadge />
             </div>
             <p className="text-caption text-foreground-muted">{t("taxHint")}</p>
+            <ReportProductButton productId={product.id} productSlug={product.slug} />
+          </section>
+
+          <section aria-labelledby="taxes-title" className={cn(CARD, "flex flex-col gap-3")}>
+            <h2 id="taxes-title" className="text-title-3 text-foreground">
+              {tTaxes("pdpTitle")}
+            </h2>
+            <ImportedProductNotice />
+            {estimate.data ? <TaxBreakdown taxes={estimate.data} mode="taxes" /> : <TaxBreakdownSkeleton />}
+            <p className="text-caption text-foreground-muted">{tTaxes("pdpFreightNote")}</p>
           </section>
 
           <section aria-labelledby="shipping-title" className={cn(CARD, "flex flex-col gap-4")}>

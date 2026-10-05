@@ -29,7 +29,8 @@ public sealed class BuyerFlowTests : IClassFixture<ApiFactory>
     {
         var client = _factory.CreateClient();
         var result = await client.GetFromJsonAsync<JsonElement>("/api/products?categorySlug=perfumes&sort=priceDesc&pageSize=3", Json);
-        Assert.Equal(8, result.GetProperty("totalCount").GetInt32());
+        // 8 perfumes no seed; a "Miniatura decant" fica em análise na demo (preço abaixo da referência) e sai da vitrine.
+        Assert.Equal(7, result.GetProperty("totalCount").GetInt32());
         Assert.Equal(3, result.GetProperty("items").GetArrayLength());
         var prices = result.GetProperty("items").EnumerateArray().Select(i => i.GetProperty("price").GetProperty("amount").GetInt64()).ToList();
         Assert.Equal(prices.OrderByDescending(p => p), prices);
@@ -90,8 +91,18 @@ public sealed class BuyerFlowTests : IClassFixture<ApiFactory>
         var tax = quote.GetProperty("estimatedImportTax").GetProperty("amount").GetInt64();
         var total = quote.GetProperty("total").GetProperty("amount").GetInt64();
         Assert.Equal(subtotal / 10, discount);
-        Assert.Equal((subtotal + shipping - discount) * 6000 / 10000, tax);
-        Assert.Equal(subtotal + shipping - discount + tax, total);
+        // Remessa Conforme: tributos discriminados (II + ICMS + IBS + CBS) sobre o valor aduaneiro, cobrados na compra.
+        var taxes = quote.GetProperty("taxes");
+        Assert.Equal("RemessaConforme", taxes.GetProperty("regime").GetString());
+        Assert.True(taxes.GetProperty("isFinal").GetBoolean());
+        var customs = taxes.GetProperty("customsValue").GetProperty("amount").GetInt64();
+        Assert.Equal(subtotal + shipping - discount, customs);
+        long Part(string name) => taxes.GetProperty(name).GetProperty("amount").GetInt64();
+        Assert.Equal(Part("importDuty") + Part("icms") + Part("ibs") + Part("cbs"), tax);
+        Assert.Equal(Part("totalTaxes"), tax);
+        Assert.True(Part("importDuty") > 0 && Part("icms") > 0);
+        Assert.Equal(customs + tax, total);
+        Assert.Equal("USD", taxes.GetProperty("customsValueUsd").GetProperty("currency").GetString());
         Assert.Equal("PYG", quote.GetProperty("totalReference").GetProperty("currency").GetString());
 
         var order = new

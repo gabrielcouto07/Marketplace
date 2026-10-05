@@ -303,6 +303,8 @@ export interface AddressDto {
   country: "BR";
   phone: string | null;
   isDefault: boolean;
+  /** CPF de quem recebe (somente dígitos). Vai na declaração da remessa; só o dono do endereço vê. */
+  recipientCpf: string | null;
 }
 
 export type AddressInput = Omit<AddressDto, "id" | "country">;
@@ -400,6 +402,57 @@ export interface CheckoutGroupDto {
   shippingOptions: ShippingOptionDto[];
   selectedShippingOptionId: string | null;
   shipping: Money;
+  /** Tributos desta remessa (cada loja envia um pacote, com declaração própria). */
+  taxes?: ImportTaxBreakdownDto | null;
+  /** Desconto rateado para esta remessa. */
+  discount?: Money | null;
+}
+
+// ---------------------------------------------------------------------------
+// Tributos de importação (Remessa Conforme) — Portaria Coana 130/2023, art. 8º, II
+// ---------------------------------------------------------------------------
+export type ImportTaxRegime = "RemessaConforme" | "Estimativa";
+
+export interface UsdRateDto {
+  numerator: number;
+  denominator: number;
+  displayRate: string;
+  quotedAt: string;
+  source: string;
+}
+
+/** Tributos discriminados de uma remessa (ou a soma das remessas). RemessaConforme = valor definitivo, cobrado na compra. */
+export interface ImportTaxBreakdownDto {
+  regime: ImportTaxRegime;
+  isFinal: boolean;
+  products: Money;
+  freight: Money;
+  insurance: Money;
+  otherExpenses: Money;
+  discount: Money;
+  /** Produtos + frete + seguro + despesas − desconto (base do II). */
+  customsValue: Money;
+  customsValueUsd: Money | null;
+  importDuty: Money;
+  /** 2000 (até US$ 50) ou 6000 (acima); 0 = varia entre remessas. */
+  importDutyBasisPoints: number;
+  importDutyDeduction: Money;
+  icms: Money;
+  icmsBasisPoints: number;
+  icmsState: string | null;
+  ibs: Money;
+  ibsBasisPoints: number;
+  ibsState: Money;
+  ibsStateBasisPoints: number;
+  ibsMunicipal: Money;
+  ibsMunicipalBasisPoints: number;
+  cbs: Money;
+  cbsBasisPoints: number;
+  totalTaxes: Money;
+  total: Money;
+  effectiveBasisPoints: number;
+  usdRate: UsdRateDto | null;
+  exceedsSimplifiedLimit: boolean;
 }
 
 export interface CheckoutQuoteDto {
@@ -421,6 +474,8 @@ export interface CheckoutQuoteDto {
   exchangeRate: ExchangeRateDto;
   /** Câmbio travado até este instante. */
   lockedUntil: string;
+  /** Tributos discriminados (soma das remessas). */
+  taxes?: ImportTaxBreakdownDto | null;
 }
 
 export interface CardPaymentInput {
@@ -525,6 +580,48 @@ export interface OrderTotalsDto {
   discount: Money;
   total: Money;
   totalReference: Money;
+  /** Tributos discriminados e câmbio usados na compra (nulo em pedidos antigos). */
+  taxes?: ImportTaxBreakdownDto | null;
+}
+
+export type ShipmentStatus = "Pendente" | "EtiquetaEmitida" | "Postada" | "Cancelada" | "Falhou";
+export type TaxRemittanceStatus = "Pendente" | "Enviado" | "Confirmado" | "Falhou";
+
+export interface TaxRemittanceDto {
+  status: TaxRemittanceStatus;
+  importDuty: Money;
+  icms: Money;
+  ibsState: Money;
+  ibsMunicipal: Money;
+  cbs: Money;
+  total: Money;
+  reference: string | null;
+  createdAt: string;
+  sentAt: string | null;
+  confirmedAt: string | null;
+  lastError: string | null;
+}
+
+/** Remessa no operador logístico: declaração antecipada, etiqueta da plataforma e situação aduaneira. */
+export interface ShipmentDto {
+  id: string;
+  orderId: string;
+  status: ShipmentStatus;
+  provider: string;
+  sandbox: boolean;
+  carrier: string | null;
+  trackingCode: string | null;
+  declarationNumber: string | null;
+  hasLabel: boolean;
+  labelUrl: string | null;
+  createdAt: string;
+  labelIssuedAt: string | null;
+  postedAt: string | null;
+  lastError: string | null;
+  dirNumber: string | null;
+  customsStatus: string | null;
+  customsCheckedAt: string | null;
+  remittance: TaxRemittanceDto | null;
 }
 
 export interface OrderDto {
@@ -548,6 +645,8 @@ export interface OrderDto {
   exchangeRate: ExchangeRateDto;
   payment: { id: string; method: PaymentMethod; status: PaymentStatus };
   timeline: OrderTimelineEventDto[];
+  /** Remessa no operador (etiqueta da plataforma), quando já emitida. */
+  shipment?: ShipmentDto | null;
 }
 
 export interface OrderListQuery extends PagedQuery {
@@ -744,7 +843,23 @@ export interface WebhookEventDto<TPayload = unknown> {
 
 export type SellerStatus = "Pendente" | "Aprovado" | "Suspenso";
 
-export type ProductStatus = "Rascunho" | "Ativo" | "Arquivado";
+/** EmAnalise e Bloqueado são aplicados pela plataforma (conformidade), nunca escolhidos pelo vendedor. */
+export type ProductStatus = "Rascunho" | "Ativo" | "Arquivado" | "EmAnalise" | "Bloqueado";
+
+export type SellerDocumentType = "CedulaPy" | "Cpf" | "Passaporte";
+
+/** Dados de admissão do vendedor (Portaria Coana 130/2023, art. 8º, V). O documento volta mascarado. */
+export interface SellerVerificationDto {
+  legalAddress: string | null;
+  responsibleName: string | null;
+  responsibleDocumentType: SellerDocumentType | null;
+  responsibleDocumentMasked: string | null;
+  identityDocumentUrl: string | null;
+  rucCertificateUrl: string | null;
+  complete: boolean;
+  verifiedAt: string | null;
+  suspensionReason: string | null;
+}
 
 export interface SellerProfileDto {
   id: string;
@@ -767,6 +882,7 @@ export interface SellerProfileDto {
   /** CEP/código postal de onde os pedidos saem (cotação de frete). */
   originPostalCode: string | null;
   phone: string | null;
+  verification?: SellerVerificationDto | null;
 }
 
 export interface SellerProfileInput {
@@ -780,6 +896,14 @@ export interface SellerProfileInput {
   categoryIds: string[];
   originPostalCode?: string | null;
   phone?: string | null;
+  /** Endereço completo de origem: remetente da declaração e da etiqueta. */
+  legalAddress?: string | null;
+  responsibleName?: string | null;
+  responsibleDocumentType?: SellerDocumentType | null;
+  /** Vazio no perfil mantém o documento atual (ele só volta mascarado). */
+  responsibleDocument?: string | null;
+  identityDocumentUrl?: string | null;
+  rucCertificateUrl?: string | null;
 }
 
 export interface SellerRegisterRequest extends SellerProfileInput {
@@ -827,6 +951,9 @@ export interface SellerProductListItemDto {
   status: ProductStatus;
   soldCount: number;
   updatedAt: string;
+  /** Por que está em análise ou bloqueado (MARCA_PROTEGIDA, PRECO_ABAIXO_REFERENCIA, CONTRAFACAO…). */
+  moderationReason?: string | null;
+  hsCode?: string | null;
 }
 
 /** Dimensões do pacote em centímetros (comprimento × largura × altura). */
@@ -851,8 +978,11 @@ export interface SellerProductDto {
   /** Peso do pacote em gramas (cotação de frete). */
   weightGrams: number | null;
   dimensions: ParcelDimensionsDto | null;
-  /** Código NCM/HS para a declaração de importação. */
+  /** NCM de 8 dígitos (obrigatório para publicar), conferido na tabela oficial do Siscomex. */
   hsCode: string | null;
+  hsCodeDescription?: string | null;
+  moderationReason?: string | null;
+  moderationNote?: string | null;
   attributes: ProductAttributeDto[];
   images: SellerProductImageDto[];
   status: ProductStatus;
@@ -879,7 +1009,7 @@ export interface SellerProductInput {
   hsCode?: string | null;
   attributes: ProductAttributeDto[];
   images: SellerProductImageInput[];
-  status: Exclude<ProductStatus, "Arquivado">;
+  status: "Rascunho" | "Ativo";
 }
 
 export interface SellerProductListQuery extends PagedQuery {
@@ -900,9 +1030,10 @@ export interface PresignedUploadDto {
   headers: Record<string, string>;
 }
 
+/** Com etiqueta da plataforma o corpo vai vazio (o rastreio vem da etiqueta). */
 export interface ShipOrderRequest {
-  carrier: string;
-  trackingCode: string;
+  carrier?: string | null;
+  trackingCode?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -1037,6 +1168,10 @@ export interface AdminSellerListItemDto {
   ordersCount: number;
   gross30d: Money;
   openDisputes: number;
+  /** Documentos conferidos pela equipe (política de admissão). */
+  verified?: boolean;
+  /** Ocorrências de conformidade na janela de reincidência. */
+  occurrences?: number;
 }
 
 export interface AdminSellerDetailDto {
@@ -1049,6 +1184,8 @@ export interface AdminSellerDetailDto {
   categories: Array<Pick<CategoryDto, "id" | "slug" | "name">>;
   recentOrders: AdminOrderListItemDto[];
   recentPayouts: PayoutDto[];
+  verification?: SellerVerificationDto | null;
+  occurrences?: ComplianceOccurrenceDto[] | null;
 }
 
 export interface AdminSellerUpdateRequest {
@@ -1058,6 +1195,8 @@ export interface AdminSellerUpdateRequest {
   status?: SellerStatus;
   reputationLevel?: number;
   isOfficialStore?: boolean;
+  /** Obrigatório ao suspender. */
+  suspensionReason?: string | null;
 }
 
 export interface AdminProductListItemDto {
@@ -1073,6 +1212,9 @@ export interface AdminProductListItemDto {
   categoryName: string;
   soldCount: number;
   updatedAt: string;
+  moderationReason?: string | null;
+  hsCode?: string | null;
+  openReports?: number;
 }
 
 export interface AdminProductUpdateRequest {
@@ -1161,6 +1303,18 @@ export interface PlatformSettingsDto {
   termsVersion: string;
   privacyPolicyVersion: string;
   updatedAt: string;
+  /** Exceções de ICMS por UF em pontos-base, ex.: "SP=2000; RJ=2000". */
+  icmsStateOverrides: string;
+  ibsStateBasisPoints: number;
+  ibsMunicipalBasisPoints: number;
+  cbsBasisPoints: number;
+  insuranceBasisPoints: number;
+  otherExpensesAmount: number;
+  sellerStrikeLimit: number;
+  strikeWindowDays: number;
+  priceFloorPercent: number;
+  protectedBrands: string;
+  requirePlatformLabel: boolean;
 }
 
 export interface AdminOrderListQuery extends PagedQuery {
@@ -1200,4 +1354,171 @@ export interface AdminPayoutListQuery extends PagedQuery {
 
 export interface AdminAuditListQuery extends PagedQuery {
   q?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Remessa Conforme — conformidade (Portarias Coana 130/2023 e 193/2026)
+// ---------------------------------------------------------------------------
+export type ComplianceIndicator = "Contrafacao" | "Subvaloracao" | "QualidadeDeclaracao";
+export type OccurrenceSource = "Despacho" | "Siscomex" | "Ouvidoria" | "Denuncia" | "Interna";
+export type OccurrenceStatus = "Confirmada" | "Contestada" | "Anulada";
+export type ProductReportReason = "Falsificado" | "PrecoSuspeito" | "DescricaoIncorreta" | "ProdutoProibido" | "Outro";
+export type ProductReportStatus = "Aberta" | "Procedente" | "Improcedente";
+/** Faixa de cada indicador: Ouro ≥ 99,7% · Prata ≥ 99,4% · Bronze ≥ 99,0% · Advertência ≥ 98,0% · Exclusão abaixo. */
+export type ComplianceBand = "Ouro" | "Prata" | "Bronze" | "Advertencia" | "Exclusao";
+
+export interface ProductReportRequest {
+  reason: ProductReportReason;
+  details?: string | null;
+}
+
+export interface ProductReportDto {
+  id: string;
+  productId: string;
+  productName: string;
+  productSlug: string;
+  productStatus: ProductStatus;
+  sellerId: string;
+  sellerName: string;
+  reason: ProductReportReason;
+  details: string;
+  status: ProductReportStatus;
+  createdAt: string;
+  reporterEmail: string | null;
+  resolvedAt: string | null;
+  resolutionNote: string | null;
+  occurrenceId: string | null;
+}
+
+export interface ProductReportResolveRequest {
+  upheld: boolean;
+  indicator?: ComplianceIndicator | null;
+  blockProduct: boolean;
+  note?: string | null;
+}
+
+export interface ComplianceOccurrenceDto {
+  id: string;
+  indicator: ComplianceIndicator;
+  source: OccurrenceSource;
+  status: OccurrenceStatus;
+  code: string;
+  description: string;
+  sellerId: string | null;
+  sellerName: string | null;
+  productId: string | null;
+  productName: string | null;
+  orderId: string | null;
+  orderNumber: string | null;
+  externalId: string | null;
+  occurredAt: string;
+  registeredAt: string;
+  statusReason: string | null;
+}
+
+export interface ComplianceOccurrenceInput {
+  indicator: ComplianceIndicator;
+  source: OccurrenceSource;
+  code: string;
+  description: string;
+  sellerId?: string | null;
+  productId?: string | null;
+  orderNumber?: string | null;
+  occurredAt?: string | null;
+}
+
+export interface OccurrenceStatusRequest {
+  status: OccurrenceStatus;
+  reason?: string | null;
+}
+
+export interface ComplianceIndicatorDto {
+  indicator: ComplianceIndicator;
+  occurrences: number;
+  /** Remessas sem ocorrência em centésimos de % (9970 = 99,70%). */
+  compliancePermyriad: number;
+  band: ComplianceBand;
+  consequence: string;
+}
+
+export interface ComplianceMonthDto {
+  year: number;
+  month: number;
+  shipments: number;
+  indicators: ComplianceIndicatorDto[];
+}
+
+export interface SellerRiskDto {
+  sellerId: string;
+  sellerName: string;
+  status: SellerStatus;
+  occurrences: number;
+  openReports: number;
+}
+
+export interface ComplianceDashboardDto {
+  cycleStartYear: number;
+  cycle: DateRange;
+  cycleShipments: number;
+  sealEligible: boolean;
+  sealMinimumShipments: number;
+  cycleIndicators: ComplianceIndicatorDto[];
+  months: ComplianceMonthDto[];
+  sellersAtRisk: SellerRiskDto[];
+  openReports: number;
+  productsInReview: number;
+  pendingSellerVerifications: number;
+  strikeLimit: number;
+  strikeWindowDays: number;
+}
+
+export interface ProductModerationRequest {
+  action: "aprovar" | "bloquear" | "analisar";
+  reason?: string | null;
+  note?: string | null;
+}
+
+export interface SellerVerificationRequest {
+  approve: boolean;
+  note?: string | null;
+}
+
+export interface AdminShipmentListItemDto {
+  id: string;
+  orderId: string;
+  orderNumber: string;
+  sellerName: string;
+  status: ShipmentStatus;
+  provider: string;
+  sandbox: boolean;
+  trackingCode: string | null;
+  declarationNumber: string | null;
+  dirNumber: string | null;
+  customsStatus: string | null;
+  remittanceStatus: TaxRemittanceStatus | null;
+  taxes: Money;
+  createdAt: string;
+  lastError: string | null;
+}
+
+/** Situação de cada integração (governo e operador). missing = variáveis de ambiente que faltam. */
+export interface IntegrationStatusDto {
+  key: "platform" | "carrier" | "siscomex" | "serpro" | "ncm" | "ptax";
+  name: string;
+  purpose: string;
+  provider: string;
+  configured: boolean;
+  requiresCredential: boolean;
+  mode: string;
+  missing: string[];
+  detail: string | null;
+  docsUrl: string;
+}
+
+export interface NcmLookupDto {
+  code: string;
+  formatted: string;
+  description: string;
+  /** false = tabela oficial indisponível (só o formato foi conferido). */
+  official: boolean;
 }

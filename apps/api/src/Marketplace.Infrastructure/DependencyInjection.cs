@@ -4,10 +4,12 @@ using Marketplace.Infrastructure.Auth;
 using Marketplace.Infrastructure.Background;
 using Marketplace.Infrastructure.Email;
 using Marketplace.Infrastructure.ExchangeRates;
+using Marketplace.Infrastructure.Gov;
 using Marketplace.Infrastructure.Links;
 using Marketplace.Infrastructure.Payments;
 using Marketplace.Infrastructure.Persistence;
 using Marketplace.Infrastructure.Providers;
+using Marketplace.Infrastructure.RemessaConforme;
 using Marketplace.Infrastructure.Security;
 using Marketplace.Infrastructure.Shipping;
 using Marketplace.Infrastructure.Storage;
@@ -53,6 +55,11 @@ public static class DependencyInjection
         services.Configure<HousekeepingOptions>(config.GetSection("Housekeeping"));
         services.Configure<StorageOptions>(config.GetSection("Storage"));
         services.Configure<EmailOptions>(config.GetSection("Email"));
+        services.Configure<RemessaConformeOptions>(config.GetSection("RemessaConforme"));
+        services.Configure<SiscomexOptions>(config.GetSection("Siscomex"));
+        services.Configure<SerproOptions>(config.GetSection("Serpro"));
+        services.Configure<NcmOptions>(config.GetSection("Ncm"));
+        services.Configure<PtaxOptions>(config.GetSection("Ptax"));
 
         var paymentProvider = config["Payments:Provider"] ?? FakePaymentGateway.GatewayName;
         var isMercadoPago = paymentProvider.Equals(MercadoPagoGateway.GatewayName, StringComparison.OrdinalIgnoreCase);
@@ -146,10 +153,57 @@ public static class DependencyInjection
         if (emailProvider.Equals("Smtp", StringComparison.OrdinalIgnoreCase)) services.AddSingleton<IEmailSender, SmtpEmailSender>();
         else services.AddSingleton<IEmailSender, LoggingEmailSender>();
 
+        // ----- Remessa Conforme: operador logístico, Portal Único Siscomex, Serpro, tabela NCM e PTAX -----
+        AddRemessaConforme(services, config, env);
+
         services.AddHostedService<PaymentMaintenanceJob>();
         services.AddHostedService<LogisticsJob>();
         services.AddHostedService<HousekeepingJob>();
         services.AddHostedService<ExchangeRateRefreshJob>();
         return services;
+    }
+
+    private static void AddRemessaConforme(IServiceCollection services, IConfiguration config, IHostEnvironment env)
+    {
+        services.AddSingleton<IPlatformIdentityProvider, PlatformIdentityProvider>();
+
+        var carrierTimeout = Math.Max(5, config.GetValue("RemessaConforme:Carrier:TimeoutSeconds", 25));
+        // Sem retry automático: criar remessa não é idempotente do lado de todos os operadores (vai Idempotency-Key, mas
+        // a nova tentativa fica com o vendedor/admin).
+        services.AddHttpClient<HttpRemessaCarrierGateway>(c => c.Timeout = TimeSpan.FromSeconds(carrierTimeout));
+        services.AddSingleton<SandboxRemessaCarrierGateway>();
+        var carrierProvider = config["RemessaConforme:Carrier:Provider"] ?? "Sandbox";
+        var allowSandbox = env.IsDevelopment() || config.GetValue("RemessaConforme:Carrier:AllowSandboxOutsideDevelopment", false);
+        services.AddScoped<IRemessaCarrierGateway>(sp =>
+            carrierProvider.Equals("Http", StringComparison.OrdinalIgnoreCase)
+                ? sp.GetRequiredService<HttpRemessaCarrierGateway>()
+                : allowSandbox
+                    ? sp.GetRequiredService<SandboxRemessaCarrierGateway>()
+                    : new DisabledRemessaCarrierGateway());
+
+        services.AddHttpClient(PortalUnicoSiscomexClient.HttpClientName, c => c.Timeout = TimeSpan.FromSeconds(Math.Max(5, config.GetValue("Siscomex:TimeoutSeconds", 30))));
+        services.AddSingleton<ISiscomexRemessaClient, PortalUnicoSiscomexClient>();
+
+        services.AddHttpClient(SerproTaxpayerRegistry.HttpClientName, c => c.Timeout = TimeSpan.FromSeconds(Math.Max(3, config.GetValue("Serpro:TimeoutSeconds", 10))));
+        services.AddSingleton<ITaxpayerRegistry, SerproTaxpayerRegistry>();
+
+        services.AddHttpClient(SiscomexNcmCatalog.HttpClientName, c => c.Timeout = TimeSpan.FromMinutes(2));
+        services.AddSingleton<SiscomexNcmCatalog>();
+        services.AddSingleton<INcmCatalog>(sp => sp.GetRequiredService<SiscomexNcmCatalog>());
+
+        services.AddHttpClient<BcbPtaxClient>(c => c.Timeout = TimeSpan.FromSeconds(20))
+            .AddStandardResilienceHandler(o =>
+            {
+                o.AttemptTimeout.Timeout = TimeSpan.FromSeconds(8);
+                o.TotalRequestTimeout.Timeout = TimeSpan.FromSeconds(20);
+                o.Retry.MaxRetryAttempts = 2;
+            });
+
+        services.AddScoped<IIntegrationStatusReporter, IntegrationStatusReporter>();
+
+        services.AddHostedService<RemessaJob>();
+        services.AddHostedService<SiscomexSyncJob>();
+        services.AddHostedService<PtaxRefreshJob>();
+        services.AddHostedService<NcmRefreshJob>();
     }
 }

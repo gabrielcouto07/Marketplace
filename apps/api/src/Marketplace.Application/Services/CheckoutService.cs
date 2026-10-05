@@ -16,6 +16,7 @@ public sealed class CheckoutService(
     ExchangeRateService rates,
     PlatformSettingsProvider settingsProvider,
     IPaymentGatewayRegistry gateways,
+    ITaxpayerRegistry taxpayers,
     OrderService orders,
     PaymentService payments,
     ICurrentUser currentUser,
@@ -76,13 +77,26 @@ public sealed class CheckoutService(
         var subtotalAll = Money.Sum(groups.Select(g => g.Subtotal));
         var shippingTotal = Money.Sum(groups.Select(g => g.Shipping));
         var (discount, couponCode) = await CouponDiscountAsync(request.CouponCode, subtotalAll, now, ct);
-        var taxable = subtotalAll.Add(shippingTotal).Subtract(discount);
-        var tax = ImportTaxCalculator.Estimate(taxable, settings, usdRate);
-        var total = taxable.Add(tax.Tax);
+
+        // Cada loja envia um pacote com declaração própria: os tributos (e a faixa de US$ 50) são por remessa.
+        var shares = AllocateDiscount(discount, groups.Select(g => g.Subtotal).ToList());
+        var breakdowns = new List<ImportTaxBreakdown>();
+        for (var i = 0; i < groups.Count; i++)
+        {
+            var breakdown = ImportTaxCalculator.Calculate(
+                new ImportTaxInput(groups[i].Subtotal, groups[i].Shipping, shares[i], destination.State), settings, usdRate);
+            if (breakdown.ExceedsSimplifiedLimit)
+                throw AppException.Validation("groups",
+                    $"O pedido da loja {groups[i].Seller.Name} passa de US$ 3.000, limite da remessa no Remessa Conforme. Divida a compra em pedidos menores.");
+            breakdowns.Add(breakdown);
+            groups[i] = groups[i] with { Taxes = breakdown.ToDto(), Discount = shares[i] };
+        }
+        var taxes = ImportTaxBreakdown.Sum(breakdowns);
+        var total = taxes.Total;
 
         var quote = new CheckoutQuoteDto(
-            Guid.NewGuid(), groups, subtotalAll, shippingTotal, tax.Tax, tax.EffectiveBasisPoints, discount, total,
-            rate.Convert(total), rate.ToDto(), now.AddMinutes(settings.QuoteLockMinutes), cep, couponCode);
+            Guid.NewGuid(), groups, subtotalAll, shippingTotal, taxes.TotalTaxes, taxes.EffectiveBasisPoints, discount, total,
+            rate.Convert(total), rate.ToDto(), now.AddMinutes(settings.QuoteLockMinutes), cep, couponCode, taxes.ToDto());
 
         db.CheckoutQuotes.Add(new CheckoutQuote
         {
@@ -98,6 +112,21 @@ public sealed class CheckoutService(
         });
         await db.SaveChangesAsync(ct);
         return quote;
+    }
+
+    /// <summary>Rateia o desconto pelo subtotal de cada remessa; a última absorve o arredondamento.</summary>
+    public static List<Money> AllocateDiscount(Money discount, IReadOnlyList<Money> subtotals)
+    {
+        var total = Money.Sum(subtotals).Amount;
+        var left = discount.Amount;
+        var shares = new List<Money>(subtotals.Count);
+        for (var i = 0; i < subtotals.Count; i++)
+        {
+            var share = i == subtotals.Count - 1 ? left : total == 0 ? 0 : Money.RoundDiv(discount.Amount * subtotals[i].Amount, total);
+            left -= share;
+            shares.Add(Money.Brl(share));
+        }
+        return shares;
     }
 
     private async Task<(Money Discount, string? Code)> CouponDiscountAsync(string? code, Money subtotal, DateTime now, CancellationToken ct)
@@ -136,6 +165,14 @@ public sealed class CheckoutService(
         // Frete e impostos foram calculados para o CEP da cotação: outro endereço exige recotar.
         if (quoteRow.PostalCode is not null && Documents.OnlyDigits(address.PostalCode) != quoteRow.PostalCode)
             throw AppException.Validation("addressId", "O endereço mudou desde a cotação. Atualize o resumo do pedido.");
+
+        // A declaração da remessa leva o CPF de quem recebe (indicador de qualidade da declaração: CPF do destinatário).
+        var recipientCpf = Documents.OnlyDigits(address.RecipientDocument);
+        if (!Documents.IsValidCpf(recipientCpf))
+            throw AppException.Validation("addressId", "Informe o CPF de quem vai receber no endereço de entrega. Ele vai na declaração de importação.");
+        var recipientCheck = await taxpayers.CheckCpfAsync(recipientCpf, ct);
+        if (recipientCheck.BlocksDeclaration)
+            throw AppException.Validation("addressId", "O CPF do destinatário não está regular na Receita Federal. Corrija o endereço de entrega.");
 
         var payment = request.Payment ?? throw AppException.Validation("payment", "Informe a forma de pagamento.");
         var payerDocument = Documents.OnlyDigits(payment.PayerDocument);
@@ -201,12 +238,11 @@ public sealed class CheckoutService(
         db.Payments.Add(paymentEntity);
         db.Purchases.Add(purchase);
 
-        var discountLeft = quote.Discount.Amount;
-        var taxLeft = quote.EstimatedImportTax.Amount;
+        var discountShares = AllocateDiscount(quote.Discount, quote.Groups.Select(g => g.Subtotal).ToList());
+        var usdRate = await rates.TryGetCurrentAsync(CurrencyCode.USD, CurrencyCode.BRL, ct);
         for (var gi = 0; gi < quote.Groups.Count; gi++)
         {
             var group = quote.Groups[gi];
-            var isLast = gi == quote.Groups.Count - 1;
             var input = request.Groups?.FirstOrDefault(g => g.SellerId == group.Seller.Id);
             // Impostos e total foram calculados com a opção selecionada na cotação; mudar o frete exige recotar.
             if (input?.ShippingOptionId is { } chosen && chosen != group.SelectedShippingOptionId)
@@ -214,14 +250,13 @@ public sealed class CheckoutService(
             var option = group.ShippingOptions.FirstOrDefault(o => o.Id == group.SelectedShippingOptionId)
                          ?? group.ShippingOptions[0];
 
-            var discountShare = isLast
-                ? discountLeft
-                : quote.Subtotal.Amount == 0 ? 0 : Money.RoundDiv(quote.Discount.Amount * group.Subtotal.Amount, quote.Subtotal.Amount);
-            discountLeft -= discountShare;
-            var taxable = group.Subtotal.Amount + option.Price.Amount - discountShare;
-            var taxShare = isLast ? taxLeft : Money.RoundDiv(taxable * quote.ImportTaxRateBasisPoints, 10_000);
-            taxLeft -= taxShare;
-            var total = taxable + taxShare;
+            var discountShare = (group.Discount ?? discountShares[gi]).Amount;
+            // A cotação gravada já traz os tributos da remessa (câmbio e alíquotas da cotação); cotações antigas recalculam.
+            var breakdown = group.Taxes is not null
+                ? FromDto(group.Taxes)
+                : ImportTaxCalculator.Calculate(new ImportTaxInput(group.Subtotal, option.Price, Money.Brl(discountShare), address.State), settings, usdRate);
+            var taxShare = breakdown.TotalTaxes.Amount;
+            var total = breakdown.Total.Amount;
 
             var handlingDays = 0;
             var items = new List<OrderItem>();
@@ -270,12 +305,14 @@ public sealed class CheckoutService(
                 CreatedAt = now,
                 UpdatedAt = now,
                 ShippingAddress = address.ToSnapshot(),
+                RecipientDocument = recipientCpf,
                 ShippingOption = option.ToSnapshot(),
                 EstimatedDeliveryMin = BusinessDays.Add(now, handlingDays + option.EstimatedDays.Min),
                 EstimatedDeliveryMax = BusinessDays.Add(now, handlingDays + option.EstimatedDays.Max),
                 SubtotalAmount = group.Subtotal.Amount,
                 ShippingAmount = option.Price.Amount,
                 ImportTaxAmount = taxShare,
+                TaxBreakdown = breakdown,
                 DiscountAmount = discountShare,
                 TotalAmount = total,
                 TotalReferenceAmount = rate.Convert(Money.Brl(total)).Amount,
@@ -315,6 +352,15 @@ public sealed class CheckoutService(
 
         return await BuildResponseAsync(purchaseId, ct);
     }
+
+    /// <summary>Reconstrói o cálculo gravado na cotação.</summary>
+    private static ImportTaxBreakdown FromDto(ImportTaxBreakdownDto t) =>
+        new(t.Regime, t.Products, t.Freight, t.Insurance, t.OtherExpenses, t.Discount, t.CustomsValue, t.CustomsValueUsd?.Amount,
+            t.ImportDuty, t.ImportDutyBasisPoints, t.ImportDutyDeduction, t.Icms, t.IcmsBasisPoints, t.IcmsState,
+            t.IbsState, t.IbsStateBasisPoints, t.IbsMunicipal, t.IbsMunicipalBasisPoints,
+            t.Cbs, t.CbsBasisPoints, t.TotalTaxes, t.Total,
+            t.UsdRate is { } r ? new UsdRateSnapshot(r.Numerator, r.Denominator, r.DisplayRate, r.QuotedAt, r.Source) : null,
+            t.ExceedsSimplifiedLimit);
 
     private async Task<PlaceOrderResponseDto> BuildResponseAsync(Guid purchaseId, CancellationToken ct)
     {

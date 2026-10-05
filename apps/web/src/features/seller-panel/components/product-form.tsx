@@ -22,6 +22,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useCategories } from "@/features/catalog/api";
 import { formatMoney } from "@/lib/money";
+import { onlyDigits } from "@/lib/validation/documents";
 import {
   productSchema,
   type ProductFormOutput,
@@ -29,6 +30,7 @@ import {
 } from "@/lib/validation/schemas";
 
 import { GalleryUpload } from "./image-upload";
+import { ModerationNotice, NcmField } from "./ncm-field";
 
 export interface ProductFormProps {
   product?: SellerProductDto;
@@ -56,6 +58,7 @@ const EMPTY: ProductFormValues = {
   attributes: [],
   images: [],
   status: "Ativo",
+  hsCode: "",
 };
 
 function toFormValues(p: SellerProductDto): ProductFormValues {
@@ -77,6 +80,7 @@ function toFormValues(p: SellerProductDto): ProductFormValues {
     attributes: p.attributes,
     images: p.images.map((i) => ({ url: i.url, alt: i.alt, storageKey: i.storageKey })),
     status: p.status === "Rascunho" ? "Rascunho" : "Ativo",
+    hsCode: p.hsCode ?? "",
   };
 }
 
@@ -215,7 +219,7 @@ export function ProductForm({
         values.lengthCm && values.widthCm && values.heightCm
           ? { lengthCm: values.lengthCm, widthCm: values.widthCm, heightCm: values.heightCm }
           : null,
-      hsCode: product?.hsCode ?? null,
+      hsCode: onlyDigits(values.hsCode ?? "") || null,
       attributes: values.attributes.filter((a) => a.name && a.value),
       images: values.images.map((i) => ({
         url: i.url,
@@ -233,6 +237,9 @@ export function ProductForm({
 
   return (
     <form onSubmit={submit} noValidate className="flex flex-col gap-8">
+      {product && (product.status === "EmAnalise" || product.status === "Bloqueado") ? (
+        <ModerationNotice status={product.status} reason={product.moderationReason ?? null} note={product.moderationNote ?? null} />
+      ) : null}
       <section className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-xs sm:p-6">
         <h2 className="text-title-3 text-foreground">{t("productPhotos")}</h2>
         <FormField id="product-images" label={t("productGallery")} error={imagesError}>
@@ -305,6 +312,20 @@ export function ProductForm({
             }
           />
         </FormField>
+
+        <Controller
+          control={control}
+          name="hsCode"
+          render={({ field }) => (
+            <NcmField
+              value={field.value ?? ""}
+              onChange={field.onChange}
+              onBlur={field.onBlur}
+              error={errors.hsCode?.message}
+              initialDescription={product?.hsCodeDescription ?? null}
+            />
+          )}
+        />
 
         <FormField
           id="product-description"

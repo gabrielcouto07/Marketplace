@@ -27,6 +27,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         builder.UseSetting("Payments:Provider", "Fake");
         builder.UseSetting("Payments:Fake:AutoApproveAfterSeconds", "0");
         builder.UseSetting("Tracking:Provider", "None");
+        // Sem rede nos testes: tabela NCM só por formato e câmbio USD do seed.
+        builder.UseSetting("Ncm:Source", "Offline");
+        builder.UseSetting("Ptax:Provider", "None");
         builder.ConfigureTestServices(services =>
         {
             services.RemoveAll<IPostalCodeLookup>();

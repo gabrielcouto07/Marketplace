@@ -16,6 +16,7 @@ namespace Marketplace.Application.Services;
 public sealed class TrackingService(
     IAppDbContext db,
     OrderService orders,
+    ComplianceService compliance,
     ITrackingProviderResolver resolver,
     TimeProvider clock,
     ILogger<TrackingService> logger)
@@ -49,6 +50,21 @@ public sealed class TrackingService(
                 ExternalId = e.ExternalId,
             });
             changed = true;
+            if (TrackingCodes.ComplianceIndicatorFor(code) is { } indicator)
+                db.ComplianceOccurrences.Add(new ComplianceOccurrence
+                {
+                    Id = Guid.NewGuid(),
+                    Indicator = indicator,
+                    Source = OccurrenceSource.Despacho,
+                    Code = code,
+                    Description = $"{e.Description} (pedido {order.Number}, {e.Location})",
+                    SellerId = order.SellerId,
+                    OrderId = order.Id,
+                    ShipmentId = order.Shipment?.Id,
+                    ExternalId = $"trk:{e.ExternalId}",
+                    OccurredAt = e.OccurredAt,
+                    RegisteredAt = Now,
+                });
             if (TrackingCodes.TargetStatus(code) is { } target && target != order.Status && OrderStateMachine.CanTransition(order.Status, target))
                 orders.Transition(order, target, null, e.Location, "carrier");
         }
@@ -93,10 +109,13 @@ public sealed class TrackingService(
                 throw AppException.NotFound("Pedido");
             }
             if (!string.IsNullOrWhiteSpace(evt.Carrier) && string.IsNullOrWhiteSpace(order.Carrier)) order.Carrier = evt.Carrier.Trim();
+            var before = PendingOccurrences();
             var changed = Apply(order, evt.Events);
             record.ProcessedAt = Now;
             record.Error = null;
+            var hasOccurrence = PendingOccurrences() > before;
             await db.SaveChangesAsync(ct);
+            if (hasOccurrence) await compliance.EvaluateSellerStrikesAsync(order.SellerId, ct);
             return (true, changed);
         }
         catch (Exception ex) when (ex is not AppException)
@@ -109,6 +128,8 @@ public sealed class TrackingService(
             throw;
         }
     }
+
+    private int PendingOccurrences() => db.ChangeTracker.Entries<ComplianceOccurrence>().Count(x => x.State == EntityState.Added);
 
     /// <summary>Job: consulta a transportadora para pedidos em trânsito que têm provedor registrado. Retorna quantos mudaram.</summary>
     public async Task<int> SyncAsync(int batchSize, CancellationToken ct)
@@ -128,9 +149,12 @@ public sealed class TrackingService(
             try
             {
                 var events = await provider.GetEventsAsync(new TrackingQuery(order.Id, order.Carrier ?? string.Empty, order.TrackingCode!), ct);
+                var before = PendingOccurrences();
                 if (Apply(order, events))
                 {
+                    var hasOccurrence = PendingOccurrences() > before;
                     await db.SaveChangesAsync(ct);
+                    if (hasOccurrence) await compliance.EvaluateSellerStrikesAsync(order.SellerId, ct);
                     updated++;
                 }
             }
