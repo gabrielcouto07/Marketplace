@@ -1036,6 +1036,17 @@ export interface ShipOrderRequest {
   trackingCode?: string | null;
 }
 
+/**
+ * Como o vendedor despacha: com a etiqueta da plataforma (operador configurado) e/ou informando o rastreio, quando a
+ * plataforma não exige a etiqueta (ex.: antes de contratar o operador). `GET /seller/shipping-policy`.
+ */
+export interface SellerShippingPolicyDto {
+  requirePlatformLabel: boolean;
+  carrierConfigured: boolean;
+  sandbox: boolean;
+  carrier: string;
+}
+
 // ---------------------------------------------------------------------------
 // Painel administrativo (/admin/*) — papel Admin
 // ---------------------------------------------------------------------------

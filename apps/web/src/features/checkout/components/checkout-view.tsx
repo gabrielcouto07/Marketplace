@@ -315,6 +315,8 @@ export function CheckoutView() {
     !quoteExpired &&
     !placeOrder.isPending &&
     Boolean(selectedAddress) &&
+    // A declaração da remessa leva o CPF de quem recebe (Remessa Conforme).
+    Boolean(selectedAddress?.recipientCpf) &&
     (method !== "Cartao" || CARD_PAYMENT_ENABLED);
 
   return (

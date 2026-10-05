@@ -17,6 +17,7 @@ public sealed class IntegrationStatusReporter(
     SiscomexNcmCatalog ncmCatalog) : IIntegrationStatusReporter
 {
     private const string Docs = "docs/REMESSA_CONFORME.md";
+    private static readonly System.Globalization.CultureInfo PtBr = System.Globalization.CultureInfo.GetCultureInfo("pt-BR");
 
     public Task<IReadOnlyList<IntegrationStatusDto>> GetAsync(CancellationToken ct)
     {
@@ -72,7 +73,7 @@ public sealed class IntegrationStatusReporter(
         list.Add(new IntegrationStatusDto("ncm", "Tabela NCM oficial (Siscomex)",
             "Confere se o NCM de cada produto existe na nomenclatura vigente. Pública, sem chave.",
             "siscomex-classif", ncmCatalog.IsLoaded, false, offline ? "Desligado" : ncmCatalog.IsLoaded ? "Ativo" : "Carregando", [],
-            ncmCatalog.IsLoaded ? $"{ncmCatalog.Count} códigos · {ncmCatalog.Version}" : offline ? "Ncm__Source=Offline: só o formato é conferido." : "Baixando a tabela.", Docs));
+            ncmCatalog.IsLoaded ? $"{ncmCatalog.Count.ToString("N0", PtBr)} códigos · {ncmCatalog.Version}" : offline ? "Ncm__Source=Offline: só o formato é conferido." : "Baixando a tabela.", Docs));
 
         var pt = ptax.Value;
         var ptaxOn = pt.Provider.Equals(BcbPtaxClient.ProviderName, StringComparison.OrdinalIgnoreCase);

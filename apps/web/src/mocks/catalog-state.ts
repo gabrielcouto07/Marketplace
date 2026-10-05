@@ -4,13 +4,15 @@ import type {
   SellerDto,
   SellerStatus,
   SellerSummaryDto,
+  SellerVerificationDto,
 } from "@marketplace/contracts";
 
 import { convert, discountPercent } from "@/lib/money";
 
 import { db } from "./db";
 import { EXCHANGE_RATES, SELLERS, categoryById, getRate, toSellerSummary } from "./fixtures/base";
-import { PRODUCT_RECORDS, PRODUCTS, type ProductRecord } from "./fixtures/products";
+import { PRODUCT_NCM, PRODUCT_RECORDS, PRODUCTS, type ProductRecord } from "./fixtures/products";
+import { EMPTY_KYC, type SellerKyc, maskDocument, seedSellerKyc } from "./fixtures/remessa";
 
 /**
  * Catálogo "vivo" do mock: fixtures determinísticas + o que os painéis (vendedor/admin) alteraram
@@ -63,6 +65,37 @@ export function sellerStatus(sellerId: string): SellerStatus {
   );
 }
 
+/** Documentos da loja: o que foi enviado no painel ou, nas lojas fixas, o seed (já conferido pela equipe). */
+export function sellerKyc(sellerId: string): SellerKyc {
+  const stored = db.sellerKyc[sellerId];
+  if (stored) return stored;
+  const index = SELLERS.findIndex((s) => s.id === sellerId);
+  return index >= 0 ? seedSellerKyc(SELLERS[index], index) : EMPTY_KYC;
+}
+
+/** Política de admissão (critério v): responsável, documento, constância do RUC e endereço de origem. */
+export function sellerVerification(sellerId: string): SellerVerificationDto {
+  const k = sellerKyc(sellerId);
+  return {
+    legalAddress: k.legalAddress,
+    responsibleName: k.responsibleName,
+    responsibleDocumentType: k.responsibleDocumentType,
+    responsibleDocumentMasked: maskDocument(k.responsibleDocument),
+    identityDocumentUrl: k.identityDocumentUrl,
+    rucCertificateUrl: k.rucCertificateUrl,
+    complete: Boolean(
+      k.legalAddress &&
+        k.responsibleName &&
+        k.responsibleDocumentType &&
+        k.responsibleDocument &&
+        k.identityDocumentUrl &&
+        k.rucCertificateUrl,
+    ),
+    verifiedAt: k.verifiedAt,
+    suspensionReason: k.suspensionReason,
+  };
+}
+
 export const findSellerBySlug = (slug: string) => allSellers().find((s) => s.slug === slug);
 export const findSellerById = (id: string) => allSellers().find((s) => s.id === id);
 
@@ -77,6 +110,13 @@ function sellerSummaryFor(summary: SellerSummaryDto): SellerSummaryDto {
 
 export function productStatus(productId: string): ProductStatus {
   return db.productOverrides[productId]?.status ?? "Ativo";
+}
+
+/** NCM do produto: o que o vendedor salvou (mesmo vazio) ou o do catálogo fixo. */
+export function productNcm(productId: string): string | null {
+  const override = db.productOverrides[productId];
+  if (override && "hsCode" in override) return override.hsCode ?? null;
+  return PRODUCT_NCM[productId] ?? null;
 }
 
 export function applyProductOverride(product: ProductDetailDto): ProductDetailDto {

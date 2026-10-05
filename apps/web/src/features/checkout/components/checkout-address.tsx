@@ -1,6 +1,7 @@
 "use client";
 
-import { MapPin, Plus } from "lucide-react";
+import type { AddressDto } from "@marketplace/contracts";
+import { MapPin, Plus, TriangleAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -18,12 +19,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { RadioGroup } from "@/components/ui/radio-group";
 import { Skeleton } from "@/components/ui/skeleton";
-import { type useAddresses, useCreateAddress } from "@/features/account/api";
+import { type useAddresses, useCreateAddress, useUpdateAddress } from "@/features/account/api";
 import { AddressForm } from "@/features/account/components/address-form";
 import { useCurrentUser } from "@/features/auth/store";
 import { CheckoutSection, OptionCard } from "@/features/checkout/components/checkout-section";
 import { isApiError } from "@/lib/api/errors";
-import { formatCep } from "@/lib/validation/documents";
+import { formatCep, formatCpf } from "@/lib/validation/documents";
 
 interface AddressSectionProps {
   addresses: ReturnType<typeof useAddresses>;
@@ -31,20 +32,31 @@ interface AddressSectionProps {
   onSelect: (id: string) => void;
 }
 
-/** 1. Endereço de entrega: radio cards + "Novo endereço" em bottom sheet. */
+/**
+ * 1. Endereço de entrega: radio cards + "Novo endereço" em bottom sheet. Endereço sem o CPF de quem recebe (cadastrado
+ * antes do Remessa Conforme) não segue para o pagamento: o aviso abre o mesmo formulário para completar ali mesmo.
+ */
 export function AddressSection({ addresses, selectedId, onSelect }: AddressSectionProps) {
   const t = useTranslations("checkout");
   const tAccount = useTranslations("account");
   const user = useCurrentUser();
   const createAddress = useCreateAddress();
+  const updateAddress = useUpdateAddress();
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [editing, setEditing] = useState<AddressDto | null>(null);
+  const selected = addresses.data?.find((a) => a.id === selectedId);
+  const openNew = () => {
+    setEditing(null);
+    setSheetOpen(true);
+  };
+  const formError = editing ? updateAddress.error : createAddress.error;
 
   return (
     <CheckoutSection
       id="checkout-address"
       title={t("addressTitle")}
       action={
-        <Button variant="ghost" size="sm" onClick={() => setSheetOpen(true)}>
+        <Button variant="ghost" size="sm" onClick={openNew}>
           <Plus data-icon="inline-start" strokeWidth={1.75} /> {t("newAddress")}
         </Button>
       }
@@ -66,11 +78,12 @@ export function AddressSection({ addresses, selectedId, onSelect }: AddressSecti
             />
             {t("noAddressDescription")}
           </p>
-          <Button variant="secondary" onClick={() => setSheetOpen(true)}>
+          <Button variant="secondary" onClick={openNew}>
             <Plus data-icon="inline-start" strokeWidth={1.75} /> {t("addAddress")}
           </Button>
         </div>
       ) : (
+        <div className="flex flex-col gap-3">
         <RadioGroup
           aria-label={t("selectAddress")}
           value={selectedId ?? undefined}
@@ -91,31 +104,85 @@ export function AddressSection({ addresses, selectedId, onSelect }: AddressSecti
                   <br />
                   {a.neighborhood} · {a.city}/{a.state} · {formatCep(a.postalCode)}
                 </span>
+                {a.recipientCpf ? null : (
+                  <span className="text-caption font-medium text-warning">{t("addressMissingCpf")}</span>
+                )}
               </span>
             </OptionCard>
           ))}
         </RadioGroup>
+        {selected && !selected.recipientCpf ? (
+          <div
+            role="alert"
+            className="flex flex-col items-start gap-3 rounded-md bg-warning-soft p-3 text-body-sm text-foreground"
+          >
+            <p className="flex items-start gap-2">
+              <TriangleAlert className="mt-0.5 size-5 shrink-0 text-warning" strokeWidth={1.75} aria-hidden />
+              {t("addressMissingCpfHint")}
+            </p>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setEditing(selected);
+                setSheetOpen(true);
+              }}
+            >
+              {t("addressMissingCpfAction")}
+            </Button>
+          </div>
+        ) : null}
+        </div>
       )}
 
       <BottomSheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <BottomSheetContent className="sm:mx-auto sm:max-w-lg">
           <BottomSheetHeader>
-            <BottomSheetTitle>{t("newAddress")}</BottomSheetTitle>
-            <BottomSheetDescription>{t("newAddressHint")}</BottomSheetDescription>
+            <BottomSheetTitle>{editing ? tAccount("editAddress") : t("newAddress")}</BottomSheetTitle>
+            {editing ? null : <BottomSheetDescription>{t("newAddressHint")}</BottomSheetDescription>}
           </BottomSheetHeader>
           <BottomSheetBody className="py-4">
             <AddressForm
-              submitting={createAddress.isPending}
+              key={editing?.id ?? "new"}
+              submitting={createAddress.isPending || updateAddress.isPending}
               submitLabel={t("useThisAddress")}
-              serverErrors={
-                isApiError(createAddress.error) ? createAddress.error.errors : undefined
+              serverErrors={isApiError(formError) ? formError.errors : undefined}
+              defaultValues={
+                editing
+                  ? {
+                      label: editing.label,
+                      recipientName: editing.recipientName,
+                      postalCode: editing.postalCode,
+                      street: editing.street,
+                      number: editing.number,
+                      complement: editing.complement ?? "",
+                      neighborhood: editing.neighborhood,
+                      city: editing.city,
+                      state: editing.state,
+                      phone: editing.phone ?? "",
+                      recipientCpf: editing.recipientCpf ? formatCpf(editing.recipientCpf) : "",
+                      isDefault: editing.isDefault,
+                    }
+                  : {
+                      recipientName: user?.fullName ?? "",
+                      phone: user?.phone ?? "",
+                    }
               }
-              defaultValues={{
-                recipientName: user?.fullName ?? "",
-                phone: user?.phone ?? "",
-              }}
               onSubmit={(values) =>
-                createAddress.mutate(values, {
+                editing
+                  ? updateAddress.mutate(
+                      { id: editing.id, body: values },
+                      {
+                        onSuccess: (updated) => {
+                          onSelect(updated.id);
+                          setSheetOpen(false);
+                          setEditing(null);
+                          toast.success(tAccount("addressSaved"));
+                        },
+                        onError: (err) => toast.error(isApiError(err) ? err.message : t("orderFailed")),
+                      },
+                    )
+                  : createAddress.mutate(values, {
                   onSuccess: (created) => {
                     onSelect(created.id);
                     setSheetOpen(false);

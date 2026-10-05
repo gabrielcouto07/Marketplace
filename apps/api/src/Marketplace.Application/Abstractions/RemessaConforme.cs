@@ -128,6 +128,13 @@ public interface IRemessaCarrierGateway
     Task CancelShipmentAsync(string providerReference, CancellationToken ct);
 
     Task<TaxRemittanceResult> RemitTaxesAsync(TaxRemittanceRequest request, CancellationToken ct);
+
+    /// <summary>
+    /// Segunda via da etiqueta quando o arquivo não está guardado. Só o sandbox gera localmente; operadores reais
+    /// devolvem o próprio PDF na criação (ou uma URL) e aqui respondem null.
+    /// </summary>
+    Task<byte[]?> ReprintLabelAsync(RemessaShipmentRequest request, string trackingCode, string carrier, string? declarationNumber,
+        CancellationToken ct) => Task.FromResult<byte[]?>(null);
 }
 
 // ----- Portal Único Siscomex: Remessas Internacionais (remx) — consulta de remessas pela ECE -----

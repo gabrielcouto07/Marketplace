@@ -248,7 +248,7 @@ export function RemessaConformeSeal({ preview, className }: RemessaConformeProps
     <div className={cn("flex items-center gap-3 text-left", className)}>
       <RemessaConformeEmblem />
       <span className="flex flex-col">
-        <span className="flex items-center gap-2 text-body-sm font-bold text-white">
+        <span className="flex items-center gap-2 text-body-sm font-bold whitespace-nowrap text-white">
           {t("remessaConformeTitle")}
           <SimulationTag onDark />
         </span>
@@ -269,25 +269,28 @@ export function RemessaConformeSeal({ preview, className }: RemessaConformeProps
 }
 
 /**
- * Selo no header Marinho. `bar`: ao lado da marca na barra desktop (emblema + "Remessa Conforme" + "Impostos pagos
- * na compra" e a medalha da faixa); `strip`: faixa fina sob a busca na home mobile. Leva à página que explica os
- * impostos do programa.
+ * Selo no header Marinho, sem roubar espaço da busca. `nav`: na faixa de departamentos (≥ md), à direita — só o emblema
+ * no md; emblema + nome + medalha da faixa + etiqueta "Simulação" a partir do lg (a frase completa fica no `title`);
+ * `strip`: faixa fina sob a busca na home mobile, com "impostos pagos na compra". Leva à página que explica os impostos
+ * do programa.
  */
 export function RemessaConformeHeaderSeal({
   variant,
   preview,
   className,
-}: RemessaConformeProps & { variant: "bar" | "strip" }) {
+}: RemessaConformeProps & { variant: "nav" | "strip" }) {
   const t = useTranslations("trust");
   const tierLabel = useTierLabel();
   if (!showSeal(preview)) return null;
   const tier = env.remessaConformeSelo;
+  const base = tierLabel ? `${t("headerSealLabel")} · ${tierLabel}` : t("headerSealLabel");
+  const label = env.remessaConformeMode === "simulacao" ? `${base} (${t("simulationTag")})` : base;
 
   if (variant === "strip") {
     return (
       <Link
         href="/remessa-conforme"
-        aria-label={t("headerSealLabel")}
+        aria-label={label}
         className={cn(
           "flex h-9 items-center gap-2 border-t border-white/10 bg-brand-deep-raised px-4 text-caption text-white/90 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-amarelo",
           className,
@@ -306,18 +309,17 @@ export function RemessaConformeHeaderSeal({
   return (
     <Link
       href="/remessa-conforme"
-      aria-label={t("headerSealLabel")}
-      className={cn("flex h-12 shrink-0 items-center gap-2 rounded-sm px-2 link-on-deep", className)}
+      aria-label={label}
+      title={label}
+      className={cn(
+        "flex h-8 shrink-0 items-center gap-1.5 rounded-full px-2 whitespace-nowrap link-on-deep lg:bg-white/10 lg:pr-1.5 lg:pl-1",
+        className,
+      )}
     >
-      <RemessaConformeEmblem className="size-9" />
-      <span className="flex flex-col">
-        <span className="flex items-center gap-1.5 text-body-sm leading-tight font-bold">
-          {t("remessaConformeTitle")}
-          <SimulationTag onDark />
-        </span>
-        <span className="text-caption leading-tight text-white/80">{tierLabel ?? t("remessaConformeShort")}</span>
-      </span>
-      {tier ? <ComplianceMedal tier={tier} className="ml-0.5" /> : null}
+      <RemessaConformeEmblem className="size-6" />
+      <span className="hidden font-bold lg:inline">{t("remessaConformeTitle")}</span>
+      {tier ? <ComplianceMedal tier={tier} className="hidden h-6 w-5 lg:block" /> : null}
+      <SimulationTag onDark className="hidden lg:inline-flex" />
     </Link>
   );
 }

@@ -70,6 +70,7 @@ export const DEMO_ADDRESSES: AddressDto[] = [
     country: "BR",
     phone: "11987654321",
     isDefault: true,
+    recipientCpf: "52998224725",
   },
   {
     id: guid("address:demo:2"),
@@ -85,5 +86,6 @@ export const DEMO_ADDRESSES: AddressDto[] = [
     country: "BR",
     phone: null,
     isDefault: false,
+    recipientCpf: "39053344705",
   },
 ];

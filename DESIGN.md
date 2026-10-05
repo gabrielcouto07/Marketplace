@@ -311,14 +311,26 @@ burocráticos:
 
 - SellerBadge (reputação em barra, tempo de envio).
 - "Compra garantida" com ícone de escudo.
-- Linha de impostos de importação estimados, sempre visível no checkout.
+- Tributos de importação discriminados (`TaxBreakdown`): caixa `surface-muted` com II (alíquota e dedução de US$ 20),
+  ICMS (com a UF), IBS, CBS e o total; abaixo, as notas de valor definitivo, câmbio usado e faixa de US$ 50. No
+  checkout e no pedido vem antes a conta inteira (produtos, frete, seguro, outras despesas, desconto e valor aduaneiro
+  com o equivalente em US$). Na PDP e no carrinho o título leva "(estimativa)": é prévia sem frete. Detalhes em
+  `docs/REMESSA_CONFORME.md`.
 - Faixa de confiança da home (marquee em caixa branca): rota PY → BR com as bandeiras da
   marca e quatro diferenciais em pills chapadas (Azul e Vermelho 600 com texto branco, Verde e
   Amarelo com texto `on-bright`).
 - Prazo em faixa de dias úteis.
-- Selo Remessa Conforme (`RemessaConformeBadge` / `RemessaConformeSeal`): disco serrilhado Verde com
-  anel pontilhado e check em Tinta. Aparece na PDP, no resumo do checkout e no rodapé, e só com
-  `NEXT_PUBLIC_REMESSA_CONFORME=true`, que se liga depois do Ato Declaratório da Coana.
+- Selo Remessa Conforme (`RemessaConformeBadge`, `RemessaConformeSeal`, `RemessaConformeHeaderSeal`): disco
+  serrilhado Verde com anel pontilhado e check em Tinta. Aparece no header, na PDP, no resumo do checkout e no
+  rodapé, conforme `NEXT_PUBLIC_REMESSA_CONFORME`: vazio some; `simulacao` mostra o selo com a etiqueta
+  "Simulação" (pré-visualização, `SimulationTag`: `warning-soft` no claro, branco 15% no Marinho); `true` só depois do
+  Ato Declaratório Executivo da Coana (o número em `NEXT_PUBLIC_REMESSA_CONFORME_ADE` vai para o rodapé).
+  - No header o selo não disputa espaço com a busca: fica na faixa de departamentos, à direita, antes de "Venda no
+    Paraguai Imports" — só o emblema no md; pílula `white/10` com emblema, "Remessa Conforme", medalha e etiqueta a
+    partir do lg (a frase completa vai no `title`). No celular, faixa de 36 px sob "Enviar para" na home.
+  - Medalha da faixa do ciclo (`ComplianceMedal`): disco nos tokens `--selo-ouro`, `--selo-prata` e `--selo-bronze`,
+    estrela em `on-bright` e fitas Azul e Vermelho. Ligada por `NEXT_PUBLIC_REMESSA_CONFORME_SELO`
+    (`ouro|prata|bronze`) e `NEXT_PUBLIC_REMESSA_CONFORME_CICLO` ("2026/2027").
 
 ## Navegação
 
@@ -330,8 +342,8 @@ burocráticos:
     busca branca de 44 px (raio 6, botão Laranja quadrado à direita), "Olá, faça seu login /
     Conta e favoritos", "Acompanhe seus / Pedidos" (≥ lg) e o carrinho com contador. Embaixo,
     a faixa de departamentos de 40 px em `brand-deep-raised`: Todos (→ departamentos),
-    Ofertas do dia, Mais vendidos, Novidades, Lojas, Favoritos e, à direita, "Venda no
-    Paraguai Imports". Total: 104 px (`--header-height`).
+    Ofertas do dia, Mais vendidos, Novidades, Lojas, Favoritos e, à direita, o selo Remessa
+    Conforme (quando ligado) e "Venda no Paraguai Imports". Total: 104 px (`--header-height`).
   - mobile, home: lockup + "Entrar ›" e carrinho numa linha de 56 px; a busca branca de 44 px
     com o botão Laranja; a faixa "Enviar para CEP …" de 40 px em `brand-deep-raised`.
   - mobile, páginas internas: uma linha de 56 px com voltar (ou logo compacto), busca ou

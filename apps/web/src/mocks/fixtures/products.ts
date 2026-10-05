@@ -31,6 +31,8 @@ interface Template {
   attrs: Array<[string, string]>;
   variants: Record<string, string[]> | null;
   warranty: number | null;
+  /** NCM de 8 dígitos (declaração de importação). */
+  ncm: string;
 }
 
 const templates = templatesJson as unknown as Record<string, Template[]>;
@@ -237,6 +239,9 @@ function buildQuestions(productKey: string, rnd: () => number): QuestionDto[] {
   });
 }
 
+/** NCM de cada produto fixo (id → código). O painel do vendedor pode trocar; ver `productNcm` em catalog-state. */
+export const PRODUCT_NCM: Record<string, string> = {};
+
 function buildAll(): ProductRecord[] {
   const records: ProductRecord[] = [];
   let global = 0;
@@ -303,6 +308,7 @@ function buildAll(): ProductRecord[] {
         questionCount: questions.length,
       };
       records.push({ detail, reviews, reviewSummary: summary, questions });
+      PRODUCT_NCM[detail.id] = t.ncm;
     });
   }
   return records;

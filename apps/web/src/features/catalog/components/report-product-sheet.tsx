@@ -70,7 +70,7 @@ export function ReportProductButton({ productId, productSlug }: { productId: str
         {t("cta")}
       </Button>
       <BottomSheet open={open} onOpenChange={setOpen}>
-        <BottomSheetContent>
+        <BottomSheetContent className="sm:mx-auto sm:max-w-lg">
           <BottomSheetHeader>
             <BottomSheetTitle>{t("title")}</BottomSheetTitle>
             <BottomSheetDescription>{t("description")}</BottomSheetDescription>

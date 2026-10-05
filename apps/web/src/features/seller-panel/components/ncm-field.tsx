@@ -1,7 +1,7 @@
 "use client";
 
 import type { ProductStatus } from "@marketplace/contracts";
-import { CheckCircle2, CircleAlert, Loader2, ShieldAlert } from "lucide-react";
+import { CheckCircle2, CircleAlert, Info, Loader2, ShieldAlert } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { FormField } from "@/components/shared/form-field";
@@ -69,7 +69,12 @@ export function NcmField({
             </>
           ) : description ? (
             <>
-              <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-success" aria-hidden />
+              {/* Código existe, mas foi recusado (ex.: capítulo proibido): a linha fica neutra, o erro explica. */}
+              {error ? (
+                <Info className="mt-0.5 size-3.5 shrink-0 text-foreground-muted" aria-hidden />
+              ) : (
+                <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-success" aria-hidden />
+              )}
               <span className="text-foreground-secondary">
                 <span className="font-medium text-foreground">{t("productNcmOfficial")}</span> {description}
               </span>

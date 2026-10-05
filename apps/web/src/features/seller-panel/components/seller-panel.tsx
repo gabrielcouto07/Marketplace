@@ -11,7 +11,6 @@ import {
   HelpCircle,
   LayoutDashboard,
   Package,
-  PackageCheck,
   Pencil,
   Plus,
   Settings,
@@ -73,6 +72,7 @@ import {
 import { SellerGate } from "./seller-gate";
 import { moderationKey } from "../moderation";
 import { OrderShipmentActions } from "./order-shipment-actions";
+import { ShipOrderSheet } from "./ship-order-sheet";
 import { StoreForm } from "./store-form";
 
 const brl = (amount: number) => formatMoney({ amount, currency: "BRL" });
@@ -253,7 +253,12 @@ function OrdersTable({
             </TableCell>
             {withActions ? (
               <TableCell className="text-right">
-                <OrderShipmentActions order={o} onPrepare={onPrepare} preparing={preparingId === o.id} />
+                <OrderShipmentActions
+                  order={o}
+                  onPrepare={onPrepare}
+                  onShip={onShip}
+                  preparing={preparingId === o.id}
+                />
               </TableCell>
             ) : null}
           </TableRow>
@@ -282,6 +287,7 @@ export function SellerOrders() {
   const ts = useTranslations("orders.status");
   const tErrors = useTranslations("errors");
   const [status, setStatus] = useState<OrderFilter>("all");
+  const [shipping, setShipping] = useState<OrderDto | null>(null);
   const orders = useSellerOrders({
     status: status === "all" ? undefined : (status as OrderStatus),
     pageSize: 50,
@@ -314,8 +320,9 @@ export function SellerOrders() {
             onError: (e) => toast.error(isApiError(e) ? e.message : tErrors("genericTitle")),
           })
         }
-        onShip={() => undefined}
+        onShip={setShipping}
       />
+      <ShipOrderSheet order={shipping} onClose={() => setShipping(null)} />
     </div>
   );
 }

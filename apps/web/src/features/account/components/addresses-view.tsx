@@ -35,7 +35,7 @@ import {
 import { useAuthStore, useCurrentUser } from "@/features/auth/store";
 import { useStoreHydrated } from "@/hooks/use-store-hydrated";
 import { isApiError } from "@/lib/api/errors";
-import { formatCep } from "@/lib/validation/documents";
+import { formatCep, formatCpf } from "@/lib/validation/documents";
 
 import { AddressForm } from "./address-form";
 import { LoginRequired } from "./profile-view";
@@ -144,6 +144,13 @@ export function AddressesView() {
                 {a.neighborhood} · {a.city}/{a.state} ·{" "}
                 <span className="tabular-nums">CEP {formatCep(a.postalCode)}</span>
               </p>
+              {a.recipientCpf ? (
+                <p className="text-caption text-foreground-secondary tabular-nums">
+                  {t("recipientCpfShort", { cpf: formatCpf(a.recipientCpf) })}
+                </p>
+              ) : (
+                <p className="text-caption font-medium text-warning">{t("recipientCpfMissing")}</p>
+              )}
               <div className="-mb-2 flex justify-end gap-2">
                 <Button variant="ghost" size="sm" onClick={() => openEdit(a)}>
                   <Pencil data-icon="inline-start" strokeWidth={1.75} /> {tc("edit")}
@@ -189,6 +196,7 @@ export function AddressesView() {
                       city: editing.city,
                       state: editing.state,
                       phone: editing.phone ?? "",
+                      recipientCpf: editing.recipientCpf ? formatCpf(editing.recipientCpf) : "",
                       isDefault: editing.isDefault,
                     }
                   : undefined

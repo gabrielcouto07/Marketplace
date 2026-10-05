@@ -41,6 +41,7 @@ public static class SellerEndpoints
         g.MapPost("/orders/{id:guid}/ship", (Guid id, ShipOrderRequest? body, SellerPanelService svc, CancellationToken ct) => svc.ShipOrderAsync(id, body ?? new ShipOrderRequest(null, null), ct));
 
         // Remessa Conforme: declaração antecipada + etiqueta da plataforma (critérios i e iii)
+        g.MapGet("/shipping-policy", (SellerPanelService svc, CancellationToken ct) => svc.ShippingPolicyAsync(ct));
         g.MapPost("/orders/{id:guid}/shipment", async (Guid id, SellerPanelService svc, CancellationToken ct) =>
             Results.Created($"/api/seller/orders/{id}/shipment", await svc.CreateShipmentAsync(id, ct)));
         g.MapGet("/orders/{id:guid}/shipment", (Guid id, SellerPanelService svc, CancellationToken ct) => svc.GetShipmentAsync(id, ct));

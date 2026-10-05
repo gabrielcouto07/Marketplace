@@ -35,14 +35,15 @@ public static class LabelPdf
         c.Text(12, H - 49, 7.5f, false, string.IsNullOrWhiteSpace(p.AdeNumber)
             ? "Remessa Conforme · tributos pagos na compra"
             : $"Remessa Conforme · ADE {p.AdeNumber} · tributos pagos na compra", white: true);
+
+        // Rastreio. No sandbox, uma faixa vermelha de largura total avisa que a etiqueta é de teste.
+        var y = H - 72;
         if (sandbox)
         {
-            c.Fill(W - 92, H - 50, 82, 18, 0.86f, 0.15f, 0.15f);
-            c.Text(W - 86, H - 44, 8, true, "SANDBOX · NÃO POSTAR", white: true);
+            c.Fill(0, H - 74, W, 16, 0.86f, 0.15f, 0.15f);
+            c.TextCentered(W / 2, H - 69, 8, true, "SANDBOX · NÃO POSTAR · ETIQUETA DE TESTE", white: true);
+            y -= 16;
         }
-
-        // Rastreio.
-        var y = H - 72;
         c.Text(12, y, 7, false, $"{carrier} · pedido {r.OrderNumber}");
         y -= 44;
         Code128.Draw(c, trackingCode, 14, y, W - 28, 38);
@@ -136,7 +137,8 @@ public static class LabelPdf
     }
 
     /// <summary>Largura aproximada do texto em Helvetica (0,5 em por caractere).</summary>
-    private static float Measure(string text, float size) => text.Length * size * 0.5f;
+    /// <summary>Largura aproximada em Helvetica regular (dígitos têm 0,556 em).</summary>
+    private static float Measure(string text, float size) => text.Length * size * 0.56f;
 
     /// <summary>Página única com Helvetica/Helvetica-Bold (WinAnsiEncoding) e comandos de desenho.</summary>
     public sealed class Canvas
@@ -160,8 +162,9 @@ public static class LabelPdf
             _ops.Append(white ? " 0 g\n" : "\n");
         }
 
-        public void TextCentered(float cx, float y, float size, bool bold, string text) =>
-            Text(cx - Measure(text, size) * 1.1f / 2, y, size, bold, text);
+        /// <summary>Centraliza pela largura média da Helvetica (negrito em maiúsculas é mais largo).</summary>
+        public void TextCentered(float cx, float y, float size, bool bold, string text, bool white = false) =>
+            Text(cx - text.Length * size * (bold ? 0.66f : 0.55f) / 2, y, size, bold, text, white);
 
         private static string Escape(string text)
         {

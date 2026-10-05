@@ -73,5 +73,6 @@ export const queryKeys = {
     products: (query: SellerProductListQuery) => ["seller", "products", query] as const,
     product: (id: string) => ["seller", "products", "detail", id] as const,
     orders: (query: OrderListQuery) => ["seller", "orders", query] as const,
+    shippingPolicy: ["seller", "shipping-policy"] as const,
   },
 } as const;

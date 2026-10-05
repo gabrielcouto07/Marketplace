@@ -2,7 +2,7 @@
 
 import type { ImportTaxBreakdownDto, Money } from "@marketplace/contracts";
 import { Landmark, PackageCheck } from "lucide-react";
-import { useFormatter, useTranslations } from "next-intl";
+import { useFormatter, useLocale, useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
 import { Skeleton } from "@/components/ui/skeleton";
@@ -13,23 +13,30 @@ import { cn } from "@/lib/utils";
  * Valores discriminados da remessa, como pede o critério ii da Portaria Coana 130/2023 (art. 8º): produto, frete e
  * seguro, descontos, despesas, II, ICMS, IBS, CBS, total e taxa de câmbio.
  * - `full`: a conta inteira (resumo do checkout e detalhe do pedido);
- * - `taxes`: só os tributos e a nota de câmbio (página de produto e carrinho, antes do frete).
+ * - `taxes`: só os tributos e a nota de câmbio (página de produto e carrinho, antes do frete). Aqui o valor é prévia:
+ *   fica definitivo no fechamento do pedido, quando entra o frete de cada loja.
  */
 export function TaxBreakdown({
   taxes,
   mode = "full",
+  withoutFreight,
   className,
 }: {
   taxes: ImportTaxBreakdownDto;
   mode?: "full" | "taxes";
+  /** Conta sem o frete (exemplos, antes do checkout): a linha de frete diz que ele entra no fechamento. */
+  withoutFreight?: boolean;
   className?: string;
 }) {
   const t = useTranslations("taxes");
   const format = useFormatter();
+  // Dólar no idioma da página ("US$ 166,48"), não no padrão en-US da moeda.
+  const locale = useLocale();
   const pct = (bp: number) =>
     format.number(bp / 10_000, { style: "percent", maximumFractionDigits: 2 });
   const zero = (m: Money) => m.amount === 0;
   const estimate = !taxes.isFinal;
+  const preview = !estimate && (mode === "taxes" || Boolean(withoutFreight));
 
   const dutyLabel =
     taxes.importDutyBasisPoints === 0
@@ -43,7 +50,11 @@ export function TaxBreakdown({
       {mode === "full" ? (
         <dl className="flex flex-col gap-2">
           <Row label={t("products")} value={formatMoney(taxes.products)} />
-          <Row label={t("freight")} value={zero(taxes.freight) ? t("free") : formatMoney(taxes.freight)} />
+          <Row
+            label={t("freight")}
+            value={withoutFreight ? t("freightAtCheckout") : zero(taxes.freight) ? t("free") : formatMoney(taxes.freight)}
+            muted={withoutFreight}
+          />
           <Row label={t("insurance")} value={formatMoney(taxes.insurance)} muted={zero(taxes.insurance)} />
           <Row label={t("otherExpenses")} value={formatMoney(taxes.otherExpenses)} muted={zero(taxes.otherExpenses)} />
           {taxes.discount.amount > 0 ? (
@@ -51,7 +62,11 @@ export function TaxBreakdown({
           ) : null}
           <Row
             label={t("customsValue")}
-            hint={taxes.customsValueUsd ? t("customsValueUsd", { usd: formatMoney(taxes.customsValueUsd) }) : undefined}
+            hint={
+              taxes.customsValueUsd
+                ? t("customsValueUsd", { usd: formatMoney(taxes.customsValueUsd, { locale }) })
+                : undefined
+            }
             value={formatMoney(taxes.customsValue)}
             strong
           />
@@ -61,7 +76,7 @@ export function TaxBreakdown({
       <div className="flex flex-col gap-2 rounded-md bg-surface-muted p-3">
         <p className="flex items-center gap-2 text-caption font-bold text-foreground-secondary uppercase">
           <Landmark className="size-4" strokeWidth={2} aria-hidden />
-          {estimate ? t("taxesEstimated") : t("taxesTitle")}
+          {estimate || preview ? t("taxesEstimated") : t("taxesTitle")}
         </p>
         <dl className="flex flex-col gap-1.5">
           <Row
@@ -90,7 +105,13 @@ export function TaxBreakdown({
       </div>
 
       <ul className="flex flex-col gap-1 text-caption text-foreground-secondary">
-        <li>{estimate ? t("noteEstimate", { rate: pct(taxes.importDutyBasisPoints || taxes.effectiveBasisPoints) }) : t("noteFinal")}</li>
+        <li>
+          {estimate
+            ? t("noteEstimate", { rate: pct(taxes.importDutyBasisPoints || taxes.effectiveBasisPoints) })
+            : preview
+              ? t("notePreview")
+              : t("noteFinal")}
+        </li>
         {taxes.usdRate ? <li className="tabular-nums">{t("noteRate", { rate: taxes.usdRate.displayRate })}</li> : null}
         {!estimate && taxes.importDutyBasisPoints !== 0 ? (
           <li>{taxes.importDutyDeduction.amount > 0 ? t("noteHighTier") : t("noteLowTier")}</li>

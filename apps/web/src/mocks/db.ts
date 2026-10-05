@@ -1,6 +1,7 @@
 import type {
   AddressDto,
   AdminAuditLogDto,
+  ComplianceOccurrenceDto,
   CouponDto,
   DayRange,
   ExchangeRateDto,
@@ -11,6 +12,7 @@ import type {
   PlatformSettingsDto,
   ProductAttributeDto,
   ProductDetailDto,
+  ProductReportDto,
   ProductStatus,
   QuestionDto,
   SellerDto,
@@ -23,7 +25,15 @@ import type {
 
 import { ADMIN_USER, DEMO_ADDRESSES, DEMO_USER, SELLER_USER } from "./fixtures/account";
 import { guid, isoDaysAgo } from "./fixtures/base";
+import {
+  PENDING_SELLER,
+  PENDING_SELLER_KYC,
+  seedModeration,
+  seedOccurrences,
+  seedReports,
+} from "./fixtures/compliance";
 import { SEED_DATA } from "./fixtures/orders";
+import { REMESSA_SETTINGS_DEFAULTS, type SellerKyc } from "./fixtures/remessa";
 
 /**
  * "Banco de dados" do mock. Vive em memória e, no navegador, é espelhado em
@@ -49,6 +59,11 @@ export interface ProductOverride {
   hsCode?: string | null;
   attributes?: ProductAttributeDto[];
   images?: SellerProductImageDto[];
+  /** Moderação de conformidade (EmAnalise/Bloqueado): motivo, observação e o nome/preço já liberados pelo admin. */
+  moderationReason?: string | null;
+  moderationNote?: string | null;
+  approvedName?: string | null;
+  approvedPriceAmount?: number | null;
   updatedAt: string;
 }
 
@@ -115,11 +130,16 @@ interface MockDb {
   customRates: ExchangeRateDto[];
   settings: PlatformSettingsDto;
   audit: AdminAuditLogDto[];
+  /** Remessa Conforme: documentos das lojas (as fixas usam o seed enquanto não há registro). */
+  sellerKyc: Record<string, SellerKyc>;
+  occurrences: ComplianceOccurrenceDto[];
+  reports: ProductReportDto[];
   /** Último sequencial de número de pedido (PY-2026-NNNNNN); persistido para não colidir entre reloads. */
   orderSeq: number;
 }
 
-const STORAGE_KEY = "mktpy.mockdb.v2";
+/** v3: tributos discriminados do Remessa Conforme, remessas e conformidade (bancos antigos são descartados). */
+const STORAGE_KEY = "mktpy.mockdb.v3";
 /** Os pedidos seed usam 100100–100110; os criados pelo usuário começam em 100201. */
 const ORDER_SEQ_START = 100200;
 
@@ -167,9 +187,7 @@ function defaultCoupons(): CouponDto[] {
 
 function defaultSettings(): PlatformSettingsDto {
   return {
-    importTaxMode: "Flat",
-    importTaxBasisPoints: 6000,
-    icmsBasisPoints: 1700,
+    ...REMESSA_SETTINGS_DEFAULTS,
     platformFeeBasisPoints: 1000,
     paymentFeeBasisPoints: 349,
     freeShippingThresholdAmount: 30000,
@@ -235,10 +253,10 @@ function defaults(): MockDb {
     questions: [],
     tokens: [],
     sellerByUser: { [SELLER_USER.id]: "tecnocentro-cde" },
-    customSellers: [],
+    customSellers: [PENDING_SELLER],
     sellerOverrides: {},
     customProducts: [],
-    productOverrides: {},
+    productOverrides: seedModeration(),
     uploads: {},
     userStates: {},
     payoutOverrides: {},
@@ -246,6 +264,9 @@ function defaults(): MockDb {
     customRates: [],
     settings: defaultSettings(),
     audit: defaultAudit(),
+    sellerKyc: { [PENDING_SELLER.id]: PENDING_SELLER_KYC },
+    occurrences: seedOccurrences(),
+    reports: seedReports(),
     orderSeq: ORDER_SEQ_START,
   };
 }
@@ -271,10 +292,10 @@ function load(): MockDb {
       questions: parsed.questions ?? [],
       tokens: parsed.tokens ?? [],
       sellerByUser: { ...base.sellerByUser, ...(parsed.sellerByUser ?? {}) },
-      customSellers: parsed.customSellers ?? [],
+      customSellers: parsed.customSellers ?? base.customSellers,
       sellerOverrides: parsed.sellerOverrides ?? {},
       customProducts: parsed.customProducts ?? [],
-      productOverrides: parsed.productOverrides ?? {},
+      productOverrides: parsed.productOverrides ?? base.productOverrides,
       uploads: parsed.uploads ?? {},
       userStates: parsed.userStates ?? {},
       payoutOverrides: parsed.payoutOverrides ?? {},
@@ -282,6 +303,9 @@ function load(): MockDb {
       customRates: parsed.customRates ?? [],
       settings: { ...base.settings, ...(parsed.settings ?? {}) },
       audit: parsed.audit?.length ? parsed.audit : base.audit,
+      sellerKyc: { ...base.sellerKyc, ...(parsed.sellerKyc ?? {}) },
+      occurrences: parsed.occurrences ?? base.occurrences,
+      reports: parsed.reports ?? base.reports,
       // Bancos antigos (sem orderSeq) recuperam o contador a partir do maior número já emitido.
       orderSeq: Math.max(
         parsed.orderSeq ?? ORDER_SEQ_START,

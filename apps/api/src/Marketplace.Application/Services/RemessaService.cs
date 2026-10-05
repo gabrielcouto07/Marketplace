@@ -33,6 +33,10 @@ public sealed class RemessaService(
 
     public bool CarrierIsSandbox => carrier.IsSandbox;
 
+    public bool CarrierIsConfigured => carrier.IsConfigured;
+
+    public string CarrierName => carrier.Name;
+
     public static string SellerLabelUrl(Guid orderId) => $"/api/seller/orders/{orderId}/shipment/label";
 
     public static string AdminLabelUrl(Guid shipmentId) => $"/api/admin/shipments/{shipmentId}/label";
@@ -214,9 +218,20 @@ public sealed class RemessaService(
         var shipment = await db.Shipments.AsNoTracking().Include(s => s.Order)
                            .FirstOrDefaultAsync(s => s.OrderId == orderId && (sellerId == null || s.SellerId == sellerId), ct)
                        ?? throw AppException.NotFound("Etiqueta");
-        var label = await db.ShipmentLabels.AsNoTracking().FirstOrDefaultAsync(l => l.ShipmentId == shipment.Id, ct)
-                    ?? throw AppException.NotFound("Etiqueta");
-        return (label.Pdf, $"etiqueta-{shipment.Order.Number}.pdf");
+        var fileName = $"etiqueta-{shipment.Order.Number}.pdf";
+        var label = await db.ShipmentLabels.AsNoTracking().FirstOrDefaultAsync(l => l.ShipmentId == shipment.Id, ct);
+        if (label is not null) return (label.Pdf, fileName);
+
+        // Segunda via: remessa do mesmo operador sem o arquivo guardado (ex.: dados de demonstração do sandbox).
+        if (shipment.TrackingCode is { } tracking && shipment.Provider == carrier.Name)
+        {
+            var order = await db.Orders.AsNoTracking().Include(o => o.Items).FirstAsync(o => o.Id == shipment.OrderId, ct);
+            var request = await BuildRequestAsync(order, shipment.Id, ct);
+            var pdf = await carrier.ReprintLabelAsync(request, tracking, shipment.Carrier ?? order.ShippingOption.Carrier,
+                shipment.DeclarationNumber, ct);
+            if (pdf is { Length: > 0 }) return (pdf, fileName);
+        }
+        throw AppException.NotFound("Etiqueta");
     }
 
     /// <summary>Chamado ao confirmar a postagem (pedido → Enviado).</summary>

@@ -511,6 +511,14 @@ public sealed class SellerPanelService(
         return await remessa.CreateAsync(order, ct);
     }
 
+    public async Task<SellerShippingPolicyDto> ShippingPolicyAsync(CancellationToken ct)
+    {
+        await RequireSellerAsync(ct);
+        var settings = await settingsProvider.GetAsync(ct);
+        return new SellerShippingPolicyDto(settings.RequirePlatformLabel, remessa.CarrierIsConfigured, remessa.CarrierIsSandbox,
+            remessa.CarrierName);
+    }
+
     public async Task<ShipmentDto> GetShipmentAsync(Guid id, CancellationToken ct)
     {
         var order = await RequireOrderAsync(id, ct);

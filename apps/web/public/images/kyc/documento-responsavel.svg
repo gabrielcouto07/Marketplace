@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="640" height="404" viewBox="0 0 640 404" role="img" aria-labelledby="t d">
+  <title id="t">Documento do responsável (exemplo)</title>
+  <desc id="d">Imagem ilustrativa usada nos dados de demonstração. Não é um documento real.</desc>
+  <rect x="2" y="2" width="636" height="400" rx="22" fill="#f4f7fb" stroke="#c9d3e0" stroke-width="2"/>
+  <rect x="2" y="2" width="636" height="64" rx="22" fill="#1d3a6b"/>
+  <rect x="2" y="44" width="636" height="22" fill="#1d3a6b"/>
+  <text x="32" y="44" font-family="Helvetica, Arial, sans-serif" font-size="22" font-weight="700" fill="#ffffff" letter-spacing="1">DOCUMENTO DE IDENTIDADE</text>
+  <text x="608" y="44" text-anchor="end" font-family="Helvetica, Arial, sans-serif" font-size="14" fill="#c9d8f0">Responsável pela loja</text>
+  <rect x="32" y="96" width="150" height="190" rx="12" fill="#dfe6ef"/>
+  <circle cx="107" cy="160" r="38" fill="#b5c2d3"/>
+  <path d="M51 270c8-42 34-62 56-62s48 20 56 62z" fill="#b5c2d3"/>
+  <g font-family="Helvetica, Arial, sans-serif" fill="#1f2a3a">
+    <text x="214" y="112" font-size="12" fill="#5d6b80">NOME</text>
+    <text x="214" y="136" font-size="22" font-weight="700">NOME DO RESPONSÁVEL</text>
+    <text x="214" y="172" font-size="12" fill="#5d6b80">DOCUMENTO</text>
+    <text x="214" y="196" font-size="20" font-weight="700" letter-spacing="2">0.000.000</text>
+    <text x="214" y="232" font-size="12" fill="#5d6b80">EMISSÃO</text>
+    <text x="214" y="254" font-size="18">00/00/0000</text>
+    <text x="420" y="232" font-size="12" fill="#5d6b80">VALIDADE</text>
+    <text x="420" y="254" font-size="18">00/00/0000</text>
+  </g>
+  <rect x="32" y="314" width="576" height="56" rx="10" fill="#fff4e5" stroke="#f0b35a"/>
+  <text x="320" y="348" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="18" font-weight="700" fill="#9a5b00" letter-spacing="1">EXEMPLO · DADOS DE DEMONSTRAÇÃO · SEM VALOR</text>
+</svg>

@@ -47,6 +47,8 @@ interface SingleImageUploadProps {
   onChange: (url: string | null) => void;
   /** "square" para logo (1:1) ou "wide" para banner (3:1). */
   shape?: "square" | "wide";
+  /** "contain" mostra o arquivo inteiro (documentos); "cover" preenche o tile (logo, banner). */
+  fit?: "cover" | "contain";
   label: string;
   className?: string;
 }
@@ -57,6 +59,7 @@ export function SingleImageUpload({
   value,
   onChange,
   shape = "square",
+  fit = "cover",
   label,
   className,
 }: SingleImageUploadProps) {
@@ -80,7 +83,7 @@ export function SingleImageUpload({
             alt={label}
             fill
             sizes={shape === "square" ? "112px" : "(max-width: 768px) 100vw, 640px"}
-            className="object-cover"
+            className={fit === "contain" ? "object-contain p-1" : "object-cover"}
             placeholder="blur"
             blurDataURL={BLUR_DATA_URL}
             unoptimized={isDirectImage(value)}

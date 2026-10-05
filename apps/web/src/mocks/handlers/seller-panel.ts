@@ -2,6 +2,7 @@ import type {
   OrderStatus,
   PresignedUploadDto,
   ProductDetailDto,
+  ProductStatus,
   SellerDashboardDto,
   SellerDto,
   SellerProductDto,
@@ -17,19 +18,32 @@ import type {
 import { HttpResponse, http } from "msw";
 
 import { getApiBaseUrl } from "@/lib/api/http";
-import { convert, discountPercent, sum } from "@/lib/money";
+import { convert, discountPercent, formatMoney, sum } from "@/lib/money";
+import { isValidCpf } from "@/lib/validation/documents";
 
 import {
   allProducts,
   findProduct,
   findSellerBySlug,
+  productNcm,
   productStatus,
+  sellerKyc,
   sellerStatus,
+  sellerVerification,
 } from "../catalog-state";
 import { db, persistDb } from "../db";
 import { categoryById, getRate, slugify, toSellerSummary } from "../fixtures/base";
+import {
+  NCM_TABLE,
+  type SellerKyc,
+  findProtectedBrand,
+  normalizeResponsibleDocument,
+  validateNcm,
+} from "../fixtures/remessa";
 import { issueSession } from "./auth";
+import { audit, currentSeller, isResponse, requireSeller } from "./guards";
 import { advanceOrder, settlePendingPayments } from "./orders";
+import { markShipmentPosted, withShipment } from "./remessa";
 import {
   API,
   isAuthorized,
@@ -57,22 +71,6 @@ const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 /** Orçamento total de uploads guardados em base64 no localStorage. */
 const UPLOAD_BUDGET_BYTES = 3 * 1024 * 1024;
 
-const sellerRequired = () =>
-  problem(403, "SELLER_REQUIRED", "Cadastre sua loja para acessar o painel do vendedor.");
-
-function currentSeller(): SellerDto | null {
-  const slug = db.sellerByUser[db.user.id];
-  return slug ? (findSellerBySlug(slug) ?? null) : null;
-}
-
-/** Sessão válida e loja associada; senão 401/403. */
-function requireSeller(request: Request): SellerDto | ReturnType<typeof problem> {
-  if (!isAuthorized(request)) return unauthorized();
-  return currentSeller() ?? sellerRequired();
-}
-
-const isResponse = (value: unknown): value is Response => value instanceof Response;
-
 /** CEP/código postal de origem (4 a 10 dígitos) e telefone (8 a 15 dígitos), ambos opcionais. */
 function validateContact(body: SellerProfileInput): Record<string, string[]> {
   const errors: Record<string, string[]> = {};
@@ -83,6 +81,134 @@ function validateContact(body: SellerProfileInput): Record<string, string[]> {
   if (body.phone?.trim() && (phone.length < 8 || phone.length > 15))
     errors.phone = ["Telefone inválido."];
   return errors;
+}
+
+const isUploadUrl = (url: string | null) =>
+  Boolean(url) && url!.length <= 1024 && (url!.startsWith("/") || url!.toLowerCase().startsWith("http"));
+
+/**
+ * Política de admissão (Portaria Coana 130/2023, art. 8º, V): endereço de origem, responsável, documento e constância
+ * do RUC, com as mensagens da API. No perfil o documento volta mascarado: vazio mantém o atual.
+ */
+function validateKyc(
+  body: SellerProfileInput,
+  existing: SellerKyc | null,
+): { kyc: SellerKyc } | { errors: Record<string, string[]> } {
+  const legalAddress = body.legalAddress?.trim() ?? "";
+  const responsibleName = body.responsibleName?.trim() ?? "";
+  const type = body.responsibleDocumentType ?? existing?.responsibleDocumentType ?? null;
+  const keep =
+    !body.responsibleDocument?.trim() &&
+    existing?.responsibleDocument &&
+    type === existing.responsibleDocumentType;
+  const document = keep
+    ? existing!.responsibleDocument
+    : type
+      ? normalizeResponsibleDocument(type, body.responsibleDocument, isValidCpf)
+      : null;
+  const identityDocumentUrl = body.identityDocumentUrl?.trim() || null;
+  const rucCertificateUrl = body.rucCertificateUrl?.trim() || null;
+  const errors: Record<string, string[]> = {};
+  if (legalAddress.length < 10 || legalAddress.length > 300)
+    errors.legalAddress = [
+      "Informe o endereço completo de onde os pacotes saem (rua, número e bairro).",
+    ];
+  if (responsibleName.length < 5 || responsibleName.length > 160)
+    errors.responsibleName = ["Informe o nome completo do responsável pela loja."];
+  if (!type) errors.responsibleDocumentType = ["Escolha o tipo de documento do responsável."];
+  else if (!document) errors.responsibleDocument = ["Documento do responsável inválido."];
+  if (!isUploadUrl(identityDocumentUrl))
+    errors.identityDocumentUrl = ["Envie a foto do documento do responsável."];
+  if (!isUploadUrl(rucCertificateUrl)) errors.rucCertificateUrl = ["Envie a constância do RUC."];
+  if (Object.keys(errors).length) return { errors };
+  // Documento ou comprovantes novos exigem nova verificação da equipe.
+  const changed =
+    document !== existing?.responsibleDocument ||
+    identityDocumentUrl !== existing?.identityDocumentUrl ||
+    rucCertificateUrl !== existing?.rucCertificateUrl;
+  return {
+    kyc: {
+      legalAddress,
+      responsibleName,
+      responsibleDocumentType: type,
+      responsibleDocument: document,
+      identityDocumentUrl,
+      rucCertificateUrl,
+      verifiedAt: changed ? null : (existing?.verifiedAt ?? null),
+      suspensionReason: existing?.suspensionReason ?? null,
+    },
+  };
+}
+
+const AUTOMATIC_REASONS = new Set(["MARCA_PROTEGIDA", "PRECO_ABAIXO_REFERENCIA"]);
+
+/** Mediana do preço dos produtos ativos com o mesmo NCM (mín. 3); senão, da mesma posição de 4 dígitos. */
+function referencePrice(productId: string, ncm: string): number | null {
+  const active = allProducts().filter((p) => p.id !== productId && productStatus(p.id) === "Ativo");
+  let prices = active.filter((p) => productNcm(p.id) === ncm).map((p) => p.price.amount);
+  if (prices.length < 3)
+    prices = active
+      .filter((p) => productNcm(p.id)?.startsWith(ncm.slice(0, 4)))
+      .map((p) => p.price.amount);
+  if (prices.length < 3) return null;
+  prices.sort((a, b) => a - b);
+  const mid = Math.floor(prices.length / 2);
+  return prices.length % 2 ? prices[mid] : Math.floor((prices[mid - 1] + prices[mid]) / 2);
+}
+
+/**
+ * Status final de um produto salvo (como `ComplianceService.DecideListingAsync`): bloqueado continua bloqueado; marca
+ * protegida ou preço muito abaixo da mediana do mesmo NCM vão para análise, a não ser que o admin já tenha liberado
+ * este nome e preço.
+ */
+function decideListing(
+  productId: string,
+  name: string,
+  priceAmount: number,
+  ncm: string | null,
+  requested: SellerProductInput["status"],
+): { status: ProductStatus; moderationReason: string | null; moderationNote: string | null } {
+  const current = db.productOverrides[productId];
+  if (current?.status === "Bloqueado")
+    return {
+      status: "Bloqueado",
+      moderationReason: current.moderationReason ?? null,
+      moderationNote: current.moderationNote ?? null,
+    };
+  if (requested === "Rascunho") return { status: "Rascunho", moderationReason: null, moderationNote: null };
+  const approved =
+    current?.approvedName === name &&
+    current.approvedPriceAmount != null &&
+    priceAmount * 10 >= current.approvedPriceAmount * 9;
+  if (!approved) {
+    const brand = findProtectedBrand(name, db.settings.protectedBrands);
+    if (brand)
+      return {
+        status: "EmAnalise",
+        moderationReason: "MARCA_PROTEGIDA",
+        moderationNote: `Marca ${brand}: a equipe confere a origem (nota de compra ou autorização do distribuidor) antes de publicar.`,
+      };
+    const median = ncm ? referencePrice(productId, ncm) : null;
+    if (median !== null && priceAmount * 100 < median * db.settings.priceFloorPercent)
+      return {
+        status: "EmAnalise",
+        moderationReason: "PRECO_ABAIXO_REFERENCIA",
+        moderationNote: `Preço abaixo de ${db.settings.priceFloorPercent}% da mediana (${formatMoney({ amount: median, currency: "BRL" }, { locale: "pt-BR" })}) de produtos com o mesmo NCM. Risco de subvaloração na declaração.`,
+      };
+  }
+  // Análise aberta por denúncia ou pela equipe só sai pelo admin.
+  if (
+    current?.status === "EmAnalise" &&
+    current.moderationReason &&
+    !AUTOMATIC_REASONS.has(current.moderationReason) &&
+    !approved
+  )
+    return {
+      status: "EmAnalise",
+      moderationReason: current.moderationReason,
+      moderationNote: current.moderationNote ?? null,
+    };
+  return { status: "Ativo", moderationReason: null, moderationNote: null };
 }
 
 function productsOf(sellerId: string): ProductDetailDto[] {
@@ -111,6 +237,7 @@ function toProfile(seller: SellerDto): SellerProfileDto {
     categories: seller.categories,
     originPostalCode: override?.originPostalCode ?? null,
     phone: override?.phone ?? null,
+    verification: sellerVerification(seller.id),
   };
 }
 
@@ -130,6 +257,8 @@ function toListItem(p: ProductDetailDto): SellerProductListItemDto {
     status: productStatus(p.id),
     soldCount: p.soldCount,
     updatedAt: updatedAtOf(p),
+    moderationReason: db.productOverrides[p.id]?.moderationReason ?? null,
+    hsCode: productNcm(p.id),
   };
 }
 
@@ -149,7 +278,10 @@ function toSellerProduct(p: ProductDetailDto): SellerProductDto {
     handlingDays: p.handlingDays,
     weightGrams: override?.weightGrams ?? null,
     dimensions: override?.dimensions ?? null,
-    hsCode: override?.hsCode ?? null,
+    hsCode: productNcm(p.id),
+    hsCodeDescription: NCM_TABLE[productNcm(p.id) ?? ""] ?? null,
+    moderationReason: override?.moderationReason ?? null,
+    moderationNote: override?.moderationNote ?? null,
     attributes: p.attributes,
     images: p.images.map((img, i) => ({
       id: img.id,
@@ -171,10 +303,20 @@ function validateProduct(body: SellerProductInput) {
   const errors: Record<string, string[]> = {};
   if (!body.name || body.name.trim().length < 5)
     errors.name = ["Informe um título com pelo menos 5 caracteres."];
-  if (!body.description || body.description.trim().length < 20)
-    errors.description = ["Descreva o produto com pelo menos 20 caracteres."];
-  if (!body.categoryId || !categoryById(body.categoryId))
-    errors.categoryId = ["Escolha uma categoria."];
+  const listed = body.status === "Ativo";
+  const description = body.description?.trim() ?? "";
+  if (description.length < 20) errors.description = ["Descreva o produto com pelo menos 20 caracteres."];
+  else if (listed && description.length < 40)
+    errors.description = [
+      "Para publicar, descreva o produto com pelo menos 40 caracteres (a descrição vai na declaração de importação).",
+    ];
+  const category = body.categoryId ? categoryById(body.categoryId) : undefined;
+  if (!category) errors.categoryId = ["Escolha uma categoria."];
+  else {
+    // NCM obrigatório para publicar, conferido na tabela oficial (formato, capítulo proibido e categoria).
+    const ncm = validateNcm(body.hsCode, category.slug, listed);
+    if ("error" in ncm) errors.hsCode = [ncm.error];
+  }
   if (!Number.isInteger(body.priceAmount) || body.priceAmount <= 0)
     errors.priceAmount = ["Informe um preço válido."];
   if (
@@ -201,8 +343,6 @@ function validateProduct(body: SellerProductInput) {
     );
     if (!ok) errors.dimensions = ["Dimensões em centímetros inteiros entre 0 e 200."];
   }
-  if (body.hsCode && !/^\d{4,10}$/.test(body.hsCode.replace(/\D/g, "")))
-    errors.hsCode = ["Código NCM/HS com 4 a 10 dígitos."];
   return Object.keys(errors).length ? validation(errors) : null;
 }
 
@@ -215,7 +355,7 @@ function shippingFromInput(body: SellerProductInput) {
       dims && (dims.lengthCm || dims.widthCm || dims.heightCm)
         ? { lengthCm: dims.lengthCm, widthCm: dims.widthCm, heightCm: dims.heightCm }
         : null,
-    hsCode: body.hsCode?.trim() || null,
+    hsCode: body.hsCode?.replace(/\D/g, "") || null,
   };
 }
 
@@ -338,7 +478,9 @@ export const sellerPanelHandlers = [
       errors.description = ["Descreva sua loja com pelo menos 20 caracteres."];
     if (!body.acceptTerms) errors.acceptTerms = ["Aceite os termos para continuar."];
     Object.assign(errors, validateContact(body));
-    if (Object.keys(errors).length) return validation(errors);
+    const kyc = validateKyc(body, null);
+    if ("errors" in kyc) Object.assign(errors, kyc.errors);
+    if (Object.keys(errors).length || "errors" in kyc) return validation(errors);
 
     const id = crypto.randomUUID();
     const baseSlug = slugify(body.name);
@@ -379,6 +521,7 @@ export const sellerPanelHandlers = [
       originPostalCode: body.originPostalCode?.trim() || null,
       phone: body.phone?.replace(/\D/g, "") || null,
     };
+    db.sellerKyc[seller.id] = kyc.kyc;
     db.sellerByUser[db.user.id] = slug;
     if (!db.user.roles.includes("Vendedor")) db.user.roles = [...db.user.roles, "Vendedor"];
     db.audit.push({
@@ -416,7 +559,10 @@ export const sellerPanelHandlers = [
     if (!body.description || body.description.trim().length < 20)
       errors.description = ["Descreva sua loja com pelo menos 20 caracteres."];
     Object.assign(errors, validateContact(body));
-    if (Object.keys(errors).length) return validation(errors);
+    const kyc = validateKyc(body, sellerKyc(seller.id));
+    if ("errors" in kyc) Object.assign(errors, kyc.errors);
+    if (Object.keys(errors).length || "errors" in kyc) return validation(errors);
+    db.sellerKyc[seller.id] = kyc.kyc;
     db.sellerOverrides[seller.id] = {
       ...db.sellerOverrides[seller.id],
       name: body.name.trim(),
@@ -494,10 +640,11 @@ export const sellerPanelHandlers = [
     if (invalid) return invalid;
     const product = buildCustomProduct(body, seller);
     db.customProducts.push(product);
+    const shipping = shippingFromInput(body);
     db.productOverrides[product.id] = {
-      status: body.status,
       images: overrideFromInput(body).images,
-      ...shippingFromInput(body),
+      ...shipping,
+      ...decideListing(product.id, product.name, body.priceAmount, shipping.hsCode, body.status),
       updatedAt: nowIso(),
     };
     persistDb();
@@ -522,9 +669,11 @@ export const sellerPanelHandlers = [
     const body = (await request.json()) as SellerProductInput;
     const invalid = validateProduct(body);
     if (invalid) return invalid;
+    const next = overrideFromInput(body);
     db.productOverrides[product.id] = {
       ...db.productOverrides[product.id],
-      ...overrideFromInput(body),
+      ...next,
+      ...decideListing(product.id, next.name, body.priceAmount, next.hsCode, body.status),
     };
     persistDb();
     return HttpResponse.json(toSellerProduct(findProduct(product.id)!));
@@ -558,7 +707,13 @@ export const sellerPanelHandlers = [
     let orders = db.orders.filter((o) => o.seller.id === seller.id);
     if (status) orders = orders.filter((o) => o.status === status);
     orders = [...orders].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-    return HttpResponse.json(paginate(orders, page, pageSize));
+    return HttpResponse.json(
+      paginate(
+        orders.map((o) => withShipment(o, "seller")),
+        page,
+        pageSize,
+      ),
+    );
   }),
 
   http.post(`${API}/seller/orders/:id/prepare`, async ({ request, params }) => {
@@ -571,7 +726,7 @@ export const sellerPanelHandlers = [
       return problem(409, "INVALID_STATUS", "Só pedidos pagos podem entrar em preparação.");
     advanceOrder(order, "EmPreparacao");
     persistDb();
-    return HttpResponse.json(order);
+    return HttpResponse.json(withShipment(order, "seller"));
   }),
 
   http.post(`${API}/seller/orders/:id/ship`, async ({ request, params }) => {
@@ -581,16 +736,39 @@ export const sellerPanelHandlers = [
     const order = db.orders.find((o) => o.id === params.id && o.seller.id === seller.id);
     if (!order) return notFound("Pedido");
     if (order.status !== "Pago" && order.status !== "EmPreparacao")
-      return problem(409, "INVALID_STATUS", "Este pedido não pode ser enviado neste status.");
-    const body = (await request.json()) as ShipOrderRequest;
-    const errors: Record<string, string[]> = {};
-    if (!body.carrier?.trim()) errors.carrier = ["Informe a transportadora."];
-    if (!/^[A-Z0-9]{8,20}$/i.test(body.trackingCode ?? ""))
-      errors.trackingCode = ["Código de rastreio inválido (8 a 20 letras/números)."];
-    if (Object.keys(errors).length) return validation(errors);
-    order.trackingCode = body.trackingCode.toUpperCase();
-    order.carrier = body.carrier.trim();
-    order.shippingOption = { ...order.shippingOption, carrier: body.carrier.trim() };
+      return problem(
+        409,
+        "ORDER_INVALID_TRANSITION",
+        "Só pedidos pagos ou em preparação podem ser enviados.",
+      );
+    const body = ((await request.json().catch(() => null)) ?? {}) as ShipOrderRequest;
+    // Com etiqueta da plataforma, usa o rastreio dela; sem etiqueta, só se a plataforma permitir.
+    const shipment = order.shipment;
+    let tracking: string;
+    let carrier: string;
+    if (shipment?.status === "EtiquetaEmitida" && shipment.trackingCode) {
+      tracking = shipment.trackingCode;
+      carrier = shipment.carrier ?? order.shippingOption.carrier;
+    } else if (db.settings.requirePlatformLabel) {
+      return problem(
+        409,
+        "LABEL_REQUIRED",
+        "Gere a etiqueta da plataforma antes de confirmar o envio. É ela que leva a declaração antecipada do Remessa Conforme.",
+      );
+    } else {
+      tracking = body.trackingCode?.trim().toUpperCase() ?? "";
+      const errors: Record<string, string[]> = {};
+      if (tracking.length < 8 || tracking.length > 40)
+        errors.trackingCode = ["Informe o código de rastreio (8 a 40 caracteres)."];
+      if (!body.carrier?.trim()) errors.carrier = ["Informe a transportadora."];
+      if (Object.keys(errors).length) return validation(errors);
+      carrier = body.carrier!.trim();
+    }
+    if (order.status === "Pago") advanceOrder(order, "EmPreparacao");
+    order.trackingCode = tracking;
+    order.carrier = carrier;
+    order.shippingOption = { ...order.shippingOption, carrier };
+    markShipmentPosted(order);
     order.trackingEvents = [
       ...order.trackingEvents,
       {
@@ -601,17 +779,9 @@ export const sellerPanelHandlers = [
       },
     ];
     advanceOrder(order, "Enviado");
-    db.audit.push({
-      id: db.audit.length + 1,
-      userId: db.user.id,
-      userEmail: db.user.email,
-      action: "order.ship",
-      target: order.number,
-      occurredAt: nowIso(),
-      ipAddress: null,
-    });
+    audit("order.ship", order.number);
     persistDb();
-    return HttpResponse.json(order);
+    return HttpResponse.json(withShipment(order, "seller"));
   }),
 
   // ----- Uploads (duas etapas: assina → PUT do arquivo) -----

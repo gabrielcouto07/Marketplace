@@ -38,6 +38,9 @@ export function issueSession(user: UserProfileDto): AuthResponseDto {
   };
 }
 
+/** Mesmo texto da API: o CPF de quem recebe vai na declaração da remessa (Remessa Conforme). */
+const RECIPIENT_CPF_MESSAGE = "Informe o CPF de quem vai receber (vai na declaração de importação).";
+
 export const authHandlers = [
   http.post(`${API}/auth/login`, async ({ request }) => {
     await simulateLatency();
@@ -162,6 +165,8 @@ export const authHandlers = [
     const body = (await request.json()) as AddressInput;
     if (!/^\d{8}$/.test(body.postalCode?.replace(/\D/g, "") ?? ""))
       return validation({ postalCode: ["CEP inválido."] });
+    const recipientCpf = body.recipientCpf?.replace(/\D/g, "") ?? "";
+    if (!isValidCpf(recipientCpf)) return validation({ recipientCpf: [RECIPIENT_CPF_MESSAGE] });
     const address: AddressDto = {
       ...body,
       id: crypto.randomUUID(),
@@ -169,6 +174,7 @@ export const authHandlers = [
       country: "BR",
       complement: body.complement || null,
       phone: body.phone ? body.phone.replace(/\D/g, "") : null,
+      recipientCpf,
     };
     if (address.isDefault || db.addresses.length === 0) {
       db.addresses = db.addresses.map((a) => ({ ...a, isDefault: false }));
@@ -185,12 +191,15 @@ export const authHandlers = [
     const index = db.addresses.findIndex((a) => a.id === params.id);
     if (index < 0) return notFound("Endereço");
     const body = (await request.json()) as AddressInput;
+    const recipientCpf = body.recipientCpf?.replace(/\D/g, "") ?? "";
+    if (!isValidCpf(recipientCpf)) return validation({ recipientCpf: [RECIPIENT_CPF_MESSAGE] });
     const updated: AddressDto = {
       ...db.addresses[index],
       ...body,
       postalCode: body.postalCode.replace(/\D/g, ""),
       complement: body.complement || null,
       phone: body.phone ? body.phone.replace(/\D/g, "") : null,
+      recipientCpf,
     };
     if (updated.isDefault) db.addresses = db.addresses.map((a) => ({ ...a, isDefault: false }));
     db.addresses[index] = updated;

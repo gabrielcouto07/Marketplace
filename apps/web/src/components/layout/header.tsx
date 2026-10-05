@@ -8,7 +8,7 @@ import { useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode 
 
 import { BrandMark } from "@/components/layout/brand-mark";
 import { BackButton } from "@/components/shared/back-button";
-import { RemessaConformeEmblem, RemessaConformeHeaderSeal } from "@/components/shared/trust-badge";
+import { RemessaConformeHeaderSeal } from "@/components/shared/trust-badge";
 import { readStoredCep } from "@/components/shared/cep-shipping-calculator";
 import { Button } from "@/components/ui/button";
 import { useAuthStore } from "@/features/auth/store";
@@ -163,7 +163,6 @@ function DesktopBar({ cartCount }: { cartCount: number }) {
     <div className="hidden md:block">
       <div className="mx-auto flex h-16 w-full max-w-6xl items-center gap-2 px-4">
         <BrandMark className="mr-2" />
-        <RemessaConformeHeaderSeal variant="bar" className="hidden lg:flex" />
         <DeliverToLink />
         <form
           role="search"
@@ -342,7 +341,10 @@ function CartLink({ count, variant }: { count: number; variant: "desktop" | "mob
 const DEPARTMENT_LINK =
   "flex h-8 items-center gap-1.5 rounded-sm px-2 whitespace-nowrap link-on-deep aria-[current=page]:bg-white/10";
 
-/** Faixa de departamentos (≥ md): todos os departamentos, vitrines e o convite para vender. */
+/**
+ * Faixa de departamentos (≥ md): todos os departamentos, vitrines, o selo Remessa Conforme (quando ligado) e o convite
+ * para vender.
+ */
 function DepartmentsBar({ pathname }: { pathname: string }) {
   const t = useTranslations("nav");
   const links = [
@@ -378,14 +380,11 @@ function DepartmentsBar({ pathname }: { pathname: string }) {
           </li>
         ))}
         {env.remessaConforme ? (
-          <li className="ml-auto lg:hidden">
-            <Link href="/remessa-conforme" className={cn(DEPARTMENT_LINK, "font-bold")}>
-              <RemessaConformeEmblem className="size-5" />
-              Remessa Conforme
-            </Link>
+          <li className="ml-auto">
+            <RemessaConformeHeaderSeal variant="nav" />
           </li>
         ) : null}
-        <li className={env.remessaConforme ? "lg:ml-auto" : "ml-auto"}>
+        <li className={env.remessaConforme ? undefined : "ml-auto"}>
           <Link href="/vendedor/cadastro" className={cn(DEPARTMENT_LINK, "-mr-2 font-bold")}>
             {t("sell")}
           </Link>

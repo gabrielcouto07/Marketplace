@@ -157,3 +157,9 @@ public sealed record SellerProductInput(
 public sealed record ParcelDimensionsDto(int LengthCm, int WidthCm, int HeightCm);
 
 public sealed record ShipOrderRequest(string? Carrier, string? TrackingCode);
+
+/// <summary>
+/// Como o vendedor despacha: com a etiqueta da plataforma (operador configurado) e/ou informando o rastreio, quando a
+/// plataforma não exige a etiqueta (ex.: antes de contratar o operador).
+/// </summary>
+public sealed record SellerShippingPolicyDto(bool RequirePlatformLabel, bool CarrierConfigured, bool Sandbox, string Carrier);

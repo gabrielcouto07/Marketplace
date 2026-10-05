@@ -120,7 +120,7 @@ export function VerificationSection({
             control={control}
             name="identityDocumentUrl"
             render={({ field }) => (
-              <SingleImageUpload id="store-identity-doc" value={field.value ?? null} onChange={field.onChange} label={t("identityDocument")} />
+              <SingleImageUpload id="store-identity-doc" fit="contain" value={field.value ?? null} onChange={field.onChange} label={t("identityDocument")} />
             )}
           />
         </FormField>
@@ -129,7 +129,7 @@ export function VerificationSection({
             control={control}
             name="rucCertificateUrl"
             render={({ field }) => (
-              <SingleImageUpload id="store-ruc-certificate" value={field.value ?? null} onChange={field.onChange} label={t("rucCertificate")} />
+              <SingleImageUpload id="store-ruc-certificate" fit="contain" value={field.value ?? null} onChange={field.onChange} label={t("rucCertificate")} />
             )}
           />
         </FormField>

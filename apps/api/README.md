@@ -71,6 +71,13 @@ tests/Marketplace.Tests/         xUnit: domínio + fluxo completo do comprador v
 | `OpenApi` | `Enabled` | `/openapi/v1.json` e `/scalar` fora de Development (padrão: desligado) |
 | `Cors:Origins` | lista | origem do PWA quando não usar o proxy |
 | `DataProtection:KeysPath` | pasta | chaves que cifram CPF/documento do pagador — **faça backup em produção** |
+| `RemessaConforme:Platform` | `Brand`, `TradeName`, `LegalName`, `DocumentType` (`CNPJ`\|`TIN`), `Document`, `AdeNumber`, `AddressLine`, `OperatorCode`, `OperatorName` | identidade da empresa na etiqueta e no bloco `remessaConforme` da declaração |
+| `RemessaConforme:Carrier` | `Provider` = `Sandbox` \| `Http`, `BaseUrl`, `ApiKey`, `ApiKeyHeader`, `ApiKeyScheme`, `ShipmentsPath`, `CancelPathTemplate`, `RemittancesPath`, `CarrierName`, `AllowSandboxOutsideDevelopment` | operador logístico ([contrato v1](../../docs/REMESSA_CONFORME.md#53-operador-logístico--contrato-de-integração-v1)); sem `Http` configurado: sandbox em Development, desligado fora |
+| `RemessaConforme:JobIntervalMinutes` | 10 | repasse dos tributos e cancelamentos no operador |
+| `Siscomex` | `BaseUrl` (validação por padrão), `ClientId`, `ClientSecret`, `Cnpj`, `RoleType` (`EMPRCOMEL`), `SyncIntervalMinutes`, `LookbackDays`, `OccurrenceMap` | consulta de remessas da ECE no Portal Único (DIR, situação, ocorrências e divergências → indicadores) |
+| `Serpro` | `ConsumerKey`, `ConsumerSecret`, `CacheHours` | situação do CPF do destinatário; sem chave vale só o dígito verificador |
+| `Ncm` | `Source` = `Siscomex` \| `Offline`, `Url`, `CachePath`, `RefreshHours` | tabela NCM oficial (pública, sem chave) |
+| `Ptax` | `Provider` = `bcb-ptax` \| `None`, `RefreshIntervalMinutes`, `ValidityHours` | câmbio USD→BRL do Banco Central (público, sem chave) |
 
 ## Regras de negócio implementadas
 
@@ -78,9 +85,16 @@ tests/Marketplace.Tests/         xUnit: domínio + fluxo completo do comprador v
   na cotação do checkout e gravada no pedido.
 - **1 compra = N pedidos (um por loja) = 1 pagamento.** `POST /orders` é idempotente por `idempotencyKey`; valida
   cotação (expirada/consumida/frete alterado → 422), CPF, estoque (reserva ao criar, devolve ao cancelar/expirar).
-- **Impostos de importação**: modo `Flat` (60 % sobre produtos + frete − desconto) ou `RemessaConforme`
-  (20 % até US$ 50; 60 % − US$ 20 acima; ICMS 17 % por dentro). Sempre apresentado como estimativa. Parâmetros em
-  `platform_settings` (linha única, editável pelo admin no futuro).
+- **Impostos de importação** (`Domain/ImportTaxCalculator.cs`): no modo `RemessaConforme` (padrão) o valor é
+  definitivo e calculado por remessa (um pedido por loja): valor aduaneiro = produtos + frete + seguro + despesas −
+  desconto rateado; II de 20 % até US$ 50 e de 60 % − US$ 20 acima (câmbio PTAX); ICMS por dentro com a alíquota da UF
+  de destino; IBS (estadual + municipal) e CBS sobre valor aduaneiro + II. O detalhamento (`taxes`) vai na cotação, no
+  pedido e na declaração. O modo `Flat` (alíquota única) segue disponível e aparece como estimativa. Parâmetros em
+  `platform_settings`, editáveis no admin.
+- **Remessa Conforme**: declaração antecipada e etiqueta da plataforma por remessa (`RemessaService`), repasse dos
+  tributos ao operador, NCM obrigatório e conferido na tabela oficial, CPF do destinatário obrigatório, admissão e
+  moderação de vendedores, denúncias, ocorrências e os indicadores da Portaria Coana 193/2026 (`ComplianceService`).
+  Tudo em [`docs/REMESSA_CONFORME.md`](../../docs/REMESSA_CONFORME.md), inclusive a chave que falta em cada integração.
 - **Frete** por loja via `IShippingRateProvider` (tabela própria por zona do CEP como padrão e fallback; integrações
   recebem peso/dimensões/NCM dos produtos e CEP de origem da loja). Prazos em dias úteis + preparação. Frete grátis
   (todos os itens da loja elegíveis e subtotal ≥ limite da plataforma) é aplicado pelo `ShippingService`. O pedido só
@@ -105,10 +119,13 @@ tests/Marketplace.Tests/         xUnit: domínio + fluxo completo do comprador v
 
 ## Painéis
 
-- **Vendedor** (`/seller/*`, papel Vendedor): cadastro da loja, perfil, produtos (CRUD + fotos), pedidos (preparar/enviar), dashboard.
+- **Vendedor** (`/seller/*`, papel Vendedor): cadastro da loja com responsável e documentos, perfil, produtos (CRUD +
+  fotos + NCM), pedidos (preparar, gerar etiqueta, baixar etiqueta, confirmar postagem), dashboard.
 - **Admin** (`/admin/*`, papel Admin): visão geral (totais, vendas por dia, produtos a caminho), usuários (editar/bloquear/anonimizar),
-  vendedores (aprovar/suspender/reputação), produtos, pedidos (transição forçada, disputas), pagamentos (estorno), repasses,
-  cupons, câmbio, banners/categorias, configurações da plataforma e auditoria. Admin único criado do `Admin:Email/Password`
+  vendedores (verificar documentos/aprovar/suspender com motivo/reputação), produtos (moderar: aprovar, bloquear, pôr em
+  análise), pedidos (transição forçada, disputas), pagamentos (estorno), repasses, cupons, câmbio, banners/categorias,
+  configurações da plataforma (tributos e regras de conformidade), conformidade (indicadores e ocorrências),
+  denúncias, remessas (etiqueta, situação aduaneira, repasse, reenvio), integrações e auditoria. Admin único criado do `Admin:Email/Password`
   (dev: `admin@mktpy.com` / `admin123`); login alternativo no front em `/admin/entrar`. Detalhes em [`docs/GUIA_BACKEND.txt`](../../docs/GUIA_BACKEND.txt).
 
 ## Endpoints além do contrato ✅
@@ -117,6 +134,13 @@ tests/Marketplace.Tests/         xUnit: domínio + fluxo completo do comprador v
 `POST /auth/reset-password`, `GET/PUT /me/favorites`, `GET/PUT /me/cart`, `GET/POST /me/consents`,
 `GET /me/data-export`, `DELETE /me`, `GET /privacy/policy`, `POST /seller/uploads`, `PUT /media/{key}`,
 `POST /webhooks/payments/{gateway}`, `POST /webhooks/shipping/{provider}` (aliases: `/webhooks/payments`, `/webhooks/mercadopago`, `/webhooks/shipping`).
+
+Remessa Conforme: `GET /taxes/estimate`, `GET /ncm?q=`, `GET /ncm/{code}`, `POST /products/{id}/reports`,
+`POST|GET /seller/orders/{id}/shipment`, `GET /seller/orders/{id}/shipment/label`, `GET /seller/shipping-policy`,
+`GET /admin/compliance`,
+`GET|POST /admin/compliance/occurrences`, `POST /admin/compliance/occurrences/{id}/status`, `GET /admin/reports`,
+`POST /admin/reports/{id}/resolve`, `POST /admin/products/{id}/moderate`, `POST /admin/sellers/{id}/verify`,
+`GET /admin/shipments`, `GET /admin/shipments/{id}/label`, `POST /admin/shipments/{id}/retry`, `GET /admin/integrations`.
 
 ## Próximos passos
 

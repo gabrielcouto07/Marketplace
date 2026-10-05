@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="595" height="760" viewBox="0 0 595 760" role="img" aria-labelledby="t d">
+  <title id="t">Constância do RUC (exemplo)</title>
+  <desc id="d">Imagem ilustrativa usada nos dados de demonstração. Não é um documento real.</desc>
+  <rect x="1" y="1" width="593" height="758" fill="#ffffff" stroke="#c9d3e0" stroke-width="2"/>
+  <rect x="40" y="40" width="515" height="6" fill="#1d3a6b"/>
+  <g font-family="Helvetica, Arial, sans-serif" fill="#1f2a3a">
+    <text x="297" y="96" text-anchor="middle" font-size="22" font-weight="700" letter-spacing="1">CONSTÂNCIA DE INSCRIÇÃO NO RUC</text>
+    <text x="297" y="124" text-anchor="middle" font-size="14" fill="#5d6b80">Registro Único de Contribuyentes · comprovante da loja</text>
+    <text x="40" y="186" font-size="12" fill="#5d6b80">RAZÃO SOCIAL</text>
+    <text x="40" y="210" font-size="18" font-weight="700">NOME DA EMPRESA</text>
+    <text x="40" y="252" font-size="12" fill="#5d6b80">RUC</text>
+    <text x="40" y="276" font-size="18" font-weight="700" letter-spacing="2">00000000-0</text>
+    <text x="320" y="252" font-size="12" fill="#5d6b80">SITUAÇÃO</text>
+    <text x="320" y="276" font-size="18" font-weight="700">ATIVO</text>
+    <text x="40" y="318" font-size="12" fill="#5d6b80">ENDEREÇO FISCAL</text>
+    <text x="40" y="342" font-size="16">Rua, número e bairro · cidade</text>
+    <text x="40" y="384" font-size="12" fill="#5d6b80">ATIVIDADE ECONÔMICA</text>
+    <text x="40" y="408" font-size="16">Comércio varejista</text>
+  </g>
+  <g fill="#e6ebf2">
+    <rect x="40" y="446" width="515" height="12" rx="6"/>
+    <rect x="40" y="472" width="470" height="12" rx="6"/>
+    <rect x="40" y="498" width="495" height="12" rx="6"/>
+    <rect x="40" y="524" width="380" height="12" rx="6"/>
+  </g>
+  <rect x="40" y="592" width="515" height="64" rx="10" fill="#fff4e5" stroke="#f0b35a"/>
+  <text x="297" y="631" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="17" font-weight="700" fill="#9a5b00" letter-spacing="1">EXEMPLO · DADOS DE DEMONSTRAÇÃO · SEM VALOR</text>
+  <rect x="40" y="714" width="515" height="6" fill="#1d3a6b"/>
+</svg>

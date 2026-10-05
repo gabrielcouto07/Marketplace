@@ -14,6 +14,7 @@ import type {
   SellerProfileInput,
   SellerRegisterRequest,
   SellerRegisterResponseDto,
+  SellerShippingPolicyDto,
   ShipmentDto,
   ShipOrderRequest,
   UploadRequest,
@@ -47,6 +48,7 @@ export const sellerPanelApi = {
   /** Declaração antecipada + etiqueta da plataforma no operador (Remessa Conforme, critérios i e iii). */
   createShipment: (id: string) => api.post<ShipmentDto>(`/seller/orders/${id}/shipment`),
   shipment: (id: string) => api.get<ShipmentDto>(`/seller/orders/${id}/shipment`),
+  shippingPolicy: () => api.get<SellerShippingPolicyDto>("/seller/shipping-policy"),
   presignUpload: (body: UploadRequest) => api.post<PresignedUploadDto>("/seller/uploads", body),
 };
 
@@ -171,6 +173,15 @@ function useInvalidateSellerOrders() {
 export function usePrepareOrder() {
   const invalidate = useInvalidateSellerOrders();
   return useMutation({ mutationFn: sellerPanelApi.prepareOrder, onSuccess: invalidate });
+}
+
+/** Etiqueta obrigatória? Operador configurado? Decide entre "Gerar etiqueta" e o rastreio manual. */
+export function useSellerShippingPolicy() {
+  return useQuery({
+    queryKey: queryKeys.sellerPanel.shippingPolicy,
+    queryFn: sellerPanelApi.shippingPolicy,
+    staleTime: 5 * 60_000,
+  });
 }
 
 export function useCreateShipment() {

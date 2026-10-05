@@ -202,7 +202,8 @@ totalReference (PYG), exchangeRate: ExchangeRateDto, lockedUntil (ISO; 15 min)
 ```
 
 Regras: `quoteId` expira em `lockedUntil`; `POST /orders` com quote expirada → 422 `quoteId`.
-O imposto é **estimativa** (exibida como tal); o valor cobrado pela Receita pode diferir.
+No modo `RemessaConforme` (padrão) os tributos são **definitivos** e vêm discriminados em `taxes` (soma das remessas) e em
+`groups[].taxes` (uma remessa por loja); no modo `Flat` são estimativa. Ver a seção "Atualizações de 2026-10-05".
 
 ### ✅ `POST /orders` (auth) — fecha a compra
 
@@ -386,3 +387,50 @@ Mudanças aditivas: clientes antigos continuam funcionando. O backend em `apps/a
 | Erros | 404/405/415 também em `application/problem+json`; novos códigos 409 `DATA_CONFLICT`, 502 `UPSTREAM_UNAVAILABLE`, 504 `UPSTREAM_TIMEOUT`, 422 `SHIPPING_UNAVAILABLE` |
 | Cartão | `card.brand` é o `payment_method_id` do Mercado Pago (`visa`, `master`, `amex`, `elo`, `hipercard`); o front tokeniza com o SDK JS (`NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY`) |
 | Front | envia `Accept-Language` e `credentials: include`, timeout de 20 s; `POST /auth/logout` com `{ refreshToken }`; access token de 60 min renovado em 401 |
+
+## Atualizações de 2026-10-05 (Remessa Conforme)
+
+Mudanças aditivas, implementadas na API (`apps/api`) e no mock. Regras, cálculo e integrações em
+[`REMESSA_CONFORME.md`](REMESSA_CONFORME.md).
+
+| Onde | O que mudou |
+| --- | --- |
+| `ImportTaxBreakdownDto` (novo) | `regime` (`RemessaConforme`\|`Estimativa`), `isFinal`, `products`, `freight`, `insurance`, `otherExpenses`, `discount`, `customsValue`, `customsValueUsd`, `importDuty` + `importDutyBasisPoints` + `importDutyDeduction`, `icms` + `icmsBasisPoints` + `icmsState`, `ibs` (`ibsState` + `ibsMunicipal`, com as alíquotas), `cbs` + `cbsBasisPoints`, `totalTaxes`, `total`, `effectiveBasisPoints`, `usdRate` (`UsdRateDto`), `exceedsSimplifiedLimit` |
+| `CheckoutQuoteDto` | `+ taxes` (soma das remessas); `importTaxRateBasisPoints` passa a ser a alíquota efetiva |
+| `CheckoutGroupDto` | `+ taxes` (a remessa da loja) e `+ discount` (desconto rateado) |
+| `OrderTotalsDto` | `+ taxes` (gravado na compra; nulo em pedidos antigos) |
+| `OrderDto` | `+ shipment` (`ShipmentDto`: status, provedor, `sandbox`, rastreio, declaração, `hasLabel`, `labelUrl` só para vendedor/admin, DIR, situação aduaneira, `remittance`) |
+| `AddressDto` / `AddressInput` | `+ recipientCpf` (obrigatório, validado; só o dono vê). `POST /orders` responde 422 em `addressId` sem CPF válido ou com CPF irregular no Serpro |
+| `SellerProfileDto` | `+ verification` (`SellerVerificationDto`: endereço de origem, responsável, tipo e documento mascarado, URLs do documento e da constância do RUC, `complete`, `verifiedAt`, `suspensionReason`) |
+| `SellerProfileInput` / `SellerRegisterRequest` | `+ legalAddress`, `+ responsibleName`, `+ responsibleDocumentType` (`CedulaPy`\|`Cpf`\|`Passaporte`), `+ responsibleDocument` (vazio mantém o atual), `+ identityDocumentUrl`, `+ rucCertificateUrl` — obrigatórios |
+| `ProductStatus` | `+ EmAnalise`, `+ Bloqueado` (só a plataforma aplica) |
+| `SellerProductDto` / `SellerProductListItemDto` | `+ moderationReason`, `+ moderationNote`, `+ hsCodeDescription`; `hsCode` (NCM de 8 dígitos) obrigatório para `status: Ativo` |
+| `AdminProductListItemDto` | `+ moderationReason`, `+ hsCode`, `+ openReports` |
+| `AdminSellerListItemDto` / `AdminSellerDetailDto` | `+ verified`, `+ occurrences` / `+ verification`, `+ occurrences[]` |
+| `AdminSellerUpdateRequest` | `+ suspensionReason` (obrigatório ao suspender); aprovar loja pendente exige documentos verificados |
+| `PlatformSettingsDto` | `+ icmsStateOverrides`, `+ ibsStateBasisPoints`, `+ ibsMunicipalBasisPoints`, `+ cbsBasisPoints`, `+ insuranceBasisPoints`, `+ otherExpensesAmount`, `+ sellerStrikeLimit`, `+ strikeWindowDays`, `+ priceFloorPercent`, `+ protectedBrands`, `+ requirePlatformLabel`; `importTaxMode` padrão `RemessaConforme` |
+| `POST /seller/orders/{id}/ship` | body opcional; com a etiqueta emitida usa o rastreio dela; sem etiqueta → 409 `LABEL_REQUIRED` (salvo `requirePlatformLabel = false`) |
+
+### Novos endpoints
+
+| Método | Rota | Auth | Resposta |
+| --- | --- | --- | --- |
+| GET | `/taxes/estimate?amount=&state=` | — | `ImportTaxBreakdownDto` (produtos sem frete; PDP e carrinho) |
+| GET | `/ncm?q=` | — | `NcmLookupDto[]` (até 20) |
+| GET | `/ncm/{code}` | — | `NcmLookupDto { code, formatted, description, official }`; 422 formato, 404 fora da tabela vigente |
+| POST | `/products/{id}/reports` | comprador | `201 ProductReportDto`; body `{ reason, details? }`; 409 `REPORT_ALREADY_OPEN` |
+| POST | `/seller/orders/{id}/shipment` | vendedor | `201 ShipmentDto`; 409 `SHIPMENT_EXISTS`/`ORDER_INVALID_TRANSITION`, 422 com o que falta na declaração, 503 operador não configurado |
+| GET | `/seller/orders/{id}/shipment` | vendedor | `ShipmentDto` |
+| GET | `/seller/orders/{id}/shipment/label` | vendedor | `application/pdf` |
+| GET | `/seller/shipping-policy` | vendedor | `SellerShippingPolicyDto { requirePlatformLabel, carrierConfigured, sandbox, carrier }` |
+| GET | `/admin/compliance?cycle=` | admin | `ComplianceDashboardDto` |
+| GET / POST | `/admin/compliance/occurrences` | admin | `PagedResult<ComplianceOccurrenceDto>` (filtros `indicator`, `sellerId`, `status`) / `201 ComplianceOccurrenceDto` |
+| POST | `/admin/compliance/occurrences/{id}/status` | admin | `ComplianceOccurrenceDto`; `Contestada`/`Anulada` exigem `reason` |
+| GET | `/admin/reports?status=` | admin | `PagedResult<ProductReportDto>` |
+| POST | `/admin/reports/{id}/resolve` | admin | `ProductReportDto`; body `{ upheld, indicator?, blockProduct, note? }` |
+| POST | `/admin/products/{id}/moderate` | admin | `AdminProductListItemDto`; body `{ action: aprovar\|bloquear\|analisar, reason?, note? }` |
+| POST | `/admin/sellers/{id}/verify` | admin | `AdminSellerDetailDto`; body `{ approve, note? }` (recusa exige `note`) |
+| GET | `/admin/shipments?status=&q=` | admin | `PagedResult<AdminShipmentListItemDto>` |
+| GET | `/admin/shipments/{id}/label` | admin | `application/pdf` (segunda via no sandbox) |
+| POST | `/admin/shipments/{id}/retry` | admin | `ShipmentDto`; só remessas `Falhou` (409 `SHIPMENT_NOT_FAILED`) |
+| GET | `/admin/integrations` | admin | `IntegrationStatusDto[]` (`key`, `mode`, `configured`, `requiresCredential`, `missing[]`, `detail`) |

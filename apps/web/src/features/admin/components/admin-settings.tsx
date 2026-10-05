@@ -18,6 +18,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
+import { Textarea } from "@/components/ui/textarea";
 import { isApiError } from "@/lib/api/errors";
 import { formatMoney } from "@/lib/money";
 
@@ -26,7 +28,13 @@ import { useAdminErrorToast } from "./admin-widgets";
 
 type NumericKey = Exclude<
   keyof PlatformSettingsDto,
-  "importTaxMode" | "termsVersion" | "privacyPolicyVersion" | "updatedAt"
+  | "importTaxMode"
+  | "termsVersion"
+  | "privacyPolicyVersion"
+  | "updatedAt"
+  | "icmsStateOverrides"
+  | "protectedBrands"
+  | "requirePlatformLabel"
 >;
 
 const PERCENT_KEYS = [
@@ -35,7 +43,15 @@ const PERCENT_KEYS = [
   "platformFeeBasisPoints",
   "paymentFeeBasisPoints",
 ] as const;
-type PercentKey = (typeof PERCENT_KEYS)[number];
+/** Tributos da reforma (LC 214/2025) e seguro: em pontos-base, exibidos em %. */
+const RC_PERCENT_KEYS = [
+  "ibsStateBasisPoints",
+  "ibsMunicipalBasisPoints",
+  "cbsBasisPoints",
+  "insuranceBasisPoints",
+] as const;
+const COMPLIANCE_INT_KEYS: NumericKey[] = ["sellerStrikeLimit", "strikeWindowDays", "priceFloorPercent"];
+type PercentKey = (typeof PERCENT_KEYS)[number] | (typeof RC_PERCENT_KEYS)[number];
 const DAY_KEYS: NumericKey[] = [
   "quoteLockMinutes",
   "pixExpirationMinutes",
@@ -153,6 +169,71 @@ export function AdminSettings() {
             </Select>
           </FormField>
           <div className="grid gap-4 sm:grid-cols-2">{PERCENT_KEYS.map(percentField)}</div>
+        </section>
+
+        <section className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-xs sm:p-6">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-title-3 text-foreground">{t("settingsRemessa")}</h2>
+            <p className="text-body-sm text-foreground-secondary">{t("settingsRemessaHint")}</p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">{RC_PERCENT_KEYS.map(percentField)}</div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField
+              id="set-icmsStates"
+              label={t("settings_icmsStateOverrides")}
+              hint={t("settings_icmsStateOverrides_hint")}
+              error={errors.icmsStateOverrides?.[0]}
+            >
+              <Input
+                id="set-icmsStates"
+                placeholder="SP=2000; RJ=2000"
+                value={form.icmsStateOverrides}
+                onChange={(e) => set("icmsStateOverrides", e.target.value.toUpperCase())}
+              />
+            </FormField>
+            <FormField
+              id="set-otherExpenses"
+              label={t("settings_otherExpensesAmount")}
+              hint={t("settings_otherExpensesAmount_hint")}
+              error={errors.otherExpensesAmount?.[0]}
+            >
+              <Input
+                id="set-otherExpenses"
+                inputMode="numeric"
+                className="tabular-nums"
+                value={formatMoney({ amount: form.otherExpensesAmount, currency: "BRL" })}
+                onChange={(e) => set("otherExpensesAmount", Number(e.target.value.replace(/\D/g, "").slice(0, 8) || 0))}
+              />
+            </FormField>
+          </div>
+        </section>
+
+        <section className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-xs sm:p-6">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-title-3 text-foreground">{t("settingsCompliance")}</h2>
+            <p className="text-body-sm text-foreground-secondary">{t("settingsComplianceHint")}</p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-3">{COMPLIANCE_INT_KEYS.map(intField)}</div>
+          <FormField
+            id="set-brands"
+            label={t("settings_protectedBrands")}
+            hint={t("settings_protectedBrands_hint")}
+            error={errors.protectedBrands?.[0]}
+          >
+            <Textarea
+              id="set-brands"
+              rows={3}
+              value={form.protectedBrands}
+              onChange={(e) => set("protectedBrands", e.target.value)}
+            />
+          </FormField>
+          <label className="flex min-h-12 cursor-pointer items-center justify-between gap-3 rounded-md border border-border px-3 text-body-sm">
+            <span className="flex flex-col">
+              <span className="font-medium text-foreground">{t("settings_requirePlatformLabel")}</span>
+              <span className="text-caption text-foreground-secondary">{t("settings_requirePlatformLabel_hint")}</span>
+            </span>
+            <Switch checked={form.requirePlatformLabel} onCheckedChange={(v) => set("requirePlatformLabel", v)} />
+          </label>
         </section>
 
         <section className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-xs sm:p-6">

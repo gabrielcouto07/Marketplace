@@ -242,4 +242,31 @@ public sealed class RemessaConformeFlowTests : IClassFixture<ApiFactory>
         Assert.Contains("Serpro__ConsumerKey", byKey["serpro"].GetProperty("missing").EnumerateArray().Select(m => m.GetString()));
         Assert.False(byKey["ncm"].GetProperty("requiresCredential").GetBoolean());
     }
+
+    [Fact]
+    public async Task Seller_SeesShippingPolicy()
+    {
+        // O painel decide entre "Gerar etiqueta" e o rastreio manual por esta política.
+        var client = await _factory.LoginAsync();
+        var policy = await client.GetFromJsonAsync<JsonElement>("/api/seller/shipping-policy", Json);
+        Assert.True(policy.GetProperty("requirePlatformLabel").GetBoolean());
+        Assert.True(policy.GetProperty("carrierConfigured").GetBoolean());
+        Assert.True(policy.GetProperty("sandbox").GetBoolean());
+        Assert.Equal("sandbox", policy.GetProperty("carrier").GetString());
+    }
+
+    [Fact]
+    public async Task Admin_GetsReprintedLabel_ForSandboxShipmentWithoutStoredFile()
+    {
+        // As remessas da demo (rastreio LB…) não têm o PDF guardado: o sandbox gera a segunda via.
+        var admin = await AdminAsync();
+        var list = await admin.GetFromJsonAsync<JsonElement>("/api/admin/shipments?pageSize=50", Json);
+        var seeded = list.GetProperty("items").EnumerateArray()
+            .First(s => s.GetProperty("trackingCode").GetString()!.StartsWith("LB", StringComparison.Ordinal));
+        var label = await admin.GetAsync($"/api/admin/shipments/{seeded.GetProperty("id").GetGuid()}/label");
+        Assert.Equal(HttpStatusCode.OK, label.StatusCode);
+        Assert.Equal("application/pdf", label.Content.Headers.ContentType?.MediaType);
+        var bytes = await label.Content.ReadAsByteArrayAsync();
+        Assert.Equal("%PDF", System.Text.Encoding.ASCII.GetString(bytes, 0, 4));
+    }
 }

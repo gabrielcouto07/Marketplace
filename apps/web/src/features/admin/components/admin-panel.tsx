@@ -6,9 +6,13 @@ import {
   Banknote,
   ClipboardList,
   CreditCard,
+  Flag,
   LayoutDashboard,
   Package,
+  PackageCheck,
+  PlugZap,
   Settings,
+  ShieldCheck,
   ShoppingBag,
   Store,
   Ticket,
@@ -41,6 +45,7 @@ export { AdminPayments, AdminPayouts } from "./admin-finance";
 export { AdminCoupons, AdminRates } from "./admin-catalog";
 export { AdminSettings } from "./admin-settings";
 export { AdminAudit } from "./admin-audit";
+export { AdminCompliance, AdminIntegrations, AdminReports, AdminShipments } from "./admin-compliance";
 
 export function AdminPanelShell({ children }: { children: ReactNode }) {
   const t = useTranslations("admin");
@@ -51,11 +56,15 @@ export function AdminPanelShell({ children }: { children: ReactNode }) {
     { href: "/admin/compradores", label: t("buyers"), icon: Users },
     { href: "/admin/vendedores", label: t("sellers"), icon: Store },
     { href: "/admin/produtos", label: t("products"), icon: Package },
+    { href: "/admin/conformidade", label: t("compliance"), icon: ShieldCheck },
+    { href: "/admin/denuncias", label: t("reports"), icon: Flag },
+    { href: "/admin/remessas", label: t("shipments"), icon: PackageCheck },
     { href: "/admin/pagamentos", label: t("payments"), icon: CreditCard },
     { href: "/admin/repasses", label: t("payouts"), icon: Banknote },
     { href: "/admin/cupons", label: t("coupons"), icon: Ticket },
     { href: "/admin/cambio", label: t("rates"), icon: ArrowLeftRight },
     { href: "/admin/configuracoes", label: t("settings"), icon: Settings },
+    { href: "/admin/integracoes", label: t("integrations"), icon: PlugZap },
     { href: "/admin/auditoria", label: t("audit"), icon: ClipboardList },
   ];
   return (

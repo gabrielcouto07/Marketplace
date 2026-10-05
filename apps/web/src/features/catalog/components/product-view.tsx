@@ -309,7 +309,6 @@ function ProductContent({ product }: { product: ProductDetailDto }) {
             </h2>
             <ImportedProductNotice />
             {estimate.data ? <TaxBreakdown taxes={estimate.data} mode="taxes" /> : <TaxBreakdownSkeleton />}
-            <p className="text-caption text-foreground-muted">{tTaxes("pdpFreightNote")}</p>
           </section>
 
           <section aria-labelledby="shipping-title" className={cn(CARD, "flex flex-col gap-4")}>

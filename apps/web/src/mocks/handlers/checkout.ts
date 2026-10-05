@@ -22,6 +22,7 @@ import {
   buildPayment,
   computeTotals,
 } from "../fixtures/orders";
+import { calculateImportTax, sumImportTaxes } from "../fixtures/remessa";
 import { lookupPostalCode, quoteShipping } from "../fixtures/shipping";
 import {
   API,
@@ -39,6 +40,18 @@ import {
 const quotes = new Map<string, CheckoutQuoteDto>();
 /** Idempotência: mesma chave → mesma resposta. */
 const placed = new Map<string, PlaceOrderResponseDto>();
+
+/** Rateia o desconto pelo subtotal de cada remessa; a última absorve o arredondamento (como a API). */
+function allocateDiscount(discount: number, subtotals: number[]): number[] {
+  const total = subtotals.reduce((acc, s) => acc + s, 0);
+  let left = discount;
+  return subtotals.map((s, i) => {
+    const share =
+      i === subtotals.length - 1 ? left : total === 0 ? 0 : Math.round((discount * s) / total);
+    left -= share;
+    return share;
+  });
+}
 
 function buildGroups(
   body: CheckoutQuoteRequest,
@@ -116,12 +129,27 @@ export const checkoutHandlers = [
     const discount: Money = coupon
       ? multiplyBasisPoints(subtotal, coupon.discountBasisPoints)
       : { amount: 0, currency: "BRL" };
-    const taxable: Money = {
-      amount: subtotal.amount + shippingTotal.amount - discount.amount,
-      currency: "BRL",
-    };
-    const estimatedImportTax = multiplyBasisPoints(taxable, settings.importTaxBasisPoints);
-    const total: Money = { amount: taxable.amount + estimatedImportTax.amount, currency: "BRL" };
+    // Cada loja envia um pacote com declaração própria: tributos por remessa, com o ICMS da UF de destino.
+    const state = lookupPostalCode(cep)?.state ?? null;
+    const shares = allocateDiscount(
+      discount.amount,
+      result.map((g) => g.subtotal.amount),
+    );
+    result.forEach((group, i) => {
+      group.discount = { amount: shares[i], currency: "BRL" };
+      group.taxes = calculateImportTax(
+        {
+          products: group.subtotal.amount,
+          freight: group.shipping.amount,
+          discount: shares[i],
+          state,
+        },
+        settings,
+      );
+    });
+    const taxes = sumImportTaxes(result.map((g) => g.taxes!))!;
+    const estimatedImportTax = taxes.totalTaxes;
+    const total: Money = { amount: taxes.total.amount, currency: "BRL" };
     const rate = getRate("BRL", "PYG");
     const now = nowIso();
 
@@ -133,9 +161,10 @@ export const checkoutHandlers = [
       subtotal,
       shippingTotal,
       estimatedImportTax,
-      importTaxRateBasisPoints: settings.importTaxBasisPoints,
+      importTaxRateBasisPoints: taxes.effectiveBasisPoints,
       discount,
       total,
+      taxes,
       totalReference: convert(total, rate),
       exchangeRate: { ...rate, quotedAt: now },
       lockedUntil: addMinutes(now, settings.quoteLockMinutes),
@@ -156,6 +185,13 @@ export const checkoutHandlers = [
     if (!quote) return validation({ quoteId: ["Cotação expirada. Atualize o resumo do pedido."] });
     const address = db.addresses.find((a) => a.id === body.addressId);
     if (!address) return notFound("Endereço");
+    // A declaração da remessa leva o CPF de quem recebe (indicador de qualidade da declaração).
+    if (!isValidCpf(address.recipientCpf ?? ""))
+      return validation({
+        addressId: [
+          "Informe o CPF de quem vai receber no endereço de entrega. Ele vai na declaração de importação.",
+        ],
+      });
     if (!isValidCpf(body.payment.payerDocument ?? ""))
       return validation({ payerDocument: ["CPF inválido."] });
     if (body.payment.method === "Cartao" && !body.payment.card)
@@ -188,7 +224,10 @@ export const checkoutHandlers = [
           variantId: l.variantId,
         })),
       );
-      const totals = computeTotals(items, shippingOption.price, settings.importTaxBasisPoints);
+      const totals = computeTotals(items, shippingOption.price, settings, {
+        discount: group.discount?.amount ?? 0,
+        state: address.state,
+      });
       const timeline: OrderDto["timeline"] = [
         {
           status: "AguardandoPagamento",

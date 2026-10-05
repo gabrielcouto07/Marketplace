@@ -29,7 +29,9 @@ import type {
   PayoutStatus,
   PlatformSettingsDto,
   ProductDetailDto,
+  ProductModerationRequest,
   SellerDto,
+  SellerVerificationRequest,
   UserProfileDto,
 } from "@marketplace/contracts";
 import { ORDER_STATUSES } from "@marketplace/contracts";
@@ -43,10 +45,13 @@ import {
   findProduct,
   findSellerById,
   findSellerBySlug,
+  productNcm,
   productStatus,
+  sellerKyc,
   sellerStatus,
+  sellerVerification,
 } from "../catalog-state";
-import { db, persistDb } from "../db";
+import { type ProductOverride, db, persistDb } from "../db";
 import { DEMO_ACCOUNTS, DEMO_USER } from "../fixtures/account";
 import {
   EXCHANGE_RATES,
@@ -56,42 +61,23 @@ import {
   seeded,
   hashString,
 } from "../fixtures/base";
+import { audit, isResponse, requireAdmin } from "./guards";
 import { advanceOrder, settlePendingPayments } from "./orders";
+import { openReportsFor, sellerOccurrences, withShipment } from "./remessa";
 import {
   API,
   addDays,
-  isAuthorized,
   notFound,
   nowIso,
   num,
   paginate,
   problem,
   simulateLatency,
-  unauthorized,
   validation,
 } from "./utils";
 
 const ZERO: Money = { amount: 0, currency: "BRL" };
-const isResponse = (value: unknown): value is Response => value instanceof Response;
-
-function requireAdmin(request: Request): UserProfileDto | Response {
-  if (!isAuthorized(request)) return unauthorized();
-  if (!db.user.roles.includes("Admin"))
-    return problem(403, "FORBIDDEN", "Acesso restrito a administradores.");
-  return db.user;
-}
-
-function log(action: string, target: string | null): void {
-  db.audit.push({
-    id: (db.audit.at(-1)?.id ?? 0) + 1,
-    userId: db.user.id,
-    userEmail: db.user.email,
-    action,
-    target,
-    occurredAt: nowIso(),
-    ipAddress: "200.150.10.21",
-  });
-}
+const log = audit;
 
 function daysAgoDate(days: number): Date {
   const d = new Date();
@@ -364,6 +350,8 @@ function toSellerItem(s: SellerDto): AdminSellerListItemDto {
       orders.filter((o) => isPaid(o) && new Date(o.createdAt) >= since).map(sellerGross),
     ),
     openDisputes: orders.filter((o) => o.status === "EmDisputa").length,
+    verified: Boolean(sellerKyc(s.id).verifiedAt),
+    occurrences: sellerOccurrences(s.id).length,
   };
 }
 
@@ -381,6 +369,8 @@ function toSellerDetail(s: SellerDto): AdminSellerDetailDto {
     recentPayouts: allPayouts()
       .filter((p) => p.sellerId === s.id)
       .slice(0, 5),
+    verification: sellerVerification(s.id),
+    occurrences: sellerOccurrences(s.id),
   };
 }
 
@@ -398,6 +388,9 @@ function toProductItem(p: ProductDetailDto): AdminProductListItemDto {
     categoryName: categoryById(p.categoryId)?.name ?? "—",
     soldCount: p.soldCount,
     updatedAt: db.productOverrides[p.id]?.updatedAt ?? p.createdAt,
+    moderationReason: db.productOverrides[p.id]?.moderationReason ?? null,
+    hsCode: productNcm(p.id),
+    openReports: openReportsFor(p.id),
   };
 }
 
@@ -652,6 +645,23 @@ export const adminHandlers = [
     const level = body.reputationLevel;
     if (level !== undefined && (level < 1 || level > 5))
       return validation({ reputationLevel: ["Reputação de 1 a 5."] });
+    const current = sellerStatus(seller.id);
+    if (body.status && body.status !== current) {
+      const reason = body.suspensionReason?.trim() ?? "";
+      if (body.status === "Suspenso") {
+        if (reason.length < 5)
+          return validation({
+            suspensionReason: [
+              "Informe o motivo da suspensão (fica no histórico e aparece para o vendedor).",
+            ],
+          });
+        db.sellerKyc[seller.id] = { ...sellerKyc(seller.id), suspensionReason: reason.slice(0, 500) };
+      } else if (body.status === "Aprovado") {
+        if (current === "Pendente" && !sellerKyc(seller.id).verifiedAt)
+          return validation({ status: ["Verifique os documentos da loja antes de aprovar."] });
+        db.sellerKyc[seller.id] = { ...sellerKyc(seller.id), suspensionReason: null };
+      }
+    }
     db.sellerOverrides[seller.id] = {
       ...db.sellerOverrides[seller.id],
       name: body.name?.trim() || undefined,
@@ -700,7 +710,20 @@ export const adminHandlers = [
       return validation({ priceAmount: ["Preço inválido."] });
     if (body.stock !== undefined && body.stock < 0)
       return validation({ stock: ["Estoque inválido."] });
+    const activating = body.status === "Ativo" && productStatus(product.id) !== "Ativo";
+    if (activating && !productNcm(product.id))
+      return validation({
+        status: ["O produto não tem NCM; peça ao vendedor para completar antes de publicar."],
+      });
     db.productOverrides[product.id] = {
+      ...(activating
+        ? {
+            approvedName: body.name?.trim() || product.name,
+            approvedPriceAmount: body.priceAmount ?? product.price.amount,
+            moderationReason: null,
+            moderationNote: null,
+          }
+        : {}),
       ...db.productOverrides[product.id],
       name: body.name?.trim() || db.productOverrides[product.id]?.name,
       priceAmount: body.priceAmount ?? db.productOverrides[product.id]?.priceAmount,
@@ -711,6 +734,92 @@ export const adminHandlers = [
     log("product.update", product.slug);
     persistDb();
     return HttpResponse.json(toProductItem(findProduct(product.id)!));
+  }),
+
+  /** Moderação de conformidade: aprovar (libera nome e preço), bloquear ou pôr em análise. */
+  http.post(`${API}/admin/products/:id/moderate`, async ({ request, params }) => {
+    await simulateLatency();
+    const admin = requireAdmin(request);
+    if (isResponse(admin)) return admin;
+    const product = findProduct(String(params.id));
+    if (!product) return notFound("Produto");
+    const body = (await request.json()) as ProductModerationRequest;
+    const note = body.note?.trim() || null;
+    if (note && note.length > 500) return validation({ note: ["Máximo de 500 caracteres."] });
+    let next: Partial<ProductOverride>;
+    switch (body.action) {
+      case "aprovar":
+        if (!productNcm(product.id))
+          return validation({
+            action: ["O produto não tem NCM; peça ao vendedor para completar antes de aprovar."],
+          });
+        next = {
+          status: "Ativo",
+          approvedName: product.name,
+          approvedPriceAmount: product.price.amount,
+          moderationReason: null,
+          moderationNote: note,
+        };
+        break;
+      case "bloquear": {
+        const reason = body.reason?.trim().toUpperCase().replace(/ /g, "_");
+        if (!reason) return validation({ reason: ["Informe o motivo do bloqueio."] });
+        next = { status: "Bloqueado", moderationReason: reason.slice(0, 64), moderationNote: note };
+        break;
+      }
+      case "analisar":
+        next = {
+          status: "EmAnalise",
+          moderationReason: body.reason?.trim().toUpperCase() || "DENUNCIA",
+          moderationNote: note,
+        };
+        break;
+      default:
+        return validation({ action: ["Ação inválida (aprovar, bloquear ou analisar)."] });
+    }
+    db.productOverrides[product.id] = {
+      ...db.productOverrides[product.id],
+      ...next,
+      updatedAt: nowIso(),
+    };
+    log(`admin.product.${body.action}`, product.slug);
+    persistDb();
+    return HttpResponse.json(toProductItem(findProduct(product.id)!));
+  }),
+
+  /** Política de admissão: aprovar os documentos libera a loja; recusar suspende com o motivo. */
+  http.post(`${API}/admin/sellers/:id/verify`, async ({ request, params }) => {
+    await simulateLatency();
+    const admin = requireAdmin(request);
+    if (isResponse(admin)) return admin;
+    const seller = findSellerById(String(params.id));
+    if (!seller) return notFound("Loja");
+    const body = (await request.json()) as SellerVerificationRequest;
+    const note = body.note?.trim() ?? "";
+    const kyc = sellerKyc(seller.id);
+    if (body.approve) {
+      if (!sellerVerification(seller.id).complete)
+        return validation({
+          verification: [
+            "A loja ainda não enviou todos os documentos (responsável, documento, constância do RUC e endereço de origem).",
+          ],
+        });
+      db.sellerKyc[seller.id] = { ...kyc, verifiedAt: nowIso() };
+      if (sellerStatus(seller.id) === "Pendente")
+        db.sellerOverrides[seller.id] = { ...db.sellerOverrides[seller.id], status: "Aprovado" };
+    } else {
+      if (note.length < 5)
+        return validation({ note: ["Explique o motivo da recusa (o vendedor vê esta mensagem)."] });
+      db.sellerKyc[seller.id] = {
+        ...kyc,
+        verifiedAt: null,
+        suspensionReason: `Cadastro recusado: ${note}`,
+      };
+      db.sellerOverrides[seller.id] = { ...db.sellerOverrides[seller.id], status: "Suspenso" };
+    }
+    log(body.approve ? "admin.seller.verify" : "admin.seller.reject", seller.slug);
+    persistDb();
+    return HttpResponse.json(toSellerDetail(findSellerById(seller.id)!));
   }),
 
   // ----- Pedidos -----
@@ -758,7 +867,7 @@ export const adminHandlers = [
     if (!payment) return notFound("Pagamento");
     const buyer = findPerson(DEMO_USER.id)!;
     const body: AdminOrderDetailDto = {
-      order,
+      order: withShipment(order, "admin"),
       buyer: toUserItem(buyer),
       payment,
       payout: payoutFor(order),
@@ -1042,8 +1151,45 @@ export const adminHandlers = [
     if (body.pixExpirationMinutes < 5) errors.pixExpirationMinutes = ["Mínimo de 5 minutos."];
     if (body.boletoDueDays < 1) errors.boletoDueDays = ["Mínimo de 1 dia."];
     if (body.payoutHoldDays < 0) errors.payoutHoldDays = ["Valor inválido."];
+    // Remessa Conforme: mesmos limites da API.
+    const within = (v: number, min: number, max: number) => Number.isInteger(v) && v >= min && v <= max;
+    if (!within(body.ibsStateBasisPoints, 0, 3000) || !within(body.ibsMunicipalBasisPoints, 0, 3000))
+      errors.ibsStateBasisPoints = ["IBS entre 0% e 30%."];
+    if (!within(body.cbsBasisPoints, 0, 3000)) errors.cbsBasisPoints = ["CBS entre 0% e 30%."];
+    if (!within(body.insuranceBasisPoints, 0, 2000))
+      errors.insuranceBasisPoints = ["Seguro entre 0% e 20%."];
+    if (!within(body.otherExpensesAmount, 0, 1_000_000))
+      errors.otherExpensesAmount = ["Despesas entre R$ 0 e R$ 10.000."];
+    if (!within(body.sellerStrikeLimit, 0, 50))
+      errors.sellerStrikeLimit = ["Entre 0 (desligado) e 50 ocorrências."];
+    if (!within(body.strikeWindowDays, 30, 730)) errors.strikeWindowDays = ["Entre 30 e 730 dias."];
+    if (!within(body.priceFloorPercent, 0, 100)) errors.priceFloorPercent = ["Entre 0% e 100%."];
+    if ((body.protectedBrands ?? "").length > 2000)
+      errors.protectedBrands = ["Lista muito longa (máximo 2.000 caracteres)."];
+    const overrides = (body.icmsStateOverrides ?? "")
+      .split(/[;,\n]/)
+      .map((part) => part.trim())
+      .filter(Boolean);
+    if (
+      overrides.some((part) => {
+        const [uf, value] = part.split("=").map((s) => s.trim());
+        return uf?.length !== 2 || !/^\d+$/.test(value ?? "") || Number(value) > 5000;
+      })
+    )
+      errors.icmsStateOverrides = [
+        "Use UF=pontos-base separados por ponto e vírgula, ex.: SP=2000; RJ=2000.",
+      ];
     if (Object.keys(errors).length) return validation(errors);
-    db.settings = { ...db.settings, ...body, updatedAt: nowIso() };
+    db.settings = {
+      ...db.settings,
+      ...body,
+      icmsStateOverrides: overrides
+        .map((part) => part.replace(/\s*=\s*/, "=").toUpperCase())
+        .sort()
+        .join("; "),
+      protectedBrands: (body.protectedBrands ?? "").trim(),
+      updatedAt: nowIso(),
+    };
     log("settings.update", "platform_settings");
     persistDb();
     return HttpResponse.json(db.settings);

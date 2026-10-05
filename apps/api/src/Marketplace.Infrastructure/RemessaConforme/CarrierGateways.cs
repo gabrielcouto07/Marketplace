@@ -55,6 +55,10 @@ public sealed class SandboxRemessaCarrierGateway(IOptions<RemessaConformeOptions
 
     public Task<TaxRemittanceResult> RemitTaxesAsync(TaxRemittanceRequest request, CancellationToken ct) =>
         Task.FromResult(new TaxRemittanceResult($"SBX-REP-{request.RemittanceId.ToString("N")[..10].ToUpperInvariant()}", Confirmed: true));
+
+    public Task<byte[]?> ReprintLabelAsync(RemessaShipmentRequest request, string trackingCode, string carrier, string? declarationNumber,
+        CancellationToken ct) =>
+        Task.FromResult<byte[]?>(LabelPdf.Build(request, trackingCode, carrier, declarationNumber, sandbox: true));
 }
 
 /// <summary>

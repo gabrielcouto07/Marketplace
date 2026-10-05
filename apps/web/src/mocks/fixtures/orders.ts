@@ -1,4 +1,5 @@
 import type {
+  ImportTaxBreakdownDto,
   Money,
   OrderDto,
   OrderItemDto,
@@ -7,24 +8,31 @@ import type {
   PaymentDto,
   PaymentMethod,
   ProductDetailDto,
+  ShipmentDto,
   ShippingOptionDto,
   TrackingEventDto,
 } from "@marketplace/contracts";
 import { ORDER_HAPPY_PATH } from "@marketplace/contracts";
 
 import { getApiBaseUrl } from "@/lib/api/http";
-import { convert, multiplyBasisPoints, sum } from "@/lib/money";
+import { convert, sum } from "@/lib/money";
 
 import { DEMO_ADDRESSES } from "./account";
 import { getRate, guid, isoDaysAgo } from "./base";
 import { PRODUCTS } from "./products";
+import {
+  REMESSA_SETTINGS_DEFAULTS,
+  type TaxSettings,
+  calculateImportTax,
+  remittanceFromTaxes,
+  s10,
+} from "./remessa";
 import { DEFAULT_CARRIER, quoteShipping } from "./shipping";
 
 /**
  * Padrões das configurações da plataforma usados pelos seeds (os handlers leem `db.settings`,
  * que nasce com estes mesmos valores — ver `mocks/db.ts`).
  */
-export const IMPORT_TAX_BASIS_POINTS = 6000;
 export const PIX_EXPIRATION_MINUTES = 30;
 export const BOLETO_DUE_DAYS = 3;
 
@@ -155,24 +163,31 @@ export function buildOrderItems(
   });
 }
 
+/**
+ * Totais de uma remessa (um pedido = um pacote): tributos discriminados do Remessa Conforme sobre produtos + frete −
+ * desconto rateado, com o ICMS da UF de destino. Total = valor aduaneiro + tributos, como na API.
+ */
 export function computeTotals(
   items: OrderItemDto[],
   shipping: Money,
-  importTaxBasisPoints = IMPORT_TAX_BASIS_POINTS,
+  settings: TaxSettings = REMESSA_SETTINGS_DEFAULTS,
+  options: { discount?: number; state?: string | null } = {},
 ) {
   const subtotal = sum(items.map((i) => i.lineTotal));
-  const importTax = multiplyBasisPoints(
-    { amount: subtotal.amount + shipping.amount, currency: "BRL" },
-    importTaxBasisPoints,
+  const discount: Money = { amount: options.discount ?? 0, currency: "BRL" };
+  const taxes = calculateImportTax(
+    { products: subtotal.amount, freight: shipping.amount, discount: discount.amount, state: options.state },
+    settings,
   );
-  const total = sum([subtotal, shipping, importTax]);
+  const total: Money = { amount: taxes.total.amount, currency: "BRL" };
   return {
     subtotal,
     shipping,
-    importTax,
-    discount: { amount: 0, currency: "BRL" } as Money,
+    importTax: taxes.totalTaxes,
+    discount,
     total,
     totalReference: convert(total, getRate("BRL", "PYG")),
+    taxes,
   };
 }
 
@@ -276,6 +291,41 @@ export function buildPayment(input: {
   };
 }
 
+/** Remessa já postada pelo operador de testes: declaração, DIR, situação aduaneira e repasse confirmado. */
+function seedShipment(
+  idx: number,
+  orderId: string,
+  trackingCode: string,
+  createdAt: string,
+  taxes: ImportTaxBreakdownDto,
+  status: OrderStatus,
+): ShipmentDto {
+  const posted = new Date(createdAt);
+  posted.setDate(posted.getDate() + 2);
+  const postedAt = posted.toISOString();
+  const cleared = status !== "Enviado";
+  return {
+    id: guid(`shipment:seed:${idx}`),
+    orderId,
+    status: "Postada",
+    provider: "sandbox",
+    sandbox: true,
+    carrier: DEFAULT_CARRIER,
+    trackingCode,
+    declarationNumber: `SBX-${postedAt.slice(0, 10).replace(/-/g, "")}-${String(100 + idx).padStart(6, "0")}`,
+    hasLabel: true,
+    labelUrl: null,
+    createdAt,
+    labelIssuedAt: createdAt,
+    postedAt,
+    lastError: null,
+    dirNumber: `26${String(100_000_000 + idx * 7_919).padStart(9, "0")}0`,
+    customsStatus: cleared ? "Desembaraçada" : null,
+    customsCheckedAt: cleared ? postedAt : null,
+    remittance: remittanceFromTaxes(taxes, postedAt, `SBX-REP-${String(7_000 + idx * 31)}`),
+  };
+}
+
 function buildSeedOrders(): { orders: OrderDto[]; payments: PaymentDto[] } {
   const orders: OrderDto[] = [];
   const payments: PaymentDto[] = [];
@@ -292,7 +342,9 @@ function buildSeedOrders(): { orders: OrderDto[]; payments: PaymentDto[] } {
       products.every((p) => p.freeShipping),
     );
     const shippingOption: ShippingOptionDto = options[idx % 2];
-    const totals = computeTotals(items, shippingOption.price);
+    const totals = computeTotals(items, shippingOption.price, REMESSA_SETTINGS_DEFAULTS, {
+      state: address.state,
+    });
     const createdAt = isoDaysAgo(seed.daysAgo, 10);
     const purchaseId = guid(`purchase:seed:${idx}`);
     const paymentId = guid(`payment:seed:${idx}`);
@@ -311,8 +363,10 @@ function buildSeedOrders(): { orders: OrderDto[]; payments: PaymentDto[] } {
       "Reembolsado",
     ].includes(seed.status);
 
+    const orderId = guid(`order:seed:${idx}`);
+    const trackingCode = shipped ? s10("LB", 70_000_000 + idx * 137, "PY") : null;
     orders.push({
-      id: guid(`order:seed:${idx}`),
+      id: orderId,
       number: `PY-2026-${String(100100 + idx).padStart(6, "0")}`,
       purchaseId,
       status: seed.status,
@@ -322,7 +376,7 @@ function buildSeedOrders(): { orders: OrderDto[]; payments: PaymentDto[] } {
       items,
       shippingAddress: address,
       shippingOption,
-      trackingCode: shipped ? `PY${String(700000 + idx * 137).padStart(9, "0")}BR` : null,
+      trackingCode,
       carrier: shipped ? DEFAULT_CARRIER : null,
       trackingEvents: buildTracking(seed.status, seed.daysAgo, seller.city),
       estimatedDelivery: { min: min.toISOString(), max: max.toISOString() },
@@ -330,6 +384,9 @@ function buildSeedOrders(): { orders: OrderDto[]; payments: PaymentDto[] } {
       exchangeRate: getRate("BRL", "PYG"),
       payment: { id: paymentId, method: seed.method, status: paymentStatusFor(seed.status) },
       timeline,
+      shipment: trackingCode
+        ? seedShipment(idx, orderId, trackingCode, createdAt, totals.taxes, seed.status)
+        : null,
     });
 
     payments.push(

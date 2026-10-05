@@ -8,34 +8,41 @@ import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useAuthStore } from "@/features/auth/store";
+import { downloadAuthenticated } from "@/lib/api/download";
 import { isApiError } from "@/lib/api/errors";
-import { env } from "@/lib/env";
 
-import { useCreateShipment, useShipOrder } from "../api";
+import { useCreateShipment, useSellerShippingPolicy, useShipOrder } from "../api";
 
 /**
  * Envio pelo Remessa Conforme: o vendedor não digita rastreio. A plataforma registra a declaração antecipada no operador
  * e emite a etiqueta com marca, nome comercial e CNPJ/TIN (critérios i e iii); o vendedor baixa, cola no pacote, posta
- * e confirma.
+ * e confirma. Só quando a plataforma não exige a etiqueta (política de envio) aparece "Informar envio", com
+ * transportadora e rastreio digitados.
  */
 export function OrderShipmentActions({
   order,
   onPrepare,
+  onShip,
   preparing,
 }: {
   order: OrderDto;
   onPrepare?: (order: OrderDto) => void;
+  /** Abre o formulário de rastreio manual (só quando a política permite). */
+  onShip?: (order: OrderDto) => void;
   preparing?: boolean;
 }) {
   const t = useTranslations("sellerPanel");
   const tErrors = useTranslations("errors");
   const createShipment = useCreateShipment();
   const ship = useShipOrder();
+  const policy = useSellerShippingPolicy();
   const [downloading, setDownloading] = useState(false);
   const shipment = order.shipment ?? null;
   const open = order.status === "Pago" || order.status === "EmPreparacao";
   const labelReady = shipment?.status === "EtiquetaEmitida";
+  // Enquanto a política carrega, vale o padrão: etiqueta da plataforma, sem rastreio manual.
+  const canIssueLabel = policy.data?.carrierConfigured ?? true;
+  const manualAllowed = policy.data ? !policy.data.requirePlatformLabel : false;
   const fail = (e: unknown) =>
     toast.error(isApiError(e) ? (Object.values(e.errors ?? {})[0]?.[0] ?? e.message) : tErrors("genericTitle"));
 
@@ -59,7 +66,7 @@ export function OrderShipmentActions({
             <PackageCheck data-icon="inline-start" strokeWidth={1.75} /> {t("actionPrepare")}
           </Button>
         ) : null}
-        {open && !labelReady ? (
+        {open && !labelReady && canIssueLabel ? (
           <Button
             variant="primary"
             size="sm"
@@ -72,6 +79,11 @@ export function OrderShipmentActions({
             }
           >
             <Tag data-icon="inline-start" strokeWidth={1.75} /> {t("actionLabel")}
+          </Button>
+        ) : null}
+        {open && !labelReady && manualAllowed && onShip ? (
+          <Button variant={canIssueLabel ? "secondary" : "primary"} size="sm" onClick={() => onShip(order)}>
+            <Truck data-icon="inline-start" strokeWidth={1.75} /> {t("shipTitle")}
           </Button>
         ) : null}
         {shipment?.hasLabel && shipment.labelUrl ? (
@@ -104,25 +116,9 @@ export function OrderShipmentActions({
         </span>
       ) : order.trackingCode ? (
         <span className="text-caption text-foreground-secondary tabular-nums">{order.trackingCode}</span>
+      ) : open && !canIssueLabel && !manualAllowed ? (
+        <span className="max-w-64 text-right text-caption text-warning">{t("labelUnavailable")}</span>
       ) : null}
     </div>
   );
-}
-
-/** Baixa um arquivo de rota autenticada da API (a etiqueta exige o token do vendedor). */
-async function downloadAuthenticated(path: string, fileName: string) {
-  const base = env.apiUrl.replace(/\/$/, "");
-  const url = path.startsWith("/api/") ? `${base}${path.slice(4)}` : `${base}${path}`;
-  const token = useAuthStore.getState().accessToken;
-  const response = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-  const blob = await response.blob();
-  const href = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = href;
-  a.download = fileName;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(href), 10_000);
 }

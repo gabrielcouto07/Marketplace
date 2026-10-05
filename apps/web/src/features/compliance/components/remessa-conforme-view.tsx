@@ -65,7 +65,7 @@ export function RemessaConformeView() {
       <section className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-5 shadow-xs">
         <h2 className="text-title-3 text-foreground">{t("exampleTitle")}</h2>
         <p className="text-body-sm text-foreground-secondary">{t("exampleIntro")}</p>
-        {example.data ? <TaxBreakdown taxes={example.data} /> : <TaxBreakdownSkeleton />}
+        {example.data ? <TaxBreakdown taxes={example.data} withoutFreight /> : <TaxBreakdownSkeleton />}
       </section>
 
       <section className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-5 shadow-xs">
