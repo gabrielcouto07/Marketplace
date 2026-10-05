@@ -2,6 +2,9 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Marketplace.Domain.Compliance;
+using Marketplace.Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Marketplace.Tests.Integration;
 
@@ -241,6 +244,36 @@ public sealed class RemessaConformeFlowTests : IClassFixture<ApiFactory>
         Assert.Contains("Siscomex__ClientId", byKey["siscomex"].GetProperty("missing").EnumerateArray().Select(m => m.GetString()));
         Assert.Contains("Serpro__ConsumerKey", byKey["serpro"].GetProperty("missing").EnumerateArray().Select(m => m.GetString()));
         Assert.False(byKey["ncm"].GetProperty("requiresCredential").GetBoolean());
+    }
+
+    [Fact]
+    public async Task Initializer_BackfillsNcmAndDocuments_WhenCatalogWasSeededBeforeRemessaConforme()
+    {
+        // Banco semeado antes do Remessa Conforme: produto do catálogo sem NCM e loja sem documentos.
+        _ = _factory.CreateClient();
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var product = await db.Products.FirstAsync(p => p.Slug == "bicicleta-ergometrica-magnetica-dobravel-esp1");
+        var expectedNcm = product.HsCode;
+        Assert.NotNull(expectedNcm);
+        product.HsCode = null;
+        var seller = await db.Sellers.FirstAsync(s => s.Slug == "casa-nova-import");
+        seller.LegalAddress = null;
+        seller.ResponsibleName = null;
+        seller.ResponsibleDocumentType = null;
+        seller.ResponsibleDocument = null;
+        seller.IdentityDocumentUrl = null;
+        seller.RucCertificateUrl = null;
+        await db.SaveChangesAsync();
+
+        await scope.ServiceProvider.GetRequiredService<DatabaseInitializer>().BackfillCatalogComplianceAsync(CancellationToken.None);
+
+        db.ChangeTracker.Clear();
+        Assert.Equal(expectedNcm, (await db.Products.AsNoTracking().FirstAsync(p => p.Id == product.Id)).HsCode);
+        var restored = await db.Sellers.AsNoTracking().FirstAsync(s => s.Id == seller.Id);
+        Assert.False(string.IsNullOrWhiteSpace(restored.LegalAddress));
+        Assert.False(string.IsNullOrWhiteSpace(restored.ResponsibleDocument));
+        Assert.NotNull(restored.RucCertificateUrl);
     }
 
     [Fact]

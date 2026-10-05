@@ -120,9 +120,54 @@ public sealed class DatabaseInitializer(
                 catalog.Categories.Count, catalog.Sellers.Count, catalog.Products.Count);
         }
         await db.SaveChangesAsync(ct);
+        await BackfillCatalogComplianceAsync(ct);
 
         await SeedAdminAsync(ct);
         if (options.Value.SeedDemoData) await SeedDemoAsync(ct);
+    }
+
+    /// <summary>
+    /// Bancos semeados antes do Remessa Conforme ficaram com o catálogo sem NCM e as lojas sem documentos, e aí nenhuma
+    /// etiqueta sai. Completa só o que estiver vazio: NCM dos produtos com o nome de um template do seed e documentos das
+    /// lojas do seed (mesmo ID determinístico). Produtos e lojas criados por vendedores não são tocados.
+    /// </summary>
+    public async Task BackfillCatalogComplianceAsync(CancellationToken ct)
+    {
+        var withoutNcm = await db.Products.Where(p => p.HsCode == null).ToListAsync(ct);
+        var withoutKyc = await db.Sellers.Where(s => s.LegalAddress == null).ToListAsync(ct);
+        if (withoutNcm.Count == 0 && withoutKyc.Count == 0) return;
+
+        var catalog = SeedCatalog.Build();
+        var ncmByName = catalog.Products.Where(p => p.HsCode != null)
+            .GroupBy(p => p.Name, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.First().HsCode!, StringComparer.Ordinal);
+        var products = 0;
+        foreach (var product in withoutNcm)
+        {
+            if (!ncmByName.TryGetValue(product.Name, out var ncm)) continue;
+            product.HsCode = ncm;
+            products++;
+        }
+
+        var seededSellers = catalog.Sellers.ToDictionary(s => s.Id);
+        var sellers = 0;
+        foreach (var seller in withoutKyc)
+        {
+            if (!seededSellers.TryGetValue(seller.Id, out var seed)) continue;
+            seller.LegalAddress = seed.LegalAddress;
+            seller.ResponsibleName = seed.ResponsibleName;
+            seller.ResponsibleDocumentType = seed.ResponsibleDocumentType;
+            seller.ResponsibleDocument = seed.ResponsibleDocument;
+            seller.IdentityDocumentUrl = seed.IdentityDocumentUrl;
+            seller.RucCertificateUrl = seed.RucCertificateUrl;
+            seller.VerifiedAt ??= seed.VerifiedAt;
+            sellers++;
+        }
+
+        if (products + sellers == 0) return;
+        await db.SaveChangesAsync(ct);
+        logger.LogInformation("Remessa Conforme: NCM preenchido em {Products} produtos e documentos em {Sellers} lojas do catálogo",
+            products, sellers);
     }
 
     /// <summary>Cria o administrador único a partir de Admin:Email/Admin:Password (se ainda não existir).</summary>
