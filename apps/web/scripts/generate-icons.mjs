@@ -58,7 +58,7 @@ async function splash() {
   ).join("");
   const stripe = Buffer.from(`<svg width="${w}" height="10">${band}</svg>`);
   const text = Buffer.from(
-    `<svg width="${w}" height="${h}"><text x="600" y="444" text-anchor="middle" font-family="Bricolage Grotesque, Figtree, Arial, sans-serif" font-size="60" font-weight="800" letter-spacing="-1.2" fill="#FFFFFF">Paraguai <tspan fill="${AMARELO}">Imports</tspan></text><text x="600" y="496" text-anchor="middle" font-family="Figtree, Arial, sans-serif" font-size="26" font-weight="500" fill="${WHITE_80}">Do Paraguai para todo o Brasil, com preço, frete e impostos claros</text></svg>`,
+    `<svg width="${w}" height="${h}"><text x="600" y="444" text-anchor="middle" font-family="Bricolage Grotesque, Figtree, Arial, sans-serif" font-size="60" font-weight="800" letter-spacing="-1.2" fill="#FFFFFF">Paraguai <tspan fill="${AMARELO}">Já</tspan></text><text x="600" y="496" text-anchor="middle" font-family="Figtree, Arial, sans-serif" font-size="26" font-weight="500" fill="${WHITE_80}">Do Paraguai para todo o Brasil, com preço, frete e impostos claros</text></svg>`,
   );
   const buf = await sharp({ create: { width: w, height: h, channels: 4, background: MARINHO } })
     .composite([

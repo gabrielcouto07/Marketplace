@@ -1,4 +1,4 @@
-# DESIGN.md — Paraguai Imports
+# DESIGN.md — Paraguai Já
 
 Este documento é a fonte de verdade visual e de código de UI do projeto. Toda tarefa de interface deve
 segui-lo. Os apêndices no final registram a análise da marca (ícone) e as decisões de adaptação tomadas
@@ -23,10 +23,10 @@ Cada decisão visual deve ter motivo.
 
 # O produto
 
-**Paraguai Imports** é um marketplace PWA mobile-first que conecta vendedores do Paraguai a
+**Paraguai Já** é um marketplace PWA mobile-first que conecta vendedores do Paraguai a
 compradores no Brasil (referências funcionais: Mercado Livre e Amazon). A marca é o **logo
 "Etiqueta"**: uma sacola nas faixas do Paraguai com a etiqueta do Brasil presa na alça, nas
-cores vivas das duas bandeiras (Vermelho, Azul, Verde, Amarelo) sobre a barra Marinho do
+cores vivas das duas bandeiras (Vermelho, Azul, Verde, Amarelo) sobre a barra Azul do
 topo. O app deve transmitir: CONFIANÇA (comprar de outro país dá medo), CLAREZA (preço,
 frete, impostos e prazo sempre explícitos) e ENERGIA (ofertas, descoberta) com a
 familiaridade de uma grande loja: quem já comprou na Amazon se acha aqui sem pensar.
@@ -41,15 +41,17 @@ A identidade é viva, e cor viva tem dono:
 
 - **Laranja é compra, Amarelo é carrinho, Vermelho é oferta, Azul é ação e link, Verde é
   sucesso.** Cada cor da marca tem um papel fixo; não troque um pelo outro.
-- **Conteúdo sobre cor chapada segue o contraste, não o gosto.** Texto e ícone em Tinta
-  sobre Laranja, Amarelo e Verde 500 (6,8–12,3:1); branco sobre Azul 600, Vermelho 600 e
-  Marinho (5,2–17,8:1). Branco sobre Amarelo, Laranja ou Verde 500 é proibido.
+- **Conteúdo sobre cor chapada segue o contraste, não o gosto.** No tom único toda cor
+  chapada tem a mesma luminosidade do Vermelho de oferta, então o conteúdo sobre ela é
+  **sempre branco** (4,18–5,41:1); Tinta sobre cor chapada é que passou a ser proibido. As
+  única razão abaixo de 4,5:1 (`--brand-verde`, 4,18:1) só carrega texto
+  grande e ícone (≥ 3:1). Os tons `-soft` e os claros das escalas seguem com texto Tinta.
 - **Quando a cor precisa ser texto** (link, preço de oferta, erro, sucesso), usa-se o tom
   de texto da família: `primary` = Azul 600, `deal` = Vermelho 600, `danger` = Vermelho 700,
   `success` = Verde 700, `warning` = Amarelo 800. Todos ≥ 4,5:1 sobre branco e sobre o
   Papel cinza do fundo.
 - Proporção guia por tela: ~80 % Papel e branco (cards brancos sobre o fundo cinza),
-  ~15 % cores vivas da marca, ~5 % Laranja. O Marinho do header e do footer não conta.
+  ~15 % cores vivas da marca, ~5 % Laranja. O header e o footer não contam.
 - Máximo de UM CTA de compra laranja (`variant="cta"`) por tela. O botão Laranja da busca
   e o badge do carrinho são assinatura da marca e não contam. O Amarelo (`variant="cart"`)
   só aparece em "Adicionar ao carrinho", logo acima do CTA.
@@ -99,7 +101,7 @@ roxo (campanha: vitrines temáticas, só preenchimento)
 50 #F8F5FF · 100 #EFE6FF · 200 #E1CFFF · 300 #CEB0FE · 400 #A866F5 · 500 #8B2FE0 (marca)
 600 #771FC3 · 700 #5F08A0 · 800 #4B0680 · 900 #36045C
 
-avulsos: Marinho claro #15284D (faixa de departamentos) · gold #FFA41C (estrela)
+avulsos: Marinho claro #15284D (painéis e modo escuro) · gold #FFA41C (estrela)
 
 ## Semânticos (light)
 
@@ -111,30 +113,38 @@ avulsos: Marinho claro #15284D (faixa de departamentos) · gold #FFA41C (estrela
     --text              tinta-900     (Tinta; nunca #000)
     --text-secondary    tinta-600
     --text-muted        tinta-500     (≥ 5:1 inclusive sobre o Papel e surface-muted)
-    --primary           azul-600      hover azul-700 · soft azul-100 · on-primary #FFF
-    --cta               laranja-400   hover/pressed laranja-500 · on-cta tinta-900
-    --cart              amarelo-400   hover amarelo-500 · on-cart tinta-900
+    --tom-l / --tom-c   0.551 / 0.217 (o L e o C do Vermelho 600; a âncora do tom único)
+    --primary           tom 264°      hover tom 264° em L 0.49 · soft azul-100 · on-primary #FFF
+    --cta               tom 63°       hover/pressed tom 63° em L 0.49 · on-cta #FFF
+    --cart              tom 93°       hover tom 93° em L 0.49 · on-cart #FFF
     --deal              vermelho-600  on-deal #FFF (selo "Oferta", "-25%", contagem regressiva)
     --success           verde-700     soft verde-100  (frete grátis, entregue)
     --warning           amarelo-800   soft amarelo-100 (estoque baixo, prazo estendido)
     --danger            vermelho-700  soft vermelho-50 (erros SEMPRE com ícone + texto,
                                                          para não confundir com oferta)
-    --on-bright         tinta-900     (ícone sobre Verde/Amarelo chapados, nos dois temas)
+    --on-bright         tinta-0       (branco sobre Verde/Amarelo chapados, nos dois temas)
     --focus-ring        azul-500, 2px, offset 2px
-    --brand-deep        azul-950      (Marinho: barra do header, footer, painel, scrim de foto)
-    --brand-deep-raised #15284D       (faixa de departamentos, "Voltar ao início")
+    --brand-deep        azul-950      (Marinho: header dos painéis, scrim de foto)
+    --brand-deep-raised #15284D       (par do Marinho nos painéis)
+    --header            tom 255°      (header e footer: o Azul do tile "Eletrônicos")
+    --header-raised     tom 255° L .47 (faixa de departamentos e "Voltar ao início")
 
 ## Paleta da marca (semânticos de identidade)
 
 Para as superfícies vivas: ícones da faixa de confiança, faixas, wordmark, ilustração.
 
-    --brand-vermelho / -soft    vermelho-500 / vermelho-100
-    --brand-azul / -soft        azul-500 / azul-100
-    --brand-verde / -soft       verde-500 / verde-100
-    --brand-amarelo / -soft     amarelo-400 / amarelo-100
-    --brand-laranja / -soft     laranja-400 / laranja-100
-    --brand-roxo / -soft        roxo-500 / roxo-100 (campanhas; branco por cima, 5,9:1)
-    --brand-tile                amarelo-400 (tile do logo)
+    As chapadas ficam todas no tom único (só a matiz muda); os "-soft" seguem claros.
+
+    --brand-vermelho / -soft    tom 23°  / vermelho-100
+    --brand-azul / -soft        tom 264° / azul-100
+    --brand-verde / -soft       tom 149° / verde-100  (branco por cima, 4,18:1: texto grande)
+    --brand-amarelo / -soft     tom 93°  / amarelo-100
+    --brand-laranja / -soft     tom 63°  / laranja-100
+    --brand-roxo / -soft        tom 302° / roxo-100 (campanhas; branco por cima, 5,39:1)
+    --brand-tile                amarelo-400 (tile do logo; fora do tom, é a moldura)
+    --realce                    amarelo-400 (fora do tom DE PROPÓSITO: vai EM CIMA das cores
+                                — raio das ofertas, "JÁ" do wordmark, anel de foco — onde o
+                                tom único viraria um oliva invisível)
     --gold                      #FFA41C (estrelas; ícone, nunca texto)
 
 ## Semânticos (dark)
@@ -142,9 +152,10 @@ Para as superfícies vivas: ícones da faixa de confiança, faixas, wordmark, il
     --background #0A0F1A · --surface #121A2B · --surface-muted #1B2438
     --border #2A3550 · --border-strong #3A4663
     --text #F1F4F8 · --text-secondary #C3CBD6 · --text-muted #98A3B3
-    --primary azul-400 com on-primary tinta-900 · --cta laranja-400 · --cart amarelo-400
-    --deal vermelho-600 · --success verde-400 · --warning amarelo-400 · --danger vermelho-300
-    --brand-deep #060B16 · --brand-deep-raised #0F1A33
+    --primary azul-400 com on-primary tinta-900 (claro, porque também é texto sobre o escuro)
+    --cta e --cart no mesmo tom do light, com on-* branco · --deal vermelho-600
+    --success verde-400 · --warning amarelo-400 · --danger vermelho-300
+    --brand-deep #060B16 · --brand-deep-raised #0F1A33 · --header e --header-raised não mudam
     Tons claros e paleta "-soft" viram véus: color-mix da cor a ~20 % sobre a superfície.
 
 Dark mode via classe + prefers-color-scheme. O light é a prioridade visual. O logo não muda
@@ -152,8 +163,10 @@ de cor no dark (o tile Amarelo é a própria moldura).
 
 ## Assinaturas da marca
 
-- **Barra Marinho** (`bg-brand-deep`): o topo de todas as páginas da vitrine e o footer, com
-  texto branco; a faixa de departamentos logo abaixo em `bg-brand-deep-raised`.
+- **Barra do header** (`bg-header`): o topo de todas as páginas da vitrine, com texto
+  branco; a faixa de departamentos logo abaixo em `bg-header-raised`. O **footer** usa o mesmo
+  par (`bg-header` / `bg-header-raised`); só o header dos painéis segue no **Marinho**
+  (`bg-brand-deep`).
 - **Faixa das quatro cores** (`brand-quartet`): Vermelho · Azul · Verde · Amarelo, na base
   do footer, no splash e na imagem OG. Nunca como fundo de área grande.
 - **Tricolor** (`tricolor-stripe`, 3 px, Vermelho | branco | Azul): as faixas da sacola.
@@ -326,7 +339,7 @@ burocráticos:
   "Simulação" (pré-visualização, `SimulationTag`: `warning-soft` no claro, branco 15% no Marinho); `true` só depois do
   Ato Declaratório Executivo da Coana (o número em `NEXT_PUBLIC_REMESSA_CONFORME_ADE` vai para o rodapé).
   - No header o selo não disputa espaço com a busca: fica na faixa de departamentos, à direita, antes de "Venda no
-    Paraguai Imports" — só o emblema no md; pílula `white/10` com emblema, "Remessa Conforme", medalha e etiqueta a
+    Paraguai Já" — só o emblema no md; pílula `white/10` com emblema, "Remessa Conforme", medalha e etiqueta a
     partir do lg (a frase completa vai no `title`). No celular, faixa de 36 px sob "Enviar para" na home.
   - Medalha da faixa do ciclo (`ComplianceMedal`): disco nos tokens `--selo-ouro`, `--selo-prata` e `--selo-bronze`,
     estrela em `on-bright` e fitas Azul e Vermelho. Ligada por `NEXT_PUBLIC_REMESSA_CONFORME_SELO`
@@ -336,18 +349,18 @@ burocráticos:
 
 - Bottom nav: 64px + safe-area, surface com backdrop-blur e borda superior.
 - Item ativo em --primary com barra indicadora de 3 px no topo. Badge do carrinho em --cta.
-- Header sticky em Marinho (`brand-deep`), texto branco, links com contorno branco de 1 px
-  no hover e anel Amarelo no foco (`link-on-deep`):
+- Header sticky em Azul (`header`), texto branco, links com contorno branco de 1 px
+  no hover e anel Amarelo de realce no foco (`link-on-deep`):
   - desktop (≥ md): barra de 64 px com o lockup (logo 40), "Enviar para / CEP" (≥ lg), a
     busca branca de 44 px (raio 6, botão Laranja quadrado à direita), "Olá, faça seu login /
     Conta e favoritos", "Acompanhe seus / Pedidos" (≥ lg) e o carrinho com contador. Embaixo,
-    a faixa de departamentos de 40 px em `brand-deep-raised`: Todos (→ departamentos),
+    a faixa de departamentos de 40 px em `header-raised`: Todos (→ departamentos),
     Ofertas do dia, Mais vendidos, Novidades, Lojas, Favoritos e, à direita, o selo Remessa
-    Conforme (quando ligado) e "Venda no Paraguai Imports". Total: 104 px (`--header-height`).
+    Conforme (quando ligado) e "Venda no Paraguai Já". Total: 104 px (`--header-height`).
   - mobile, home: lockup + "Entrar ›" e carrinho numa linha de 56 px; a busca branca de 44 px
-    com o botão Laranja; a faixa "Enviar para CEP …" de 40 px em `brand-deep-raised`.
+    com o botão Laranja; a faixa "Enviar para CEP …" de 40 px em `header-raised`.
   - mobile, páginas internas: uma linha de 56 px com voltar (ou logo compacto), busca ou
-    título, e o carrinho. A busca (`/busca`) desenha a própria barra Marinho com o input.
+    título, e o carrinho. A busca (`/busca`) desenha a própria barra Azul com o input.
 - Footer: "Voltar ao início" em `brand-deep-raised`, colunas de links (só rotas
   existentes) em `brand-deep`, lockup e a faixa das quatro cores na base. Não aparece nos
   fluxos sem bottom nav (checkout, pagamento, login).
@@ -452,10 +465,10 @@ sobre o Marinho (tone dark, o padrão) ou `primary` sobre superfícies claras (t
 
 | Elemento do logo              | Token / uso no app                                                         |
 | ----------------------------- | -------------------------------------------------------------------------- |
-| Tile Amarelo                  | `--brand-tile` e `--cart`. Maskable e splash usam o mesmo tom até a borda. |
+| Tile Amarelo                  | `--brand-tile` e `--realce`. Maskable e splash usam o mesmo tom até a borda. |
 | Faixas Vermelho/branco/Azul   | `--deal` (Vermelho 600), `primary` (Azul 600) e a `tricolor-stripe`.       |
 | Etiqueta Verde/Amarelo        | `success` (Verde 700), `warning` (Amarelo 800); ícones chapados da home.   |
-| Alça e barbante Tinta         | `--text` e `--on-bright`: conteúdo sobre as cores claras é Tinta.          |
+| Alça e barbante Tinta         | `--text`: a Tinta dos textos. Sobre cor chapada o conteúdo é branco.       |
 | Estrela #FFA41C               | `--gold` (`fill-gold`): estrelas de avaliação. **Nunca** como texto.       |
 | Formas cheias e cantos suaves | Botões em pill e ícones lucide com traço 1.75–2.25.                        |
 
@@ -573,3 +586,29 @@ Imagens`). Regras derivadas:
     `CategoryTile` continua disponível). As animações e onde podem aparecer estão em Movimento ›
     Animações de vitrine; o autoplay do hero foi verificado (troca a cada 6 s, pausa no botão) e o
     reduced-motion também (sem autoplay, marquee parada, sem reflexo).
+12. **Tom único e "Paraguai Já" (07/10/2026)**: duas mudanças a pedido.
+    - **Tom único**: toda cor chapada passou a nascer do L e do C do Vermelho de oferta
+      (`--tom-l: 0.551`, `--tom-c: 0.217`, medidos em #D3102E) — só a matiz muda. `--primary`,
+      `--cta`, `--cart`, as `--brand-*` e as séries de gráfico viraram
+      `oklch(var(--tom-l) var(--tom-c) <matiz>)`; o `tint-bg-deep` dos tiles de departamento já
+      estava praticamente nesse tom (0.55/0.2), o que confirmou a leitura: eram as outras cores
+      que destoavam. Como Verde, Amarelo e Laranja deixaram de ser claros, `--on-bright`,
+      `--on-cta` e `--on-cart` passaram a branco — o "Adicionar ao carrinho" e o "Comprar agora"
+      são os elementos que mais mudaram (#9E6700 e #C34300, antes #FFD20A e #FF9500).
+    - **Header em Azul**: a barra saiu do Marinho para o Azul de "Ofertas em Informática"
+      (`--header`, matiz 220 no tom, pela mesma expressão `oklch()` do tile, então os dois casam
+      em qualquer navegador; `--header-raised` um degrau abaixo, em L 0.47). O Marinho
+      (`brand-deep`) ficou no header dos painéis e nos scrims de foto. O `theme_color` do manifest
+      seguiu o header. Depois, a pedido, header e footer passaram para o Azul do tile
+      "Eletrônicos" (matiz 255: `--header` #006BEB, 4,86:1; `--header-raised` #0051CF), e o
+      footer deixou o Marinho.
+    - **`--realce`** (amarelo-400) ficou fora do tom de propósito: ele aparece EM CIMA das cores
+      (raio das ofertas, anel de foco), onde o tom único viraria um oliva
+      invisível. O `--brand-amarelo` como preenchimento foi para o tom normalmente.
+    - Uma razão ficou abaixo de 4,5:1 com texto pequeno branco, aceita conscientemente:
+      `--brand-verde` #00910A (4,18:1). Passa para texto grande e ícone (≥ 3:1) e está anotada
+      em `/design › Cores`.
+    - **Nome**: o app passou a se chamar **Paraguai Já** (`site.ts`, `common.siteName`, wordmark
+      "Paraguai / JÁ", manifest, OG, etiqueta da Remessa Conforme no front e na API, PDF do
+      boleto). O nome é o mesmo nos dois idiomas (marca não se traduz) e as chaves de
+      armazenamento local (`mktpy.*`) não mudaram, para não perder sessão, carrinho e favoritos.

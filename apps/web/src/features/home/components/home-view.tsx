@@ -126,7 +126,7 @@ export function HomeView() {
           <div className="mb-4 flex items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2">
               <Zap
-                className="size-6 shrink-0 animate-flash fill-brand-amarelo text-brand-amarelo"
+                className="size-6 shrink-0 animate-flash fill-realce text-realce"
                 strokeWidth={1.75}
                 aria-hidden
               />

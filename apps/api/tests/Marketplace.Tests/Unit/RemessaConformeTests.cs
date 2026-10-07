@@ -279,7 +279,7 @@ public class LabelPdfTests
     [Fact]
     public void Build_ProducesPdfWithPlatformIdentityAndTracking()
     {
-        var platform = new PlatformIdentity("Paraguai Imports", "Paraguai Imports", "Paraguai Imports Ltda.", "CNPJ", "12345678000199", "BR", "Rua A, 1", "ADE Coana nº 1/2026", null, null);
+        var platform = new PlatformIdentity("Paraguai Já", "Paraguai Já", "Paraguai Já Ltda.", "CNPJ", "12345678000199", "BR", "Rua A, 1", "ADE Coana nº 1/2026", null, null);
         var party = new RemessaParty("Gabriel Demo", "CPF", "52998224725", "Avenida Paulista, 1578 – Bela Vista", "São Paulo", "SP", "01310100", "BR", null, null);
         var sender = new RemessaParty("TecnoCentro CDE", "RUC", "80012345-0", "Av. Monseñor Rodríguez 120", "Ciudad del Este", null, "7000", "PY", null, null);
         var taxes = new RemessaTaxes(Money.Brl(2000), Money.Brl(2458), Money.ZeroBrl, Money.ZeroBrl, Money.ZeroBrl, Money.Brl(4458));
@@ -290,7 +290,7 @@ public class LabelPdfTests
         var pdf = LabelPdf.Build(request, "SB123456785PY", "Correo Paraguayo + Correios", "SBX-1", sandbox: true);
         var text = Encoding.Latin1.GetString(pdf);
         Assert.StartsWith("%PDF-1.4", text);
-        Assert.Contains("PARAGUAI IMPORTS", text);
+        Assert.Contains(@"PARAGUAI J\301", text); // "Á" vira escape octal WinAnsi no stream
         Assert.Contains("12.345.678/0001-99", text);
         Assert.Contains("SB123456785PY", text);
         Assert.Contains("***.982.247-**", text);
@@ -300,7 +300,7 @@ public class LabelPdfTests
     [Fact]
     public void HttpPayload_UsesDirFieldNames()
     {
-        var platform = new PlatformIdentity("Paraguai Imports", "Paraguai Imports", "PI Ltda.", "CNPJ", "12345678000199", "BR", "", null, "OND1", "Operador X");
+        var platform = new PlatformIdentity("Paraguai Já", "Paraguai Já", "PJ Ltda.", "CNPJ", "12345678000199", "BR", "", null, "OND1", "Operador X");
         var party = new RemessaParty("Gabriel", "CPF", "52998224725", "Rua", "São Paulo", "SP", "01310100", "BR", null, null);
         var taxes = new RemessaTaxes(Money.Brl(2000), Money.Brl(2458), Money.Brl(10), Money.Brl(5), Money.Brl(90), Money.Brl(4563));
         var request = new RemessaShipmentRequest(Guid.NewGuid(), "PY-1", DateTime.UtcNow, platform, party, party,

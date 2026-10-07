@@ -25,7 +25,7 @@ export interface HeaderProps {
   showBack?: boolean;
   /** Oculta a busca (ex.: checkout, login). */
   hideSearch?: boolean;
-  /** Conteúdo extra à direita da barra mobile (sobre o Marinho: use texto branco). */
+  /** Conteúdo extra à direita da barra mobile (sobre o Azul: use texto branco). */
   action?: ReactNode;
   /** Páginas que desenham o próprio topo no mobile (galeria do produto, busca com input próprio). */
   hideMobileBar?: boolean;
@@ -33,7 +33,7 @@ export interface HeaderProps {
 }
 
 /**
- * Header de loja (DESIGN.md › Navegação): barra Marinho com a marca, "Enviar para", a busca branca
+ * Header de loja (DESIGN.md › Navegação): barra Azul com a marca, "Enviar para", a busca branca
  * com o botão Laranja e os atalhos de conta, pedidos e carrinho em texto branco; embaixo, a faixa
  * de departamentos (Marinho claro) a partir de md.
  * - mobile, home: marca + entrar/carrinho; busca de 44 px; faixa "Enviar para CEP …";
@@ -58,7 +58,7 @@ export function Header({
   return (
     <header
       className={cn(
-        "sticky top-0 z-40 bg-brand-deep pt-safe text-white",
+        "sticky top-0 z-40 bg-header pt-safe text-white",
         // Sem barra mobile, o header só existe a partir de md (a página desenha o próprio topo).
         hideMobileBar && "max-md:static max-md:bg-transparent max-md:pt-0",
         className,
@@ -253,7 +253,7 @@ function DeliverToLink() {
   );
 }
 
-/** Faixa "Enviar para CEP …" sob a busca na home mobile, em Marinho claro. */
+/** Faixa "Enviar para CEP …" sob a busca na home mobile, no Azul um degrau abaixo. */
 function DeliverToStrip() {
   const t = useTranslations("nav");
   const cep = useStoredCep();
@@ -262,7 +262,7 @@ function DeliverToStrip() {
     <Link
       href="/conta/enderecos"
       aria-label={t("deliverToLabel", { place })}
-      className="flex h-10 items-center gap-2 bg-brand-deep-raised px-4 text-body-sm focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-amarelo"
+      className="flex h-10 items-center gap-2 bg-header-raised px-4 text-body-sm focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-realce"
     >
       <MapPin className="size-4.5 shrink-0" strokeWidth={2} aria-hidden />
       <span className="min-w-0 truncate">
@@ -325,7 +325,7 @@ function CartLink({ count, variant }: { count: number; variant: "desktop" | "mob
     >
       <span className="relative">
         <ShoppingCart className={desktop ? "size-8" : "size-7"} strokeWidth={1.75} aria-hidden />
-        <CartBadge count={count} className="-top-2 -right-2 ring-brand-deep" />
+        <CartBadge count={count} className="-top-2 -right-2 ring-header" />
       </span>
       {desktop ? (
         <span aria-hidden className="text-body-sm font-bold">
@@ -355,7 +355,7 @@ function DepartmentsBar({ pathname }: { pathname: string }) {
     { href: "/favoritos", label: t("favorites"), current: pathname.startsWith("/favoritos") },
   ];
   return (
-    <nav aria-label={t("departments")} className="hidden bg-brand-deep-raised md:block">
+    <nav aria-label={t("departments")} className="hidden bg-header-raised md:block">
       <ul className="mx-auto scrollbar-none flex h-10 w-full max-w-6xl items-center gap-1 overflow-x-auto px-4 text-body-sm font-medium">
         <li>
           <Link

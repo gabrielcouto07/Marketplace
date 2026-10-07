@@ -1,6 +1,6 @@
 {
   "common": {
-    "siteName": "Paraguai Imports",
+    "siteName": "Paraguai Já",
     "siteDescription": "Compre do Paraguai com entrega no Brasil: eletrônicos, perfumes, informática, celulares e mais, com rastreio ponta a ponta e impostos estimados antes de pagar.",
     "quantity": "Quantidade",
     "increase": "Aumentar quantidade",
@@ -30,7 +30,7 @@
     "portuguese": "Português (Brasil)",
     "spanish": "Español (Paraguay)",
     "brandLine1": "Paraguai",
-    "brandLine2": "Imports",
+    "brandLine2": "Já",
     "installmentsShort": "{count}x {amount}",
     "installmentsLong": "em até {count}x de {amount} sem juros",
     "listPrice": "De:"
@@ -67,7 +67,7 @@
     "bestSellers": "Mais vendidos",
     "newArrivals": "Novidades",
     "stores": "Lojas",
-    "sell": "Venda no Paraguai Imports"
+    "sell": "Venda no Paraguai Já"
   },
   "footer": {
     "label": "Rodapé",
@@ -89,7 +89,7 @@
     "sellerPanel": "Painel do vendedor",
     "install": "Instalar o app",
     "tagline": "Do Paraguai para todo o Brasil, com preço, frete e impostos claros.",
-    "copyright": "© {year} Paraguai Imports"
+    "copyright": "© {year} Paraguai Já"
   },
   "validation": {
     "required": "Campo obrigatório",
@@ -163,7 +163,7 @@
     "offlineBanner": "Você está offline. Mostrando conteúdo salvo.",
     "installPage": {
       "title": "Instalar o app",
-      "intro": "O Paraguai Imports é um PWA: instale direto do navegador, sem loja de aplicativos. Ele abre em tela cheia, carrega mais rápido e mantém seu carrinho offline.",
+      "intro": "O Paraguai Já é um PWA: instale direto do navegador, sem loja de aplicativos. Ele abre em tela cheia, carrega mais rápido e mantém seu carrinho offline.",
       "installNow": "Instalar agora",
       "alreadyInstalled": "O app já está instalado neste aparelho.",
       "androidTitle": "Android (Chrome)",
@@ -1524,7 +1524,7 @@
     "step2Title": "Declaração antecipada",
     "step2Text": "A plataforma envia os dados da remessa (produto, NCM, valores e o CPF de quem recebe) antes de o pacote sair do Paraguai.",
     "step3Title": "Etiqueta da plataforma",
-    "step3Text": "O pacote sai com a etiqueta do Paraguai Imports, com marca, nome comercial e CNPJ em destaque.",
+    "step3Text": "O pacote sai com a etiqueta do Paraguai Já, com marca, nome comercial e CNPJ em destaque.",
     "step4Title": "Entrega sem surpresa",
     "step4Text": "Os tributos já foram recolhidos: nada de taxa nos Correios na entrega.",
     "exampleTitle": "Exemplo: produto de R$ 200,00",

@@ -269,7 +269,7 @@ export function RemessaConformeSeal({ preview, className }: RemessaConformeProps
 }
 
 /**
- * Selo no header Marinho, sem roubar espaço da busca. `nav`: na faixa de departamentos (≥ md), à direita — só o emblema
+ * Selo no header, sem roubar espaço da busca. `nav`: na faixa de departamentos (≥ md), à direita — só o emblema
  * no md; emblema + nome + medalha da faixa + etiqueta "Simulação" a partir do lg (a frase completa fica no `title`);
  * `strip`: faixa fina sob a busca na home mobile, com "impostos pagos na compra". Leva à página que explica os impostos
  * do programa.
@@ -292,7 +292,7 @@ export function RemessaConformeHeaderSeal({
         href="/remessa-conforme"
         aria-label={label}
         className={cn(
-          "flex h-9 items-center gap-2 border-t border-white/10 bg-brand-deep-raised px-4 text-caption text-white/90 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-amarelo",
+          "flex h-9 items-center gap-2 border-t border-white/10 bg-header-raised px-4 text-caption text-white/90 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-realce",
           className,
         )}
       >

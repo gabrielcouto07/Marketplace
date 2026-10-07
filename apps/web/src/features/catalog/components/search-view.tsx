@@ -167,7 +167,7 @@ export function SearchView({ fixed = {}, hideHeading, className }: SearchViewPro
   return (
     <div className={cn("flex flex-col", className)}>
       {mode === "search" ? (
-        <div className="sticky top-0 z-30 bg-brand-deep pt-safe md:hidden">
+        <div className="sticky top-0 z-30 bg-header pt-safe md:hidden">
           <PageContainer className="flex h-16 items-center gap-2">
             <BackButton className="-ml-2 text-white hover:bg-white/10" />
             <SearchField

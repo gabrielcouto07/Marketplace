@@ -25,7 +25,7 @@ export function StoreShell({ children, hideBottomNav, ...header }: StoreShellPro
     <div
       aria-hidden
       className={cn(
-        "bg-brand-deep md:h-(--header-height)",
+        "bg-header md:h-(--header-height)",
         header.hideMobileBar ? "max-md:hidden" : homeBar ? "h-38" : "h-14",
       )}
     />

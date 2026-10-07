@@ -51,11 +51,11 @@ export function Footer({ className }: { className?: string }) {
   ];
 
   return (
-    <footer aria-label={t("label")} className={cn("bg-brand-deep text-white", className)}>
+    <footer aria-label={t("label")} className={cn("bg-header text-white", className)}>
       <button
         type="button"
         onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-        className="flex h-12 w-full items-center justify-center bg-brand-deep-raised text-body-sm font-semibold transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-brand-amarelo"
+        className="flex h-12 w-full items-center justify-center bg-header-raised text-body-sm font-semibold transition-colors hover:bg-white/10 focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-realce"
       >
         {t("backToTop")}
       </button>

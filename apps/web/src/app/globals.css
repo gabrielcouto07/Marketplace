@@ -6,10 +6,10 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ------------------------------------------------------------------ */
-/* Design tokens — Paraguai Imports                                    */
+/* Design tokens — Paraguai Já                                         */
 /* Fonte de verdade: DESIGN.md (raiz do repositório).                  */
 /* Identidade viva: Vermelho e Azul (Paraguai), Verde e Amarelo        */
-/* (Brasil) em tons saturados, Laranja de compra, barra Marinho no     */
+/* (Brasil) todas no mesmo tom do Vermelho de oferta, barra Azul no    */
 /* topo, Tinta para textos e Papel cinza de fundo com cards brancos.   */
 /* Figtree + Bricolage Grotesque; grid de 8 px. Toda dupla texto/fundo  */
 /* foi validada (≥ 4,5:1 texto; ≥ 3:1 ícone) — ver /design › Cores.     */
@@ -29,7 +29,7 @@
   --vermelho-800: #89051b;
   --vermelho-900: #640311;
 
-  /* Azul do Paraguai: 600 é o primary (texto e fundo com branco); 950 é o Marinho da barra do topo. */
+  /* Azul do Paraguai: a escala serve texto, bordas e tons claros; 950 é o Marinho do footer e dos scrims. */
   --azul-50: #f0f5ff;
   --azul-100: #e0ebff;
   --azul-200: #c2d6ff;
@@ -114,6 +114,26 @@
   --brand-tile: var(--amarelo-400);
   --gold: #ffa41c;
 
+  /* ---------- Tom único das cores chapadas ---------- */
+  /*
+   * Toda cor chapada da interface nasce do mesmo tom: a luminosidade e o croma do
+   * Vermelho de oferta (--vermelho-600, o fundo do bloco "Ofertas do dia"). Só a
+   * matiz muda de cor para cor. Medido em #d3102e → oklch(0.551 0.217 23).
+   * Com isso nenhuma cor pesa mais que a outra: a página tem um só nível de cor.
+   * As escalas acima seguem servindo texto, bordas e tons claros.
+   */
+  --tom-l: 0.551;
+  --tom-c: 0.217;
+  /* Um passo abaixo, para hover/pressed das superfícies chapadas. */
+  --tom-l-hover: 0.49;
+
+  --tom-vermelho: oklch(var(--tom-l) var(--tom-c) 23);
+  --tom-laranja: oklch(var(--tom-l) var(--tom-c) 63);
+  --tom-amarelo: oklch(var(--tom-l) var(--tom-c) 93);
+  --tom-verde: oklch(var(--tom-l) var(--tom-c) 149);
+  --tom-azul: oklch(var(--tom-l) var(--tom-c) 264);
+  --tom-roxo: oklch(var(--tom-l) var(--tom-c) 302);
+
   /* ---------- Semânticos (light) ---------- */
   --background: var(--papel-50);
   --surface: var(--tinta-0);
@@ -123,21 +143,23 @@
   --text: var(--tinta-900);
   --text-secondary: var(--tinta-600);
   --text-muted: var(--tinta-500);
-  --primary: var(--azul-600);
-  --primary-hover: var(--azul-700);
+  --primary: var(--tom-azul);
+  --primary-hover: oklch(var(--tom-l-hover) var(--tom-c) 264);
   --primary-soft: var(--azul-100);
   --on-primary: var(--tinta-0);
-  --cta: var(--laranja-400);
-  --cta-hover: var(--laranja-500);
-  --cta-pressed: var(--laranja-500);
-  --on-cta: var(--tinta-900);
-  --cart: var(--amarelo-400);
-  --cart-hover: var(--amarelo-500);
-  --on-cart: var(--tinta-900);
+  --cta: var(--tom-laranja);
+  --cta-hover: oklch(var(--tom-l-hover) var(--tom-c) 63);
+  --cta-pressed: oklch(var(--tom-l-hover) var(--tom-c) 63);
+  --on-cta: var(--tinta-0);
+  --cart: var(--tom-amarelo);
+  --cart-hover: oklch(var(--tom-l-hover) var(--tom-c) 93);
+  --on-cart: var(--tinta-0);
+  /* O Vermelho de oferta é a âncora do tom: as cores acima saem do L/C dele. */
   --deal: var(--vermelho-600);
   --on-deal: var(--tinta-0);
-  /* Conteúdo sobre as cores chapadas claras da marca (Verde, Amarelo, Laranja): Tinta nos dois temas. */
-  --on-bright: var(--tinta-900);
+  /* No tom único o Verde, o Amarelo e o Laranja deixam de ser claros: o conteúdo
+     sobre eles passa a ser branco, como já era sobre o Vermelho de oferta. */
+  --on-bright: var(--tinta-0);
   --success: var(--verde-700);
   --success-soft: var(--verde-100);
   --warning: var(--amarelo-800);
@@ -145,25 +167,36 @@
   --danger: var(--vermelho-700);
   --danger-soft: var(--vermelho-50);
   --focus-ring: var(--azul-500);
-  /* Marinho: barra principal do header, footer, header dos painéis e scrim de foto. */
+  /* Marinho: header dos painéis e scrim de foto (texto branco sobre foto). */
   --brand-deep: var(--azul-950);
-  /* Marinho claro: a faixa de departamentos sob o header e o "Voltar ao início" do footer. */
+  /* Marinho claro: par do Marinho nos painéis e no modo escuro. */
   --brand-deep-raised: #15284d;
+  /* Header e footer da loja: o Azul do tile "Eletrônicos" — a matiz 255 no tom único, pela
+     mesma expressão que o tile usa, então os dois casam em qualquer navegador. */
+  --header: oklch(var(--tom-l) var(--tom-c) 255);
+  /* A faixa de departamentos sob a barra e o "Voltar ao início": o mesmo azul um degrau abaixo. */
+  --header-raised: oklch(0.47 var(--tom-c) 255);
   --overlay: rgb(15 23 41 / 0.5);
 
-  /* Paleta da marca: cores chapadas (ícones, faixas, ilustração) e seus tons claros. */
-  --brand-vermelho: var(--vermelho-500);
+  /* Paleta da marca: cores chapadas (ícones, faixas, ilustração), todas no tom
+     único, e seus tons claros, que seguem sendo fundo de texto escuro. */
+  --brand-vermelho: var(--tom-vermelho);
   --brand-vermelho-soft: var(--vermelho-100);
-  --brand-azul: var(--azul-500);
+  --brand-azul: var(--tom-azul);
   --brand-azul-soft: var(--azul-100);
-  --brand-verde: var(--verde-500);
+  --brand-verde: var(--tom-verde);
   --brand-verde-soft: var(--verde-100);
-  --brand-amarelo: var(--amarelo-400);
+  --brand-amarelo: var(--tom-amarelo);
   --brand-amarelo-soft: var(--amarelo-100);
-  --brand-laranja: var(--laranja-400);
+  --brand-laranja: var(--tom-laranja);
   --brand-laranja-soft: var(--laranja-100);
-  --brand-roxo: var(--roxo-500);
+  --brand-roxo: var(--tom-roxo);
   --brand-roxo-soft: var(--roxo-100);
+
+  /* Amarelo de realce: fica fora do tom único de propósito. Ele não aparece ao lado
+     das cores chapadas, e sim EM CIMA delas e do Marinho (o raio das ofertas, o anel
+     de foco, a marca no escuro); no tom único viraria um oliva invisível ali. */
+  --realce: var(--amarelo-400);
 
   /* Medalhas do selo Remessa Conforme (Portaria Coana 193/2026): faixa Ouro, Prata e Bronze. */
   --selo-ouro: #e2b23a;
@@ -187,11 +220,12 @@
   --destructive-foreground: var(--tinta-0);
   --input: var(--border-strong);
   --ring: var(--focus-ring);
-  --chart-1: var(--azul-600);
-  --chart-2: var(--laranja-400);
-  --chart-3: var(--verde-500);
-  --chart-4: var(--vermelho-500);
-  --chart-5: var(--amarelo-500);
+  /* Séries de gráfico: mesmo tom, matizes bem separadas. */
+  --chart-1: var(--tom-azul);
+  --chart-2: var(--tom-laranja);
+  --chart-3: var(--tom-verde);
+  --chart-4: var(--tom-vermelho);
+  --chart-5: var(--tom-roxo);
   --radius: 8px;
   --sidebar: var(--surface);
   --sidebar-foreground: var(--text);
@@ -209,7 +243,7 @@
   --shadow-lg: 0 12px 32px rgb(15 23 41 / 0.16);
 
   /* ---------- Layout ---------- */
-  /* Header desktop: barra Marinho de 64 px + faixa de departamentos de 40 px. */
+  /* Header desktop: barra Azul de 64 px + faixa de departamentos de 40 px. */
   --header-height: 6.5rem;
   --bottom-nav-height: 4rem;
   --safe-top: env(safe-area-inset-top, 0px);
@@ -230,13 +264,14 @@
   --primary-hover: var(--azul-300);
   --primary-soft: color-mix(in srgb, var(--azul-500) 22%, #121a2b);
   --on-primary: var(--tinta-900);
-  --cta: var(--laranja-400);
-  --cta-hover: var(--laranja-300);
-  --cta-pressed: var(--laranja-300);
-  --on-cta: var(--tinta-900);
-  --cart: var(--amarelo-400);
-  --cart-hover: var(--amarelo-300);
-  --on-cart: var(--tinta-900);
+  /* As superfícies chapadas usam o mesmo tom nos dois temas, como o --deal. */
+  --cta: var(--tom-laranja);
+  --cta-hover: oklch(0.6 var(--tom-c) 63);
+  --cta-pressed: oklch(0.6 var(--tom-c) 63);
+  --on-cta: var(--tinta-0);
+  --cart: var(--tom-amarelo);
+  --cart-hover: oklch(0.6 var(--tom-c) 93);
+  --on-cart: var(--tinta-0);
   --deal: var(--vermelho-600);
   --on-deal: var(--tinta-0);
   --success: var(--verde-400);
@@ -397,6 +432,9 @@
   --color-focus-ring: var(--focus-ring);
   --color-brand-deep: var(--brand-deep);
   --color-brand-deep-raised: var(--brand-deep-raised);
+  --color-header: var(--header);
+  --color-header-raised: var(--header-raised);
+  --color-realce: var(--realce);
   --color-overlay: var(--overlay);
 
   /* shadcn/ui */
@@ -722,7 +760,7 @@
   }
 }
 
-/* Links sobre a barra Marinho (header, faixa de departamentos, footer): contorno branco de 1 px no
+/* Links sobre as barras escuras/coloridas (header, faixa de departamentos, footer): contorno branco de 1 px no
    hover e anel Amarelo de 2 px no foco por teclado. */
 @utility link-on-deep {
   outline: 1px solid transparent;
@@ -780,7 +818,7 @@
   background-color: oklch(0.88 0.11 var(--hue, 255));
 }
 @utility tint-bg-deep {
-  background-color: oklch(0.55 0.2 var(--hue, 255));
+  background-color: oklch(var(--tom-l) var(--tom-c) var(--hue, 255));
 }
 @utility tint-fg {
   color: oklch(0.48 0.19 var(--hue, 255));

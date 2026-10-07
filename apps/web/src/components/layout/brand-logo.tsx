@@ -11,38 +11,49 @@ interface BrandLogoProps extends Omit<SVGProps<SVGSVGElement>, "children"> {
 
 /*
  * Cores do asset (DESIGN.md › Apêndice A). São do logo, não tokens de UI: o logo nunca é
- * recolorido, nem no dark mode (o tile Amarelo é a própria moldura, inclusive sobre o Marinho).
+ * recolorido, nem no dark mode.
  */
-const TILE = "#FFD20A";
 const INK = "#0F1729";
 const VERMELHO = "#F2263E";
 const AZUL = "#1552EB";
 const VERDE = "#00B852";
 const AMARELO = "#FFD20A";
-const STAR = "#FFA41C";
 const WHITE = "#FFFFFF";
 
+/** As mesmas cores, para o wordmark (`BrandMark`) casar com o logo. */
+export const LOGO_COLORS = {
+  ink: INK,
+  vermelho: VERMELHO,
+  azul: AZUL,
+  verde: VERDE,
+  amarelo: AMARELO,
+  branco: WHITE,
+} as const;
+
+/** 81 (largura da ponte, com as pontas arredondadas do tabuleiro) ÷ 67 (base das bandeiras). */
+const FLAGS_SCALE = 1.21;
+
 /**
- * Detalhe por tamanho, como na identidade: completo a partir de 42 px; sem a estrela abaixo
- * disso; em ícones pequenos (< 28 px) some também o barbante e o círculo da etiqueta, e a alça
- * engrossa para continuar legível.
+ * Detalhe por tamanho: completo (cabos, círculo da etiqueta e tabuleiro) a partir de 28 px; em
+ * ícones menores some o que não se lê (cabos, círculo e tabuleiro) e a alça engrossa. A
+ * identidade tira os cabos e o círculo já aos 40 px, mas sem o tile o desenho é maior e eles
+ * ainda aparecem no header (36–40 px).
  */
-function detailFor(size: number): "full" | "medium" | "small" {
-  if (size >= 42) return "full";
-  if (size >= 28) return "medium";
-  return "small";
+function detailFor(size: number): "full" | "small" {
+  return size >= 28 ? "full" : "small";
 }
 
 /**
- * Logo "Etiqueta": sacola nas faixas do Paraguai (Vermelho · branco com estrela · Azul) com a
- * etiqueta do Brasil (Verde, losango Amarelo, círculo Azul) presa na alça, sobre o tile Amarelo
- * de cantos 25 %. Mesma geometria de `public/logo.svg`.
+ * Logo "Ponte" (opção B da identidade): a sacola dividida ao meio, metade nas faixas do Paraguai
+ * (Vermelho · branco · Azul) e metade na etiqueta do Brasil (Verde, losango Amarelo, círculo
+ * Azul), unidas por uma alça em arco de ponte com cabos e tabuleiro. Sem tile: o `viewBox` é
+ * recortado rente ao desenho, então a sacola ocupa todo o `size`.
  */
 export function BrandLogo({ size = 40, title, className, ...props }: BrandLogoProps) {
   const detail = detailFor(size);
   return (
     <svg
-      viewBox="0 0 120 120"
+      viewBox="18 27 84 84"
       width={size}
       height={size}
       role={title ? "img" : undefined}
@@ -51,31 +62,35 @@ export function BrandLogo({ size = 40, title, className, ...props }: BrandLogoPr
       {...props}
     >
       {title ? <title>{title}</title> : null}
-      <rect width="120" height="120" rx="30" fill={TILE} />
+      {/* As bandeiras crescem {FLAGS_SCALE}× a partir do tabuleiro (60, 48): o ponto mais largo delas
+          (a base, 67 → 81) iguala a largura da ponte. */}
+      <g transform={`translate(60 48) scale(${FLAGS_SCALE}) translate(-60 -48)`}>
+        <path d="M34 48H60V65H28.64L29.7 52Q30 48 34 48Z" fill={VERMELHO} />
+        <path d="M28.64 65H60V81H27.36Z" fill={WHITE} />
+        <path d="M27.36 81H60V98H32Q26 98 26.5 92Z" fill={AZUL} />
+        <path d="M60 48H86Q90 48 90.3 52L93.5 92Q94 98 88 98H60Z" fill={VERDE} />
+        <path d="M76 60L90 73L76 86L62 73Z" fill={AMARELO} />
+        {detail === "full" ? <circle cx="76" cy="73" r="5.5" fill={AZUL} /> : null}
+      </g>
       <path
-        d="M45 49V40a15 15 0 0 1 30 0v9"
+        d="M32 48Q60 14 88 48"
         fill="none"
         stroke={INK}
         strokeWidth={detail === "small" ? 8 : 6}
         strokeLinecap="round"
       />
-      <path d="M34 48H86Q90 48 90.3 52L91.36 65H28.64L29.7 52Q30 48 34 48Z" fill={VERMELHO} />
-      <path d="M28.64 65H91.36L92.64 81H27.36Z" fill={WHITE} />
-      <path d="M27.36 81H92.64L93.5 92Q94 98 88 98H32Q26 98 26.5 92Z" fill={AZUL} />
       {detail === "full" ? (
         <path
-          d="M60 67.5l1.9 3.9 4.3.6-3.1 3 .7 4.3-3.8-2-3.8 2 .7-4.3-3.1-3 4.3-.6z"
-          fill={STAR}
+          d="M46 38V48M60 34V48M74 38V48"
+          fill="none"
+          stroke={INK}
+          strokeWidth="3"
+          strokeLinecap="round"
         />
       ) : null}
-      {detail === "small" ? null : (
-        <path d="M75 44L81 55" stroke={INK} strokeWidth="2" strokeLinecap="round" />
-      )}
-      <g transform="translate(78 53) rotate(16)">
-        <rect width="28" height="20" rx="4" fill={VERDE} />
-        <path d="M14 3L25 10L14 17L3 10Z" fill={AMARELO} />
-        {detail === "small" ? null : <circle cx="14" cy="10" r="4.2" fill={AZUL} />}
-      </g>
+      {detail === "full" ? (
+        <path d="M22 48H98" stroke={INK} strokeWidth="5" strokeLinecap="round" />
+      ) : null}
     </svg>
   );
 }

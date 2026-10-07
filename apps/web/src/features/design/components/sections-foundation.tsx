@@ -65,7 +65,7 @@ export function BrandSection() {
     <div className="grid gap-4 md:grid-cols-2">
       <Demo label="Logo · Etiqueta" hint="public/logo.svg · detalhe muda com o tamanho">
         <div className="flex flex-wrap items-end gap-6">
-          <BrandLogo size={96} title="Logo do Paraguai Imports" />
+          <BrandLogo size={96} title="Logo do Paraguai Já" />
           <BrandLogo size={48} />
           <BrandLogo size={40} />
           <BrandLogo size={24} />
@@ -103,15 +103,15 @@ export function BrandSection() {
         </ul>
       </Demo>
       <Demo
-        label="Barra Marinho, tricolor e faixa das quatro cores"
-        hint="header e footer em brand-deep · tricolor no painel · brand-quartet na base do footer e na OG"
+        label="Barra do header, Marinho, tricolor e faixa das quatro cores"
+        hint="header em header/header-raised · footer também em header · painel em brand-deep · tricolor no painel · brand-quartet na base do footer e na OG"
       >
         <div className="flex flex-col gap-4">
           <div className="overflow-hidden rounded-lg">
-            <div className="flex h-14 items-center bg-brand-deep px-3">
+            <div className="flex h-14 items-center bg-header px-3">
               <BrandMark size="sm" />
             </div>
-            <div className="flex h-10 items-center bg-brand-deep-raised px-4 text-body-sm font-medium text-white">
+            <div className="flex h-10 items-center bg-header-raised px-4 text-body-sm font-medium text-white">
               Todos · Ofertas do dia · Mais vendidos
             </div>
           </div>
@@ -379,7 +379,7 @@ export function MotionSection() {
             <Sparkles className="size-6 animate-wiggle" strokeWidth={2} aria-hidden />
           </span>
           <Zap
-            className="size-8 animate-flash fill-brand-amarelo text-brand-amarelo"
+            className="size-8 animate-flash fill-realce text-realce"
             strokeWidth={1.75}
             aria-hidden
           />

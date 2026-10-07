@@ -62,7 +62,7 @@ public sealed class SandboxRemessaCarrierGateway(IOptions<RemessaConformeOptions
 }
 
 /// <summary>
-/// Operador via HTTP — "Contrato de integração Paraguai Imports v1" (docs/REMESSA_CONFORME.md): o corpo leva os campos
+/// Operador via HTTP — "Contrato de integração Paraguai Já v1" (docs/REMESSA_CONFORME.md): o corpo leva os campos
 /// da DIR com os nomes da especificação oficial (remetente, destinatario, mercadorias, remessaConforme…) para o
 /// operador (Correios, courier ou intermediária) registrar a declaração e devolver a etiqueta. Basta configurar
 /// <c>RemessaConforme:Carrier:BaseUrl</c> e <c>RemessaConforme:Carrier:ApiKey</c>.
