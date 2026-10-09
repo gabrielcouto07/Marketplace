@@ -2,6 +2,8 @@
 // Mercado Paraguai (public/brand/logo-mercado-paraguai.png, ver DESIGN.md › Apêndice B, item 13).
 // A fonte é um raster de 256 px com fundo branco: o 512 sai ampliado ~2×.
 // Os nomes dos arquivos mudam quando a arte muda: o service worker guarda /icons/* em CacheFirst.
+// Fora do prebuild: os PNGs são versionados e a imagem do Docker não tem fontes (o texto da OG
+// sairia em caixinhas).
 // Uso: pnpm icons
 import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
