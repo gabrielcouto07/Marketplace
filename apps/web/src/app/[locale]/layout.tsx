@@ -42,11 +42,8 @@ export async function generateMetadata({
     appleWebApp: { capable: true, statusBarStyle: "default", title: site.shortName },
     formatDetection: { telephone: false },
     icons: {
-      icon: [
-        { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
-        { url: "/logo.svg", type: "image/svg+xml" },
-      ],
-      apple: "/icons/apple-touch-icon.png",
+      icon: [{ url: "/favicon-32.png", sizes: "32x32", type: "image/png" }],
+      apple: "/icons/sacola-apple-touch.png",
     },
     openGraph: {
       type: "website",

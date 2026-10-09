@@ -433,8 +433,9 @@ Geometria do caminho A do arquivo `Marketplace Paraguai — identidade.html`, na
 desde 01/10/2026. Vetor: `apps/web/public/logo.svg` (viewBox 120×120). Componente React com a
 mesma geometria: `apps/web/src/components/layout/brand-logo.tsx` (`<BrandLogo size />`).
 Lockup com wordmark: `brand-mark.tsx` (`<BrandMark size="md|sm" tone="dark|light" compact />`) — desde 08/10/2026 ele usa a sacola nova em PNG, não este SVG (Apêndice B › Decisões de adaptação, item 13).
-PNGs (manifest, maskable, apple-touch, favicon.ico, favicon-32, mestre 1024 e OG) são
-gerados por `pnpm --filter web icons` a partir do SVG.
+Desde 09/10/2026 os PNGs (manifest, maskable, apple-touch, favicon.ico, favicon-32 e OG) também
+saem da sacola nova, não deste SVG (Apêndice B › item 13); `public/brand/app-icon-1024.png` é o
+mestre antigo deste logo.
 
 ## O que o logo é
 
@@ -621,5 +622,10 @@ Imagens`). Regras derivadas:
       Figtree 800 itálico, branco com contorno Tinta de 2 px por baixo do preenchimento. Tile de
       56 px (raio 14) no header desktop, 36 px (raio 9) no mobile, rodapé e painéis. O header
       desktop passou de `h-16` para `min-h-16 py-2.5` para caber o tile.
-    - **Pendente**: favicon, ícones do manifest, apple-touch e OG ainda são gerados do
-      `logo.svg` antigo (Apêndice A); trocar quando houver a sacola nova em vetor ou em ≥ 1024 px.
+    - **Ícone do app (09/10/2026)**: `pnpm --filter web icons` gera favicon, ícones do manifest,
+      apple-touch e OG a partir de `logo-mercado-paraguai.png`: tile branco com a sacola (74 % da
+      altura; 60 % no maskable, dentro da zona segura; 90 % no favicon), em
+      `public/icons/sacola-*.png` — nome novo porque o SW guarda `/icons/*` em CacheFirst por 30
+      dias. A OG passou a dizer "Mercado Paraguai". `<AppIcon size />` (`components/layout/app-icon.tsx`)
+      mostra o mesmo PNG no convite de instalação e em `/instalar`, no lugar do `BrandLogo`. Fonte
+      de 256 px: o 512 sai ampliado; regerar quando houver a sacola em vetor ou em ≥ 1024 px.

@@ -36,7 +36,7 @@ base, atualize a seção correspondente lá.
 pnpm install            # raiz
 pnpm dev                # http://localhost:3210 (mock MSW ativado por .env.local)
 pnpm typecheck && pnpm lint && pnpm build
-pnpm --filter web icons # regenera ícones a partir de apps/web/public/logo.svg
+pnpm --filter web icons # regenera ícones a partir de apps/web/public/brand/logo-mercado-paraguai.png
 ```
 
 ## Onde estão as coisas
@@ -46,7 +46,8 @@ pnpm --filter web icons # regenera ícones a partir de apps/web/public/logo.svg
 - Componentes base: `apps/web/src/components/ui` (shadcn) e `apps/web/src/components/shared`
   (ProductCard, PriceTag, SellerBadge, TrustBadge, OrderTimeline, EmptyState…).
 - Layout: `apps/web/src/components/layout` (StoreShell, Header, Footer, BottomNav, BrandMark, TricolorStripe).
-- Marca: `apps/web/public/logo.svg` (logo "Etiqueta", vetor; os PNGs e a OG saem dele via `pnpm --filter web icons`),
+- Marca: `apps/web/public/brand/logo-mercado-paraguai.png` (sacola; favicon, ícones do manifest e OG saem dela via
+  `pnpm --filter web icons`), `apps/web/public/logo.svg` (logo "Etiqueta" antigo, vetor),
   `components/layout/brand-logo.tsx`, `brand-mark.tsx` e `components/shared/flags.tsx`. Geometria original:
   `../Marketplace Paraguai — identidade.html` (as cores e o nome de lá foram substituídos em 01/10/2026).
 - Docs técnicas: `docs/*.md` (arquitetura, contratos, mocks, PWA, i18n, convenções).

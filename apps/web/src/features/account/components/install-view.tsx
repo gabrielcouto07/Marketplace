@@ -4,7 +4,7 @@ import { CheckCircle2, Download, Smartphone, WifiOff, Zap } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
-import { BrandLogo } from "@/components/layout/brand-logo";
+import { AppIcon } from "@/components/layout/app-icon";
 import { usePwa } from "@/components/layout/pwa-provider";
 import { PageContainer } from "@/components/layout/store-shell";
 import { Button } from "@/components/ui/button";
@@ -50,7 +50,7 @@ export function InstallView() {
   return (
     <PageContainer className="flex flex-col gap-8 py-8">
       <section className="mx-auto flex w-full max-w-md flex-col items-center gap-6 text-center">
-        <BrandLogo size={72} />
+        <AppIcon size={72} />
         <p className="text-body text-foreground-secondary">{tPwa("androidHint")}</p>
         <ul className="flex w-full flex-col gap-3 text-left">
           {benefits.map(({ icon: Icon, label }) => (

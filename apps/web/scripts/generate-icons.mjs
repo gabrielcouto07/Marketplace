@@ -1,64 +1,80 @@
-// Gera os ícones PNG do manifest, favicons, apple-touch-icon, o PNG mestre e a imagem OG a partir
-// de public/logo.svg (logo "Etiqueta", ver DESIGN.md › Apêndice A).
+// Gera os ícones PNG do manifest, favicons, apple-touch-icon e a imagem OG a partir da sacola
+// Mercado Paraguai (public/brand/logo-mercado-paraguai.png, ver DESIGN.md › Apêndice B, item 13).
+// A fonte é um raster de 256 px com fundo branco: o 512 sai ampliado ~2×.
+// Os nomes dos arquivos mudam quando a arte muda: o service worker guarda /icons/* em CacheFirst.
 // Uso: pnpm icons
-import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { writeFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import sharp from "sharp";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const logo = readFileSync(join(root, "public/logo.svg"), "utf8");
 const outDir = join(root, "public/icons");
 mkdirSync(outDir, { recursive: true });
 
-/** Cores da identidade (DESIGN.md): tile Amarelo, Marinho, Amarelo do wordmark e as quatro cores da marca. */
-const TILE = "#FFD20A";
+/** Cores da identidade (DESIGN.md): tile branco, Marinho e as quatro cores da marca. */
+const TILE = "#FFFFFF";
 const MARINHO = "#0A1733";
-const AMARELO = "#FFD20A";
 const WHITE_80 = "#CED1D6";
 const QUARTET = ["#F2263E", "#1552EB", "#00B852", "#FFD20A"];
 
-/** Mesmo desenho, sem os cantos arredondados: iOS e ícones maskable aplicam a própria máscara. */
-const fullBleed = Buffer.from(logo.replace('rx="30"', 'rx="0"'));
-const tile = Buffer.from(logo);
+/** A sacola recortada rente ao desenho (o PNG tem margem branca desigual). */
+const bag = await sharp(join(root, "public/brand/logo-mercado-paraguai.png"))
+  .trim({ background: TILE, threshold: 12 })
+  .toBuffer({ resolveWithObject: true });
+const bagRatio = bag.info.width / bag.info.height;
 
-const render = (svg, size) =>
-  sharp(svg, { density: 600 })
-    .resize(size, size, { fit: "contain", background: { r: 0, g: 0, b: 0, alpha: 0 } })
+/** A sacola com `height` px de altura, no fundo branco do próprio PNG. */
+const bagAt = (height) =>
+  sharp(bag.data)
+    .resize({ height: Math.round(height), width: Math.round(height * bagRatio), fit: "fill" })
     .png()
     .toBuffer();
 
-/** Ícone "any": o tile com cantos arredondados e fundo transparente fora dele. */
-async function plain(size) {
-  writeFileSync(join(outDir, `icon-${size}.png`), await render(tile, size));
+/**
+ * Tile branco de `size` px com a sacola ocupando `fill` da altura. `radius` em fração do lado
+ * (0.25 = o raio do tile do BrandMark); 0 = full-bleed, para quem aplica a própria máscara.
+ */
+async function tile(size, { fill, radius }) {
+  const r = Math.round(size * radius);
+  const base = Buffer.from(
+    `<svg width="${size}" height="${size}"><rect width="${size}" height="${size}" rx="${r}" fill="${TILE}"/></svg>`,
+  );
+  return sharp(base)
+    .composite([{ input: await bagAt(size * fill), gravity: "center" }])
+    .png()
+    .toBuffer();
 }
 
-/** Maskable: Amarelo até a borda e o desenho dentro da zona segura (80 % central). */
+/** Ícone "any": tile com cantos arredondados e fundo transparente fora dele. */
+async function plain(size) {
+  writeFileSync(join(outDir, `sacola-${size}.png`), await tile(size, { fill: 0.74, radius: 0.25 }));
+}
+
+/** Maskable: branco até a borda e a sacola dentro da zona segura (círculo de 80 % central). */
 async function maskable(size) {
-  const inner = await render(fullBleed, Math.round(size * 0.8));
-  const buf = await sharp({ create: { width: size, height: size, channels: 4, background: TILE } })
-    .composite([{ input: inner, gravity: "center" }])
-    .png()
-    .toBuffer();
-  writeFileSync(join(outDir, `icon-maskable-${size}.png`), buf);
+  writeFileSync(
+    join(outDir, `sacola-maskable-${size}.png`),
+    await tile(size, { fill: 0.6, radius: 0 }),
+  );
 }
 
 /** Apple touch icon: full-bleed (o iOS arredonda os cantos). */
 async function apple(size) {
-  writeFileSync(join(outDir, "apple-touch-icon.png"), await render(fullBleed, size));
+  writeFileSync(join(outDir, "sacola-apple-touch.png"), await tile(size, { fill: 0.74, radius: 0 }));
 }
 
-/** OG / screenshot do manifest: Marinho, logo, wordmark em branco e Amarelo e a faixa das quatro cores. */
+/** OG / screenshot do manifest: Marinho, ícone, nome em branco e a faixa das quatro cores. */
 async function splash() {
   const w = 1200;
   const h = 630;
-  const icon = await render(tile, 220);
+  const icon = await tile(220, { fill: 0.74, radius: 0.25 });
   const band = QUARTET.map(
     (c, i) => `<rect x="${i * (w / 4)}" width="${w / 4}" height="10" fill="${c}"/>`,
   ).join("");
   const stripe = Buffer.from(`<svg width="${w}" height="10">${band}</svg>`);
   const text = Buffer.from(
-    `<svg width="${w}" height="${h}"><text x="600" y="444" text-anchor="middle" font-family="Bricolage Grotesque, Figtree, Arial, sans-serif" font-size="60" font-weight="800" letter-spacing="-1.2" fill="#FFFFFF">Paraguai <tspan fill="${AMARELO}">Já</tspan></text><text x="600" y="496" text-anchor="middle" font-family="Figtree, Arial, sans-serif" font-size="26" font-weight="500" fill="${WHITE_80}">Do Paraguai para todo o Brasil, com preço, frete e impostos claros</text></svg>`,
+    `<svg width="${w}" height="${h}"><text x="600" y="444" text-anchor="middle" font-family="Figtree, Arial, sans-serif" font-size="60" font-style="italic" font-weight="800" letter-spacing="-1.2" fill="#FFFFFF">Mercado Paraguai</text><text x="600" y="496" text-anchor="middle" font-family="Figtree, Arial, sans-serif" font-size="26" font-weight="500" fill="${WHITE_80}">Do Paraguai para todo o Brasil, com preço, frete e impostos claros</text></svg>`,
   );
   const buf = await sharp({ create: { width: w, height: h, channels: 4, background: MARINHO } })
     .composite([
@@ -74,7 +90,8 @@ async function splash() {
 /** favicon.ico com PNGs embutidos (16, 32 e 48 px), formato aceito por todos os navegadores. */
 async function favicon() {
   const sizes = [16, 32, 48];
-  const images = await Promise.all(sizes.map((s) => render(tile, s)));
+  // Sacola maior no tile: nos tamanhos de aba a margem só tira leitura.
+  const images = await Promise.all(sizes.map((s) => tile(s, { fill: 0.9, radius: 0.25 })));
   const header = Buffer.alloc(6);
   header.writeUInt16LE(0, 0);
   header.writeUInt16LE(1, 2);
@@ -95,7 +112,6 @@ async function favicon() {
   writeFileSync(join(root, "public/favicon-32.png"), images[1]);
 }
 
-mkdirSync(join(root, "public/brand"), { recursive: true });
 await Promise.all([
   plain(192),
   plain(512),
@@ -104,10 +120,7 @@ await Promise.all([
   apple(180),
   splash(),
   favicon(),
-  render(tile, 1024).then((buf) =>
-    writeFileSync(join(root, "public/brand/app-icon-1024.png"), buf),
-  ),
 ]);
 console.log(
-  "Ícones gerados em public/icons, public/brand, public/favicon-32.png, src/app/favicon.ico e public/og-default.png",
+  "Ícones gerados em public/icons, public/favicon-32.png, src/app/favicon.ico e public/og-default.png",
 );

@@ -61,4 +61,5 @@ layout raiz; `appleWebApp` + `apple-touch-icon` para iOS; `viewport-fit=cover`.
 1. `pnpm build` (gera `public/sw.js` com precache) e `pnpm start`.
 2. Servir em HTTPS (Cloudflare) — obrigatório para SW e instalação.
 3. Validar no Lighthouse: manifest, ícones maskable, SW com fetch handler, offline `/offline` respondendo.
-4. Trocar `public/logo.svg` pela logo oficial e rodar `pnpm icons`.
+4. Trocar `public/brand/logo-mercado-paraguai.png` pela logo oficial em vetor ou ≥ 1024 px, rodar `pnpm icons` e renomear
+   os PNGs de `public/icons` (o SW guarda `/icons/*` em CacheFirst).

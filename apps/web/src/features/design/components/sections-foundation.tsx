@@ -4,6 +4,7 @@ import { Heart, ShoppingBag, Sparkles, Zap } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { useState } from "react";
 
+import { AppIcon } from "@/components/layout/app-icon";
 import { BrandLogo } from "@/components/layout/brand-logo";
 import { BrandMark } from "@/components/layout/brand-mark";
 import { CartBadge } from "@/components/layout/header";
@@ -87,6 +88,17 @@ export function BrandSection() {
           </div>
           <BrandMark tone="light" size="sm" />
         </div>
+      </Demo>
+      <Demo label="Ícone do app" hint="public/icons/sacola-*.png · pnpm --filter web icons">
+        <div className="flex flex-wrap items-end gap-6">
+          <AppIcon size={96} />
+          <AppIcon size={72} />
+          <AppIcon size={40} />
+        </div>
+        <p className="mt-4 text-body-sm text-foreground-secondary">
+          Tile branco com a sacola do lockup. Sai no manifest (any e maskable), apple-touch,
+          favicon e OG; na interface, só no convite de instalação e em /instalar.
+        </p>
       </Demo>
       <Demo label="Paleta da marca" hint="cores chapadas vivas em cima · tons claros embaixo">
         <ul className="grid grid-cols-3 gap-3 sm:grid-cols-6">

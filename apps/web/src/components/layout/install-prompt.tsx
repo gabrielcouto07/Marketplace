@@ -4,7 +4,7 @@ import { X } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { useEffect, useState } from "react";
 
-import { BrandLogo } from "@/components/layout/brand-logo";
+import { AppIcon } from "@/components/layout/app-icon";
 import { usePwa } from "@/components/layout/pwa-provider";
 import { Button } from "@/components/ui/button";
 import { Link } from "@/i18n/navigation";
@@ -54,7 +54,7 @@ export function InstallPrompt() {
       className="fixed inset-x-0 bottom-[calc(var(--bottom-nav-height)+var(--safe-bottom))] z-40 border-t border-border bg-surface shadow-md md:bottom-0"
     >
       <div className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 py-3">
-        <BrandLogo size={40} />
+        <AppIcon size={40} />
         <div className="min-w-0 flex-1">
           <p id="install-title" className="truncate text-body-sm font-medium text-foreground">
             {t("installTitle")}

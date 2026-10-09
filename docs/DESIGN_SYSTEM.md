@@ -23,7 +23,8 @@
 
 `public/logo.svg` (vetor), `public/brand/app-icon-1024.png` (original), `components/layout/brand-logo.tsx`
 (`<BrandLogo tile />` em superfícies claras, `<BrandLogo />` sobre `brand-deep`), `brand-mark.tsx` (logo +
-wordmark), `tricolor-stripe.tsx`. Ícones do manifest, favicon e OG são gerados por `scripts/generate-icons.mjs`.
+wordmark), `tricolor-stripe.tsx`. Ícones do manifest, favicon e OG são gerados por `scripts/generate-icons.mjs` a partir
+de `public/brand/logo-mercado-paraguai.png`; `<AppIcon />` (`app-icon.tsx`) mostra o ícone na interface.
 
 ## Componentes
 
