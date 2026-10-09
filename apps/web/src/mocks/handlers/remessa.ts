@@ -194,8 +194,8 @@ function labelPdf(order: OrderDto): Uint8Array {
     ),
   ].slice(0, 3);
   return buildShipmentLabelPdf({
-    brand: "Paraguai Já",
-    tradeName: "Paraguai Já",
+    brand: "Mercado Paraguai",
+    tradeName: "Mercado Paraguai",
     documentLabel: "CNPJ nao configurado (sandbox)",
     sandbox: shipment.sandbox,
     carrier: shipment.carrier ?? "Operador logistico",
@@ -409,7 +409,7 @@ function integrations(): IntegrationStatusDto[] {
         "RemessaConforme__Platform__Document",
         "RemessaConforme__Platform__AdeNumber",
       ],
-      detail: "Paraguai Já · Paraguai Já",
+      detail: "Mercado Paraguai · Mercado Paraguai",
       docsUrl: DOCS,
     },
     {

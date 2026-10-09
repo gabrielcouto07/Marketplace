@@ -65,7 +65,7 @@ export function BrandSection() {
     <div className="grid gap-4 md:grid-cols-2">
       <Demo label="Logo · Etiqueta" hint="public/logo.svg · detalhe muda com o tamanho">
         <div className="flex flex-wrap items-end gap-6">
-          <BrandLogo size={96} title="Logo do Paraguai Já" />
+          <BrandLogo size={96} title="Logo do Mercado Paraguai" />
           <BrandLogo size={48} />
           <BrandLogo size={40} />
           <BrandLogo size={24} />

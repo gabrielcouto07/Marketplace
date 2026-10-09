@@ -1,6 +1,6 @@
 {
   "common": {
-    "siteName": "Paraguai Já",
+    "siteName": "Mercado Paraguai",
     "siteDescription": "Comprá en Paraguay con entrega en Brasil: electrónica, perfumes, informática, celulares y más, con seguimiento de punta a punta e impuestos estimados antes de pagar.",
     "quantity": "Cantidad",
     "increase": "Aumentar cantidad",
@@ -29,8 +29,6 @@
     "language": "Idioma",
     "portuguese": "Português (Brasil)",
     "spanish": "Español (Paraguay)",
-    "brandLine1": "Paraguai",
-    "brandLine2": "Já",
     "installmentsShort": "{count} cuotas de {amount}",
     "installmentsLong": "hasta {count} cuotas de {amount} sin interés",
     "listPrice": "Antes:"
@@ -67,7 +65,7 @@
     "bestSellers": "Más vendidos",
     "newArrivals": "Novedades",
     "stores": "Tiendas",
-    "sell": "Vendé en Paraguai Já"
+    "sell": "Vendé en Mercado Paraguai"
   },
   "footer": {
     "label": "Pie de página",
@@ -89,7 +87,7 @@
     "sellerPanel": "Panel del vendedor",
     "install": "Instalar la app",
     "tagline": "Desde Paraguay a todo Brasil, con precio, envío e impuestos claros.",
-    "copyright": "© {year} Paraguai Já"
+    "copyright": "© {year} Mercado Paraguai"
   },
   "validation": {
     "required": "Campo obligatorio",
@@ -163,7 +161,7 @@
     "offlineBanner": "Estás sin conexión. Mostrando contenido guardado.",
     "installPage": {
       "title": "Instalar la app",
-      "intro": "Paraguai Já es una PWA: instalala directo desde el navegador, sin tienda de aplicaciones. Abre a pantalla completa, carga más rápido y mantiene tu carrito sin conexión.",
+      "intro": "Mercado Paraguai es una PWA: instalala directo desde el navegador, sin tienda de aplicaciones. Abre a pantalla completa, carga más rápido y mantiene tu carrito sin conexión.",
       "installNow": "Instalar ahora",
       "alreadyInstalled": "La app ya está instalada en este dispositivo.",
       "androidTitle": "Android (Chrome)",
@@ -1524,7 +1522,7 @@
     "step2Title": "Declaración anticipada",
     "step2Text": "La plataforma envía los datos del envío (producto, NCM, valores y el CPF de quien recibe) antes de que el paquete salga de Paraguay.",
     "step3Title": "Etiqueta de la plataforma",
-    "step3Text": "El paquete sale con la etiqueta de Paraguai Já, con marca, nombre comercial y CNPJ destacados.",
+    "step3Text": "El paquete sale con la etiqueta de Mercado Paraguai, con marca, nombre comercial y CNPJ destacados.",
     "step4Title": "Entrega sin sorpresas",
     "step4Text": "Los tributos ya fueron recaudados: nada de tasas de Correios en la entrega.",
     "exampleTitle": "Ejemplo: producto de R$ 200,00",

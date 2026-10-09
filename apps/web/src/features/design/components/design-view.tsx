@@ -50,7 +50,7 @@ export function DesignView() {
       <header className="flex flex-col gap-2">
         <h1 className="text-title-1 text-foreground">Design system</h1>
         <p className="max-w-2xl text-body text-foreground-secondary">
-          Tokens, tipografia e componentes do Paraguai Já, renderizados com o código real. A regra
+          Tokens, tipografia e componentes do Mercado Paraguai, renderizados com o código real. A regra
           de tudo isto está no <code className="font-mono text-body-sm">DESIGN.md</code>.
         </p>
         <nav aria-label="Seções" className="-mx-4 scrollbar-none overflow-x-auto px-4 pt-2">
