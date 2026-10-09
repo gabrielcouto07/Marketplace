@@ -1,4 +1,4 @@
-# DESIGN.md — Paraguai Já
+# DESIGN.md — Mercado Paraguai
 
 Este documento é a fonte de verdade visual e de código de UI do projeto. Toda tarefa de interface deve
 segui-lo. Os apêndices no final registram a análise da marca (ícone) e as decisões de adaptação tomadas
@@ -23,7 +23,7 @@ Cada decisão visual deve ter motivo.
 
 # O produto
 
-**Paraguai Já** é um marketplace PWA mobile-first que conecta vendedores do Paraguai a
+**Mercado Paraguai** é um marketplace PWA mobile-first que conecta vendedores do Paraguai a
 compradores no Brasil (referências funcionais: Mercado Livre e Amazon). A marca é o **logo
 "Etiqueta"**: uma sacola nas faixas do Paraguai com a etiqueta do Brasil presa na alça, nas
 cores vivas das duas bandeiras (Vermelho, Azul, Verde, Amarelo) sobre a barra Azul do
@@ -432,7 +432,7 @@ imposto ou prazo significa.
 Geometria do caminho A do arquivo `Marketplace Paraguai — identidade.html`, nas cores vivas
 desde 01/10/2026. Vetor: `apps/web/public/logo.svg` (viewBox 120×120). Componente React com a
 mesma geometria: `apps/web/src/components/layout/brand-logo.tsx` (`<BrandLogo size />`).
-Lockup com wordmark: `brand-mark.tsx` (`<BrandMark size="md|sm" tone="dark|light" compact />`).
+Lockup com wordmark: `brand-mark.tsx` (`<BrandMark size="md|sm" tone="dark|light" compact />`) — desde 08/10/2026 ele usa a sacola nova em PNG, não este SVG (Apêndice B › Decisões de adaptação, item 13).
 PNGs (manifest, maskable, apple-touch, favicon.ico, favicon-32, mestre 1024 e OG) são
 gerados por `pnpm --filter web icons` a partir do SVG.
 
@@ -612,3 +612,14 @@ Imagens`). Regras derivadas:
       "Paraguai / JÁ", manifest, OG, etiqueta da Remessa Conforme no front e na API, PDF do
       boleto). O nome é o mesmo nos dois idiomas (marca não se traduz) e as chaves de
       armazenamento local (`mktpy.*`) não mudaram, para não perder sessão, carrinho e favoritos.
+13. **"Mercado Paraguai" (08/10/2026)**: a pedido, a partir do mock `Paraguai Já — Home`.
+    - **Nome**: o app passou a se chamar **Mercado Paraguai** (`site.ts`, `common.siteName`,
+      manifest, OG, etiqueta da Remessa Conforme no front e na API — `RemessaConforme:Platform`
+      Brand/TradeName). As chaves `brandLine1`/`brandLine2` saíram.
+    - **Lockup**: `BrandMark` virou tile branco com a sacola Vermelho · branco (estrela) · Azul
+      (`public/brand/logo-mercado-paraguai.png`, 256 px) + "Mercado Paraguai" numa linha só,
+      Figtree 800 itálico, branco com contorno Tinta de 2 px por baixo do preenchimento. Tile de
+      56 px (raio 14) no header desktop, 36 px (raio 9) no mobile, rodapé e painéis. O header
+      desktop passou de `h-16` para `min-h-16 py-2.5` para caber o tile.
+    - **Pendente**: favicon, ícones do manifest, apple-touch e OG ainda são gerados do
+      `logo.svg` antigo (Apêndice A); trocar quando houver a sacola nova em vetor ou em ≥ 1024 px.

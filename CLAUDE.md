@@ -1,4 +1,4 @@
-# Paraguai Já — instruções para o Claude
+# Mercado Paraguai — instruções para o Claude
 
 Monorepo pnpm. O app é `apps/web` (Next.js 16 App Router, React 19, TypeScript strict, Tailwind CSS 4,
 shadcn/ui sobre Base UI, TanStack Query, Zustand, MSW, next-intl, Serwist). Porta de dev: 3210.
