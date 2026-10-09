@@ -161,7 +161,7 @@ function DesktopBar({ cartCount }: { cartCount: number }) {
 
   return (
     <div className="hidden md:block">
-      <div className="mx-auto flex h-16 w-full max-w-6xl items-center gap-2 px-4">
+      <div className="mx-auto flex min-h-16 w-full max-w-6xl items-center gap-2 px-4 py-2.5">
         <BrandMark className="mr-2" />
         <DeliverToLink />
         <form
