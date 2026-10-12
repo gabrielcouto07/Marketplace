@@ -5,6 +5,7 @@ using Marketplace.Application.Common;
 using Marketplace.Application.Services;
 using Marketplace.Domain;
 using Marketplace.Domain.Common;
+using Marketplace.Domain.Compliance;
 using Marketplace.Domain.Entities;
 using Marketplace.Infrastructure.Persistence.Seed;
 using Marketplace.Infrastructure.Shipping;
@@ -120,32 +121,42 @@ public sealed class DatabaseInitializer(
                 catalog.Categories.Count, catalog.Sellers.Count, catalog.Products.Count);
         }
         await db.SaveChangesAsync(ct);
+        await SyncSeedCatalogAsync(ct);
         await BackfillCatalogComplianceAsync(ct);
 
         await SeedAdminAsync(ct);
         if (options.Value.SeedDemoData) await SeedDemoAsync(ct);
+        await BackfillGovernanceAsync(ct);
     }
 
     /// <summary>
     /// Bancos semeados antes do Remessa Conforme ficaram com o catálogo sem NCM e as lojas sem documentos, e aí nenhuma
-    /// etiqueta sai. Completa só o que estiver vazio: NCM dos produtos com o nome de um template do seed e documentos das
-    /// lojas do seed (mesmo ID determinístico). Produtos e lojas criados por vendedores não são tocados.
+    /// etiqueta sai; os semeados antes da Política de Vendedores ficaram sem os dados de admissão (3.1 e 3.2) e sem a
+    /// descrição da declaração (Programa 7.4 e 7.6). Completa só o que estiver vazio, a partir do seed (mesmo ID
+    /// determinístico ou mesmo nome de template). Produtos e lojas criados por vendedores não são tocados.
     /// </summary>
     public async Task BackfillCatalogComplianceAsync(CancellationToken ct)
     {
         var withoutNcm = await db.Products.Where(p => p.HsCode == null).ToListAsync(ct);
-        var withoutKyc = await db.Sellers.Where(s => s.LegalAddress == null).ToListAsync(ct);
-        if (withoutNcm.Count == 0 && withoutKyc.Count == 0) return;
+        var withoutDeclaration = await db.Products.Where(p => p.Nature == null).ToListAsync(ct);
+        var withoutKyc = await db.Sellers.Where(s => s.LegalAddress == null || s.LegalName == null).ToListAsync(ct);
+        if (withoutNcm.Count == 0 && withoutDeclaration.Count == 0 && withoutKyc.Count == 0) return;
 
         var catalog = SeedCatalog.Build();
-        var ncmByName = catalog.Products.Where(p => p.HsCode != null)
-            .GroupBy(p => p.Name, StringComparer.Ordinal)
-            .ToDictionary(g => g.Key, g => g.First().HsCode!, StringComparer.Ordinal);
+        var byName = catalog.Products.GroupBy(p => p.Name, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
         var products = 0;
-        foreach (var product in withoutNcm)
+        foreach (var product in withoutNcm.Union(withoutDeclaration))
         {
-            if (!ncmByName.TryGetValue(product.Name, out var ncm)) continue;
-            product.HsCode = ncm;
+            if (!byName.TryGetValue(product.Name, out var seed)) continue;
+            product.HsCode ??= seed.HsCode;
+            if (product.Nature is null)
+            {
+                product.Nature = seed.Nature;
+                product.Unbranded = seed.Unbranded;
+                product.Material = seed.Material;
+                product.PackageQuantity = seed.PackageQuantity;
+                product.OriginCountry = seed.OriginCountry;
+            }
             products++;
         }
 
@@ -154,20 +165,165 @@ public sealed class DatabaseInitializer(
         foreach (var seller in withoutKyc)
         {
             if (!seededSellers.TryGetValue(seller.Id, out var seed)) continue;
-            seller.LegalAddress = seed.LegalAddress;
-            seller.ResponsibleName = seed.ResponsibleName;
-            seller.ResponsibleDocumentType = seed.ResponsibleDocumentType;
-            seller.ResponsibleDocument = seed.ResponsibleDocument;
-            seller.IdentityDocumentUrl = seed.IdentityDocumentUrl;
-            seller.RucCertificateUrl = seed.RucCertificateUrl;
+            seller.LegalAddress ??= seed.LegalAddress;
+            seller.ResponsibleName ??= seed.ResponsibleName;
+            seller.ResponsibleDocumentType ??= seed.ResponsibleDocumentType;
+            seller.ResponsibleDocument ??= seed.ResponsibleDocument;
+            seller.IdentityDocumentUrl ??= seed.IdentityDocumentUrl;
+            seller.RucCertificateUrl ??= seed.RucCertificateUrl;
             seller.VerifiedAt ??= seed.VerifiedAt;
+            seller.LegalName ??= seed.LegalName;
+            seller.Email ??= seed.Email;
+            seller.Phone ??= seed.Phone;
+            seller.PayoutMethod ??= seed.PayoutMethod;
+            seller.PayoutInstitution ??= seed.PayoutInstitution;
+            seller.PayoutAccount ??= seed.PayoutAccount;
+            seller.PayoutHolder ??= seed.PayoutHolder;
+            seller.TaxComplianceCertificateUrl ??= seed.TaxComplianceCertificateUrl;
+            seller.ArticlesOfIncorporationUrl ??= seed.ArticlesOfIncorporationUrl;
+            if (seller.VerificationChecklist.Count == 0) seller.VerificationChecklist = seed.VerificationChecklist;
+            seller.DataConfirmedAt ??= clock.GetUtcNow().UtcDateTime;
+            seller.PolicyVersionAccepted ??= seed.PolicyVersionAccepted;
+            seller.PolicyAcceptedAt ??= seed.PolicyAcceptedAt;
             sellers++;
         }
 
         if (products + sellers == 0) return;
         await db.SaveChangesAsync(ct);
-        logger.LogInformation("Remessa Conforme: NCM preenchido em {Products} produtos e documentos em {Sellers} lojas do catálogo",
+        logger.LogInformation("Conformidade: dados da declaração/NCM preenchidos em {Products} produtos e dados de admissão em {Sellers} lojas do catálogo",
             products, sellers);
+    }
+
+    /// <summary>
+    /// Catálogo de demonstração em bancos já semeados: a categoria e a loja de bebidas alcoólicas (oferta vedada, Anexo I,
+    /// f) saem da vitrine e a categoria de games entra no lugar, com a loja e os produtos do seed atual.
+    /// </summary>
+    public async Task SyncSeedCatalogAsync(CancellationToken ct)
+    {
+        var catalog = SeedCatalog.Build();
+        var categoryIds = await db.Categories.Select(c => c.Id).ToListAsync(ct);
+        if (!catalog.Categories.Any(c => categoryIds.Contains(c.Id))) return; // banco sem o catálogo do seed
+
+        var changes = 0;
+        var retiredCategoryIds = SeedCatalog.RetiredCategorySlugs.Select(s => DeterministicId.Guid($"category:{s}")).ToList();
+        foreach (var category in await db.Categories.Where(c => retiredCategoryIds.Contains(c.Id) && c.IsActive).ToListAsync(ct))
+        {
+            category.IsActive = false;
+            changes++;
+        }
+        var retiredProducts = await db.Products.Where(p => retiredCategoryIds.Contains(p.CategoryId) &&
+                                                          (p.Status == ProductStatus.Ativo || p.Status == ProductStatus.EmAnalise || p.Status == ProductStatus.Rascunho))
+            .ToListAsync(ct);
+        foreach (var product in retiredProducts.Where(p => Ncm.ProhibitionReason(p.HsCode ?? string.Empty) is null))
+        {
+            product.Status = ProductStatus.Arquivado;
+            product.ModerationNote = "Produto de demonstração retirado com a categoria de bebidas.";
+            product.UpdatedAt = clock.GetUtcNow().UtcDateTime;
+            changes++;
+        }
+        var retiredSellerIds = SeedCatalog.RetiredSellerSlugs.Select(s => DeterministicId.Guid($"seller:{s}")).ToList();
+        foreach (var seller in await db.Sellers.Where(s => retiredSellerIds.Contains(s.Id) && s.OwnerUserId == null && s.Status == SellerStatus.Aprovado).ToListAsync(ct))
+        {
+            seller.Status = SellerStatus.Suspenso;
+            seller.SuspendedAt = clock.GetUtcNow().UtcDateTime;
+            seller.SuspensionReason = "Loja de demonstração retirada: bebidas alcoólicas são oferta vedada (Anexo I, f, da Política de Vendedores).";
+            changes++;
+        }
+
+        var newCategories = catalog.Categories.Where(c => !categoryIds.Contains(c.Id)).ToList();
+        db.Categories.AddRange(newCategories);
+        var sellerIds = await db.Sellers.Select(s => s.Id).ToListAsync(ct);
+        var rucs = await db.Sellers.Select(s => s.Ruc).ToListAsync(ct);
+        var newSellers = catalog.Sellers.Where(s => !sellerIds.Contains(s.Id) && !rucs.Contains(s.Ruc)).ToList();
+        db.Sellers.AddRange(newSellers);
+        var addedSellerIds = newSellers.Select(s => s.Id).Concat(sellerIds).ToHashSet();
+        var productIds = await db.Products.Select(p => p.Id).ToListAsync(ct);
+        var slugs = await db.Products.Select(p => p.Slug).ToListAsync(ct);
+        var newProducts = catalog.Products.Where(p => !productIds.Contains(p.Id) && !slugs.Contains(p.Slug) && addedSellerIds.Contains(p.SellerId)).ToList();
+        db.Products.AddRange(newProducts);
+        var newProductIds = newProducts.Select(p => p.Id).ToHashSet();
+        db.Reviews.AddRange(catalog.Reviews.Where(r => newProductIds.Contains(r.ProductId)));
+        db.Questions.AddRange(catalog.Questions.Where(q => newProductIds.Contains(q.ProductId)));
+        changes += newCategories.Count + newSellers.Count + newProducts.Count;
+
+        if (changes == 0) return;
+        await db.SaveChangesAsync(ct);
+        logger.LogInformation("Catálogo do seed sincronizado: {Categories} categoria(s), {Sellers} loja(s) e {Products} produto(s) novos; {Retired} item(ns) retirados",
+            newCategories.Count, newSellers.Count, newProducts.Count, retiredProducts.Count);
+    }
+
+    /// <summary>
+    /// Programa de Conformidade e Política de Vendedores em bancos existentes: anúncios com NCM vedado pelo Anexo I saem da
+    /// vitrine (medida comunicada à loja e registrada), aceites gravados antes do registro detalhado ganham o registro
+    /// (Política 2.2) e denúncias antigas ganham protocolo e prazo de decisão (6.5).
+    /// </summary>
+    public async Task BackfillGovernanceAsync(CancellationToken ct)
+    {
+        var now = clock.GetUtcNow().UtcDateTime;
+        var changes = 0;
+
+        var candidates = await db.Products.Where(p => p.HsCode != null && p.Status != ProductStatus.Bloqueado).ToListAsync(ct);
+        foreach (var product in candidates)
+        {
+            if (Ncm.ProhibitionReason(product.HsCode!) is not { } reason) continue;
+            var measure = new SellerMeasure
+            {
+                Id = Guid.NewGuid(), SellerId = product.SellerId, Type = SellerMeasureType.RemocaoAnuncio, ProductId = product.Id,
+                Reason = $"Oferta vedada: {reason}", AppliedAt = now, Automatic = true,
+            };
+            var notice = new SellerNotice
+            {
+                Id = Guid.NewGuid(), SellerId = product.SellerId, Type = SellerNoticeType.Medida, ProductId = product.Id, MeasureId = measure.Id,
+                Title = $"Remoção do anúncio \"{product.Name}\"",
+                Message = $"Remoção do anúncio \"{product.Name}\".\n\nMotivo: oferta vedada — {reason}\n\nVocê pode responder em até {ProgramDeadlines.SellerResponseDays} dias, com os documentos que tiver (Política de Vendedores, item 8.6).",
+                CreatedAt = now, DueAt = now.AddDays(ProgramDeadlines.SellerResponseDays),
+            };
+            measure.NoticeId = notice.Id;
+            product.Status = ProductStatus.Bloqueado;
+            product.ModerationReason = "PRODUTO_PROIBIDO";
+            product.ModerationNote = reason.Length > 500 ? reason[..500] : reason;
+            product.ModeratedAt = now;
+            product.UpdatedAt = now;
+            db.SellerMeasures.Add(measure);
+            db.SellerNotices.Add(notice);
+            db.EnforcementActions.Add(new EnforcementAction
+            {
+                Kind = EnforcementActionKind.MedidaAplicada, OccurredAt = now, Automatic = true, SellerId = product.SellerId, ProductId = product.Id,
+                MeasureId = measure.Id, NoticeId = notice.Id, Reason = $"Remoção do anúncio \"{product.Name}\": {reason}",
+                Result = "Anúncio retirado da vitrine; o vendedor não pode reativá-lo.",
+            });
+            changes++;
+        }
+
+        var accepted = await db.SellerPolicyAcceptances.Select(a => a.SellerId).Distinct().ToListAsync(ct);
+        foreach (var seller in await db.Sellers.Where(s => s.PolicyVersionAccepted != null && !accepted.Contains(s.Id)).ToListAsync(ct))
+        {
+            db.SellerPolicyAcceptances.Add(new SellerPolicyAcceptance
+            {
+                Id = Guid.NewGuid(), SellerId = seller.Id, UserId = seller.OwnerUserId ?? Guid.Empty, PolicyVersion = seller.PolicyVersionAccepted!,
+                AcceptedAt = seller.PolicyAcceptedAt ?? now, RepresentativeName = seller.ResponsibleName ?? seller.Name,
+                RepresentativeDocumentType = seller.ResponsibleDocumentType, RepresentativeDocument = seller.ResponsibleDocument, IpAddress = "seed",
+            });
+            changes++;
+        }
+
+        var reports = await db.ProductReports.Where(r => r.Protocol == null || r.DueAt < new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc)).OrderBy(r => r.CreatedAt).ToListAsync(ct);
+        if (reports.Count > 0)
+        {
+            var year = now.Year;
+            var sequence = await db.ProductReports.CountAsync(r => r.Protocol != null && r.Protocol.StartsWith($"DEN-{year}-"), ct);
+            foreach (var report in reports)
+            {
+                report.Protocol ??= $"DEN-{year}-{++sequence:000000}";
+                if (report.DueAt < new DateTime(2000, 1, 1, 0, 0, 0, DateTimeKind.Utc))
+                    report.DueAt = ProgramDeadlines.AddBusinessDays(report.CreatedAt, ProgramDeadlines.ReportDecisionBusinessDays);
+                changes++;
+            }
+        }
+
+        if (changes == 0) return;
+        await db.SaveChangesAsync(ct);
+        logger.LogInformation("Conformidade: {Changes} ajuste(s) em bancos existentes (anúncios vedados, aceites e denúncias)", changes);
     }
 
     /// <summary>Cria o administrador único a partir de Admin:Email/Admin:Password (se ainda não existir).</summary>

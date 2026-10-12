@@ -5,6 +5,8 @@ const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // Acesso pelo nginx na rede local (HMR em tempo real para o cliente); só vale em `next dev`.
+  allowedDevOrigins: ["192.168.0.66", "DESKTOP-I695JFA", "*.trycloudflare.com"],
   // O CLAUDE.md da raiz é a fonte de instruções; não gerar AGENTS.md/CLAUDE.md automáticos em apps/web.
   agentRules: false,
   // Pacote de contratos do monorepo é consumido como TS puro.

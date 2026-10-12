@@ -5,14 +5,17 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { BottomNav } from "@/components/layout/bottom-nav";
+import { DocumentUpload } from "@/components/shared/document-upload";
 import { FormField } from "@/components/shared/form-field";
 import { OrderStatusBadge, OrderTimeline } from "@/components/shared/order-status";
 import { PriceTag } from "@/components/shared/price-tag";
 import { ProductCard, ProductCardSkeleton } from "@/components/shared/product-card";
 import { QuantityStepper } from "@/components/shared/quantity-stepper";
 import { RatingStars } from "@/components/shared/rating-stars";
+import { ReceiptDownloadButton } from "@/components/shared/receipt-download";
 import { ReputationMeter, SellerBadge } from "@/components/shared/seller-badge";
 import { EmptyState, ErrorState } from "@/components/shared/states";
+import { ImportedProductNotice, TaxBreakdown } from "@/components/shared/tax-breakdown";
 import {
   DeliveryWindow,
   GuaranteeBadge,
@@ -61,6 +64,7 @@ import {
   PRODUCT_NORMAL,
   PRODUCT_SOLD_OUT,
   SELLER,
+  TAX_BREAKDOWN,
   TIMELINE_EVENTS,
 } from "./design-data";
 import { Demo } from "./design-view";
@@ -423,6 +427,37 @@ export function TrustSection() {
         </div>
       </Demo>
       <Demo
+        label="Tributos na página do produto"
+        hint="Programa de Conformidade 4.1 e 4.2: aviso de produto importado e a conta inteira, com frete (ou “incluído no preço”), descontos (sempre, mesmo zerados; a promoção “de/por” do anúncio entra aqui via listingDiscount) e total a pagar"
+        bare
+      >
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 shadow-xs">
+            <ImportedProductNotice />
+            <TaxBreakdown taxes={TAX_BREAKDOWN} freightIncluded showTotal />
+          </div>
+          <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 shadow-xs">
+            <ImportedProductNotice />
+            <TaxBreakdown
+              taxes={TAX_BREAKDOWN}
+              freightIncluded
+              listingDiscount={{ amount: 20000, currency: "BRL" }}
+              showTotal
+            />
+          </div>
+        </div>
+      </Demo>
+      <Demo
+        label="DocumentUpload e comprovante"
+        hint="documento privado (PDF ou foto) guardado pela chave e aberto por link assinado · comprovante do pedido em PDF"
+        bare
+      >
+        <div className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-xs">
+          <DocumentDemo />
+          <ReceiptDownloadButton path="/orders/demo/receipt" orderNumber="PY-2026-000123" className="self-start" />
+        </div>
+      </Demo>
+      <Demo
         label="OrderTimeline"
         hint="passado preenchido · atual com anel pulsando · futuro em neutral-300"
         className="md:col-span-2"
@@ -447,6 +482,25 @@ export function TrustSection() {
         </div>
       </Demo>
     </div>
+  );
+}
+
+/** Upload de documento sem API: devolve um link local para pré-visualizar no styleguide. */
+function DocumentDemo() {
+  const [value, setValue] = useState<string | null>("/images/kyc/constancia-ruc.svg");
+  return (
+    <FormField id="design-document" label="Constancia de RUC" hint="PDF ou foto legível, até 10 MB.">
+      <DocumentUpload
+        id="design-document"
+        value={value}
+        onChange={setValue}
+        label="Constancia de RUC"
+        upload={async (file) => {
+          const url = URL.createObjectURL(file);
+          return { uploadUrl: url, publicUrl: url, storageKey: `doc/demo/${file.name}`, headers: {} };
+        }}
+      />
+    </FormField>
   );
 }
 

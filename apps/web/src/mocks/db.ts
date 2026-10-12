@@ -2,9 +2,12 @@ import type {
   AddressDto,
   AdminAuditLogDto,
   ComplianceOccurrenceDto,
+  ComplianceTrainingDto,
   CouponDto,
   DayRange,
+  EnforcementActionDto,
   ExchangeRateDto,
+  MonitoringAlertDto,
   OrderDto,
   ParcelDimensionsDto,
   PaymentDto,
@@ -15,10 +18,17 @@ import type {
   ProductReportDto,
   ProductStatus,
   QuestionDto,
+  RfInteractionDto,
+  SellerAuditDto,
   SellerDto,
+  SellerInfractionDto,
+  SellerMeasureDto,
+  SellerNoticeDto,
+  SellerPolicyAcceptanceDto,
   SellerProductImageDto,
   SellerStatus,
   SellerSummaryDto,
+  ShipmentCheckDto,
   UserProfileDto,
   UserRole,
 } from "@marketplace/contracts";
@@ -28,9 +38,13 @@ import { guid, isoDaysAgo } from "./fixtures/base";
 import {
   PENDING_SELLER,
   PENDING_SELLER_KYC,
+  seedActions,
+  seedAlerts,
   seedModeration,
+  seedNotices,
   seedOccurrences,
   seedReports,
+  seedRfInteractions,
 } from "./fixtures/compliance";
 import { SEED_DATA } from "./fixtures/orders";
 import { REMESSA_SETTINGS_DEFAULTS, type SellerKyc } from "./fixtures/remessa";
@@ -59,6 +73,14 @@ export interface ProductOverride {
   hsCode?: string | null;
   attributes?: ProductAttributeDto[];
   images?: SellerProductImageDto[];
+  /** Descrição da declaração (Programa 7.4 e 7.6). */
+  nature?: string | null;
+  brand?: string | null;
+  unbranded?: boolean;
+  model?: string | null;
+  material?: string | null;
+  packageQuantity?: number;
+  originCountry?: string | null;
   /** Moderação de conformidade (EmAnalise/Bloqueado): motivo, observação e o nome/preço já liberados pelo admin. */
   moderationReason?: string | null;
   moderationNote?: string | null;
@@ -90,12 +112,27 @@ export interface PayoutOverride {
   failureReason: string | null;
 }
 
-/** Imagem enviada pelo painel (base64 para sobreviver ao reload; limitada pelo localStorage). */
+/** Imagem ou documento enviado pelo painel (base64 para sobreviver ao reload; limitado pelo localStorage). */
 export interface StoredUpload {
   contentType: string;
   base64: string;
   createdAt: string;
+  /** Nome original (documentos privados `doc/…`). */
+  fileName?: string;
 }
+
+/** Anexo guardado pela chave; o link para abrir é montado na leitura. */
+export interface StoredFile {
+  key: string;
+  name: string;
+}
+
+/** Infrações, medidas e aceites guardam a loja (os DTOs da API não repetem o id). */
+export type StoredInfraction = SellerInfractionDto & { sellerId: string };
+export type StoredMeasure = SellerMeasureDto & { sellerId: string };
+export type StoredAcceptance = SellerPolicyAcceptanceDto & { sellerId: string };
+export type StoredNotice = Omit<SellerNoticeDto, "responseFiles" | "overdue"> & { responseFiles: StoredFile[] };
+export type StoredRfInteraction = Omit<RfInteractionDto, "attachments" | "overdue"> & { attachments: StoredFile[] };
 
 /** Estado de moderação de um usuário (admin). */
 export interface UserState {
@@ -134,12 +171,27 @@ interface MockDb {
   sellerKyc: Record<string, SellerKyc>;
   occurrences: ComplianceOccurrenceDto[];
   reports: ProductReportDto[];
+  // Programa de Conformidade e Política de Vendedores
+  notices: StoredNotice[];
+  infractions: StoredInfraction[];
+  measures: StoredMeasure[];
+  acceptances: StoredAcceptance[];
+  alerts: MonitoringAlertDto[];
+  rfInteractions: StoredRfInteraction[];
+  trainings: ComplianceTrainingDto[];
+  actions: EnforcementActionDto[];
+  audits: SellerAuditDto[];
+  /** Conferências feitas antes de registrar cada remessa (id da remessa → itens). */
+  shipmentChecks: Record<string, ShipmentCheckDto[]>;
   /** Último sequencial de número de pedido (PY-2026-NNNNNN); persistido para não colidir entre reloads. */
   orderSeq: number;
 }
 
-/** v3: tributos discriminados do Remessa Conforme, remessas e conformidade (bancos antigos são descartados). */
-const STORAGE_KEY = "mktpy.mockdb.v3";
+/**
+ * v4: Programa de Conformidade e Política de Vendedores (categoria Games no lugar de Bebidas, dados de admissão,
+ * comunicações, infrações, medidas e registros). Bancos antigos são descartados.
+ */
+const STORAGE_KEY = "mktpy.mockdb.v4";
 /** Os pedidos seed usam 100100–100110; os criados pelo usuário começam em 100201. */
 const ORDER_SEQ_START = 100200;
 
@@ -267,6 +319,16 @@ function defaults(): MockDb {
     sellerKyc: { [PENDING_SELLER.id]: PENDING_SELLER_KYC },
     occurrences: seedOccurrences(),
     reports: seedReports(),
+    notices: seedNotices(),
+    infractions: [],
+    measures: [],
+    acceptances: [],
+    alerts: seedAlerts(),
+    rfInteractions: seedRfInteractions(),
+    trainings: [],
+    actions: seedActions(),
+    audits: [],
+    shipmentChecks: {},
     orderSeq: ORDER_SEQ_START,
   };
 }
@@ -306,6 +368,16 @@ function load(): MockDb {
       sellerKyc: { ...base.sellerKyc, ...(parsed.sellerKyc ?? {}) },
       occurrences: parsed.occurrences ?? base.occurrences,
       reports: parsed.reports ?? base.reports,
+      notices: parsed.notices ?? base.notices,
+      infractions: parsed.infractions ?? [],
+      measures: parsed.measures ?? [],
+      acceptances: parsed.acceptances ?? [],
+      alerts: parsed.alerts ?? base.alerts,
+      rfInteractions: parsed.rfInteractions ?? base.rfInteractions,
+      trainings: parsed.trainings ?? [],
+      actions: parsed.actions ?? base.actions,
+      audits: parsed.audits ?? [],
+      shipmentChecks: parsed.shipmentChecks ?? {},
       // Bancos antigos (sem orderSeq) recuperam o contador a partir do maior número já emitido.
       orderSeq: Math.max(
         parsed.orderSeq ?? ORDER_SEQ_START,

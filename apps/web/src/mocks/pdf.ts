@@ -152,7 +152,8 @@ export function buildShipmentLabelPdf(input: ShipmentLabelInput): Uint8Array {
   ops.push(`0.06 0.11 0.24 rg 0 ${H - 58} ${W} 58 re f 0 g`);
   text(12, H - 24, 15, true, input.brand.toUpperCase(), true);
   text(12, H - 37, 7.5, false, `${input.tradeName} - ${input.documentLabel}`, true);
-  text(12, H - 49, 7.5, false, "Remessa Conforme - tributos pagos na compra", true);
+  // Programa de Conformidade 9.3 e 9.4: o selo do PRC ou o texto "PROGRAMA REMESSA CONFORME", em caixa alta e negrito.
+  text(12, H - 50, 8, true, "PROGRAMA REMESSA CONFORME", true);
 
   // No sandbox, uma faixa vermelha de largura total avisa que a etiqueta é de teste.
   let y = H - 72;
@@ -220,6 +221,79 @@ function renderPdf(stream: string, width: number, height: number, fonts: string[
     `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`,
     ...fonts.map((font) => `<< /Type /Font /Subtype /Type1 /BaseFont /${font} >>`),
   ];
+  let out = "%PDF-1.4\n";
+  const offsets: number[] = [];
+  objects.forEach((body, i) => {
+    offsets.push(out.length);
+    out += `${i + 1} 0 obj\n${body}\nendobj\n`;
+  });
+  const xref = out.length;
+  out += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+  for (const offset of offsets) out += `${String(offset).padStart(10, "0")} 00000 n \n`;
+  out += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
+  return new TextEncoder().encode(out);
+}
+
+// ---------------------------------------------------------------------------
+// Documento de texto (comprovante do pedido) — várias páginas A4, mesmo espírito do TextPdf da API
+// ---------------------------------------------------------------------------
+
+export interface TextPdfLine {
+  text: string;
+  bold?: boolean;
+  size?: number;
+  /** Espaço extra depois da linha. */
+  gap?: number;
+}
+
+/** Quebra o texto em linhas de até `max` caracteres (Helvetica ~0,5 em por caractere). */
+function wrap(text: string, max: number): string[] {
+  const words = ascii(text).split(" ");
+  const lines: string[] = [];
+  let current = "";
+  for (const word of words) {
+    if ((current + " " + word).trim().length > max && current) {
+      lines.push(current);
+      current = word;
+    } else current = `${current} ${word}`.trim();
+  }
+  if (current) lines.push(current);
+  return lines.length ? lines : [""];
+}
+
+export function buildTextPdf(lines: TextPdfLine[]): Uint8Array {
+  const pages: string[][] = [[]];
+  let y = 800;
+  for (const line of lines) {
+    const size = line.size ?? 10;
+    for (const piece of wrap(line.text, Math.floor(1000 / size))) {
+      if (y < 60) {
+        pages.push([]);
+        y = 800;
+      }
+      pages.at(-1)!.push(`BT /${line.bold ? "F2" : "F1"} ${size} Tf 50 ${y} Td (${pdfString(piece)}) Tj ET`);
+      y -= size + 4;
+    }
+    y -= line.gap ?? 0;
+  }
+  const fontRefs = "/F1 3 0 R /F2 4 0 R";
+  const objects: string[] = [
+    "<< /Type /Catalog /Pages 2 0 R >>",
+    "", // páginas: preenchido abaixo
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>",
+  ];
+  const kids: number[] = [];
+  for (const ops of pages) {
+    const stream = ops.join("\n");
+    objects.push(`<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`);
+    const contentRef = objects.length;
+    objects.push(
+      `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << ${fontRefs} >> >> /Contents ${contentRef} 0 R >>`,
+    );
+    kids.push(objects.length);
+  }
+  objects[1] = `<< /Type /Pages /Kids [${kids.map((k) => `${k} 0 R`).join(" ")}] /Count ${kids.length} >>`;
   let out = "%PDF-1.4\n";
   const offsets: number[] = [];
   objects.forEach((body, i) => {

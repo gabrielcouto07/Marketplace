@@ -21,13 +21,18 @@ import { getApiBaseUrl } from "@/lib/api/http";
 import { convert, discountPercent, formatMoney, sum } from "@/lib/money";
 import { isValidCpf } from "@/lib/validation/documents";
 
+import { buildDeclaration, isGenericNature } from "@/lib/compliance/declaration";
+import { isCountryCode } from "@/lib/countries";
+
 import {
   allProducts,
   findProduct,
   findSellerBySlug,
+  productDeclaration,
   productNcm,
   productStatus,
   sellerKyc,
+  sellerPhone,
   sellerStatus,
   sellerVerification,
 } from "../catalog-state";
@@ -36,10 +41,13 @@ import { categoryById, getRate, slugify, toSellerSummary } from "../fixtures/bas
 import {
   NCM_TABLE,
   type SellerKyc,
+  checkNcmRestriction,
+  checkTextRestriction,
   findProtectedBrand,
   normalizeResponsibleDocument,
   validateNcm,
 } from "../fixtures/remessa";
+import { excludedMatchFor, logAction, markDataConfirmed } from "../governance";
 import { issueSession } from "./auth";
 import { audit, currentSeller, isResponse, requireSeller } from "./guards";
 import { advanceOrder, settlePendingPayments } from "./orders";
@@ -71,29 +79,40 @@ const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 /** Orçamento total de uploads guardados em base64 no localStorage. */
 const UPLOAD_BUDGET_BYTES = 3 * 1024 * 1024;
 
-/** CEP/código postal de origem (4 a 10 dígitos) e telefone (8 a 15 dígitos), ambos opcionais. */
+/** CEP/código postal de origem (4 a 10 dígitos, opcional) e telefone (8 a 15 dígitos, obrigatório — Política 3.1 c). */
 function validateContact(body: SellerProfileInput): Record<string, string[]> {
   const errors: Record<string, string[]> = {};
   const cep = body.originPostalCode?.replace(/\D/g, "") ?? "";
   if (body.originPostalCode?.trim() && (cep.length < 4 || cep.length > 10))
     errors.originPostalCode = ["Código postal inválido."];
   const phone = body.phone?.replace(/\D/g, "") ?? "";
-  if (body.phone?.trim() && (phone.length < 8 || phone.length > 15))
-    errors.phone = ["Telefone inválido."];
+  if (phone.length < 8 || phone.length > 15) errors.phone = ["Informe o telefone da empresa."];
   return errors;
 }
 
-const isUploadUrl = (url: string | null) =>
-  Boolean(url) && url!.length <= 1024 && (url!.startsWith("/") || url!.toLowerCase().startsWith("http"));
+/** Referência de documento: chave privada (`doc/…`, também vinda como link assinado) ou exemplo público. */
+function documentRef(raw: string | null | undefined): string | null {
+  const value = raw?.trim() ?? "";
+  if (!value) return null;
+  const key = value.startsWith("/api/documents/") ? value.slice("/api/documents/".length).split("?")[0] : value;
+  if (key.startsWith("doc/") && !key.includes("..")) return key;
+  return key.length <= 1024 && (key.startsWith("/") || key.toLowerCase().startsWith("http")) && !key.includes("..") ? key : null;
+}
+
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
- * Política de admissão (Portaria Coana 130/2023, art. 8º, V): endereço de origem, responsável, documento e constância
- * do RUC, com as mensagens da API. No perfil o documento volta mascarado: vazio mantém o atual.
+ * Política de Vendedores 3.1 e 3.2: denominação social, e-mail, telefone, endereço, meio de recebimento, representante
+ * legal e os quatro documentos, com as mensagens da API. No perfil o documento e a conta voltam mascarados: vazio
+ * mantém o atual. Dados de identificação ou documentos novos exigem nova verificação da equipe (3.3).
  */
 function validateKyc(
   body: SellerProfileInput,
   existing: SellerKyc | null,
+  rucChanged = false,
 ): { kyc: SellerKyc } | { errors: Record<string, string[]> } {
+  const legalName = body.legalName?.trim() ?? "";
+  const email = body.email?.trim().toLowerCase() ?? "";
   const legalAddress = body.legalAddress?.trim() ?? "";
   const responsibleName = body.responsibleName?.trim() ?? "";
   const type = body.responsibleDocumentType ?? existing?.responsibleDocumentType ?? null;
@@ -106,36 +125,69 @@ function validateKyc(
     : type
       ? normalizeResponsibleDocument(type, body.responsibleDocument, isValidCpf)
       : null;
-  const identityDocumentUrl = body.identityDocumentUrl?.trim() || null;
-  const rucCertificateUrl = body.rucCertificateUrl?.trim() || null;
+  const payoutMethod = body.payoutMethod ?? existing?.payoutMethod ?? null;
+  const payoutAccount = body.payoutAccount?.trim() || existing?.payoutAccount || null;
+  const payoutHolder = body.payoutHolder?.trim() ?? "";
+  const payoutInstitution = body.payoutInstitution?.trim() || null;
+  const identityDocumentUrl = documentRef(body.identityDocumentUrl);
+  const rucCertificateUrl = documentRef(body.rucCertificateUrl);
+  const taxComplianceCertificateUrl = documentRef(body.taxComplianceCertificateUrl);
+  const articlesOfIncorporationUrl = documentRef(body.articlesOfIncorporationUrl);
   const errors: Record<string, string[]> = {};
+  if (legalName.length < 3 || legalName.length > 200) errors.legalName = ["Informe a denominação social da empresa (como no RUC)."];
+  if (!EMAIL.test(email)) errors.email = ["Informe o e-mail da empresa."];
   if (legalAddress.length < 10 || legalAddress.length > 300)
     errors.legalAddress = [
       "Informe o endereço completo de onde os pacotes saem (rua, número e bairro).",
     ];
   if (responsibleName.length < 5 || responsibleName.length > 160)
-    errors.responsibleName = ["Informe o nome completo do responsável pela loja."];
-  if (!type) errors.responsibleDocumentType = ["Escolha o tipo de documento do responsável."];
-  else if (!document) errors.responsibleDocument = ["Documento do responsável inválido."];
-  if (!isUploadUrl(identityDocumentUrl))
-    errors.identityDocumentUrl = ["Envie a foto do documento do responsável."];
-  if (!isUploadUrl(rucCertificateUrl)) errors.rucCertificateUrl = ["Envie a constância do RUC."];
+    errors.responsibleName = ["Informe o nome completo do representante legal."];
+  if (!type) errors.responsibleDocumentType = ["Escolha o tipo de documento do representante legal."];
+  else if (!document) errors.responsibleDocument = ["Documento do representante inválido."];
+  if (!payoutMethod) errors.payoutMethod = ["Escolha o meio de recebimento (conta bancária ou carteira digital)."];
+  if (!payoutAccount || payoutAccount.length < 4 || payoutAccount.length > 64)
+    errors.payoutAccount = ["Informe o número da conta ou o identificador da carteira."];
+  if (payoutHolder.length < 3 || payoutHolder.length > 200) errors.payoutHolder = ["Informe o titular da conta."];
+  if (payoutInstitution && payoutInstitution.length > 120) errors.payoutInstitution = ["Nome muito longo."];
+  if (!identityDocumentUrl) errors.identityDocumentUrl = ["Envie o documento com foto do representante legal."];
+  if (!rucCertificateUrl) errors.rucCertificateUrl = ["Envie a Constancia de RUC."];
+  if (!taxComplianceCertificateUrl) errors.taxComplianceCertificateUrl = ["Envie o Certificado de Cumplimiento Tributario."];
+  if (!articlesOfIncorporationUrl) errors.articlesOfIncorporationUrl = ["Envie os atos constitutivos e o registro comercial."];
   if (Object.keys(errors).length) return { errors };
-  // Documento ou comprovantes novos exigem nova verificação da equipe.
   const changed =
+    rucChanged ||
     document !== existing?.responsibleDocument ||
+    legalName !== existing?.legalName ||
+    payoutAccount !== existing?.payoutAccount ||
     identityDocumentUrl !== existing?.identityDocumentUrl ||
-    rucCertificateUrl !== existing?.rucCertificateUrl;
+    rucCertificateUrl !== existing?.rucCertificateUrl ||
+    taxComplianceCertificateUrl !== existing?.taxComplianceCertificateUrl ||
+    articlesOfIncorporationUrl !== existing?.articlesOfIncorporationUrl;
   return {
     kyc: {
+      legalName,
+      email,
+      phone: body.phone?.trim() || null,
       legalAddress,
+      payoutMethod,
+      payoutInstitution,
+      payoutAccount,
+      payoutHolder,
       responsibleName,
       responsibleDocumentType: type,
       responsibleDocument: document,
       identityDocumentUrl,
       rucCertificateUrl,
+      taxComplianceCertificateUrl,
+      articlesOfIncorporationUrl,
+      checklist: changed ? [] : (existing?.checklist ?? []),
       verifiedAt: changed ? null : (existing?.verifiedAt ?? null),
       suspensionReason: existing?.suspensionReason ?? null,
+      suspendedUntil: existing?.suspendedUntil ?? null,
+      policyVersionAccepted: existing?.policyVersionAccepted ?? null,
+      policyAcceptedAt: existing?.policyAcceptedAt ?? null,
+      // Atualizar os dados conta como confirmação deles (Política 4.2 e 4.3).
+      dataConfirmedAt: nowIso(),
     },
   };
 }
@@ -167,6 +219,8 @@ function decideListing(
   priceAmount: number,
   ncm: string | null,
   requested: SellerProductInput["status"],
+  /** Natureza, material e descrição: termos do Anexo I no anúncio mandam para análise. */
+  text: { nature?: string | null; material?: string | null; description?: string | null } = {},
 ): { status: ProductStatus; moderationReason: string | null; moderationNote: string | null } {
   const current = db.productOverrides[productId];
   if (current?.status === "Bloqueado")
@@ -176,10 +230,18 @@ function decideListing(
       moderationNote: current.moderationNote ?? null,
     };
   if (requested === "Rascunho") return { status: "Rascunho", moderationReason: null, moderationNote: null };
+  // Anexo I da Política de Vendedores (5.1 a 5.3): NCM de oferta vedada nunca publica; termos e NCM sensíveis vão para análise.
+  const ncmHit = checkNcmRestriction(ncm);
+  if (ncmHit?.level === "Bloqueio")
+    return { status: "Bloqueado", moderationReason: "PRODUTO_PROIBIDO", moderationNote: ncmHit.reason };
+  const textHit = checkTextRestriction(`${name} ${text.nature ?? ""} ${text.material ?? ""}`, text.description ?? "");
+  const restriction = ncmHit ?? textHit;
   const approved =
     current?.approvedName === name &&
     current.approvedPriceAmount != null &&
     priceAmount * 10 >= current.approvedPriceAmount * 9;
+  if (!approved && restriction)
+    return { status: "EmAnalise", moderationReason: "PRODUTO_PROIBIDO", moderationNote: restriction.reason };
   if (!approved) {
     const brand = findProtectedBrand(name, db.settings.protectedBrands);
     if (brand)
@@ -215,8 +277,9 @@ function productsOf(sellerId: string): ProductDetailDto[] {
   return allProducts().filter((p) => p.seller.id === sellerId);
 }
 
-function toProfile(seller: SellerDto): SellerProfileDto {
+export function toProfile(seller: SellerDto): SellerProfileDto {
   const override = db.sellerOverrides[seller.id];
+  const kyc = sellerKyc(seller.id);
   return {
     id: seller.id,
     slug: seller.slug,
@@ -236,8 +299,10 @@ function toProfile(seller: SellerDto): SellerProfileDto {
     memberSince: seller.memberSince,
     categories: seller.categories,
     originPostalCode: override?.originPostalCode ?? null,
-    phone: override?.phone ?? null,
+    phone: sellerPhone(seller.id),
     verification: sellerVerification(seller.id),
+    legalName: kyc.legalName,
+    email: kyc.email,
   };
 }
 
@@ -264,6 +329,8 @@ function toListItem(p: ProductDetailDto): SellerProductListItemDto {
 
 function toSellerProduct(p: ProductDetailDto): SellerProductDto {
   const override = db.productOverrides[p.id];
+  const d = productDeclaration(p.id);
+  const declarationReady = Boolean(d && d.nature.trim().length >= 3 && d.material.trim().length >= 2 && (d.unbranded || d.brand));
   return {
     id: p.id,
     slug: p.slug,
@@ -282,6 +349,17 @@ function toSellerProduct(p: ProductDetailDto): SellerProductDto {
     hsCodeDescription: NCM_TABLE[productNcm(p.id) ?? ""] ?? null,
     moderationReason: override?.moderationReason ?? null,
     moderationNote: override?.moderationNote ?? null,
+    nature: d?.nature || null,
+    brand: d?.brand ?? null,
+    unbranded: d?.unbranded ?? false,
+    model: d?.model ?? null,
+    material: d?.material || null,
+    packageQuantity: d?.packageQuantity ?? 1,
+    originCountry: d?.originCountry || null,
+    declarationPreview:
+      d && declarationReady
+        ? buildDeclaration({ nature: d.nature, brand: d.brand, unbranded: d.unbranded, model: d.model, material: d.material, quantity: d.packageQuantity })
+        : null,
     attributes: p.attributes,
     images: p.images.map((img, i) => ({
       id: img.id,
@@ -329,6 +407,24 @@ function validateProduct(body: SellerProductInput) {
   if (body.handlingDaysMin < 1 || body.handlingDaysMax < body.handlingDaysMin)
     errors.handlingDaysMax = ["Prazo de postagem inválido."];
   if ((body.images?.length ?? 0) > 8) errors.images = ["Máximo de 8 imagens."];
+  // Descrição da declaração (Programa 7.4 e 7.6): obrigatória para publicar, sem expressões genéricas.
+  const nature = body.nature?.trim() ?? "";
+  const material = body.material?.trim() ?? "";
+  if (nature.length > 120) errors.nature = ["Máximo de 120 caracteres."];
+  if ((body.brand?.trim().length ?? 0) > 80 || (body.model?.trim().length ?? 0) > 80) errors.brand = ["Máximo de 80 caracteres."];
+  if (material.length > 160) errors.material = ["Máximo de 160 caracteres."];
+  if (body.packageQuantity != null && (body.packageQuantity < 1 || body.packageQuantity > 1000))
+    errors.packageQuantity = ["Quantidade entre 1 e 1.000 unidades."];
+  if (body.originCountry?.trim() && !isCountryCode(body.originCountry)) errors.originCountry = ["País de origem inválido."];
+  if (listed) {
+    if (nature.length < 3)
+      errors.nature = ['Diga o que é o produto (ex.: "Fone de ouvido Bluetooth"). Vai na declaração de importação.'];
+    else if (isGenericNature(nature))
+      errors.nature = ['Natureza genérica (ex.: "produto", "acessórios", "presente") não é aceita na declaração. Diga exatamente o que é.'];
+    if (!body.unbranded && !body.brand?.trim()) errors.brand = ['Informe a marca ou marque "produto sem marca".'];
+    if (material.length < 2) errors.material = ['Informe o material (ex.: "plástico ABS e alumínio").'];
+    if (!body.originCountry?.trim()) errors.originCountry = ["Informe o país de origem (onde o produto foi fabricado)."];
+  }
   const weight = body.weightGrams;
   if (
     weight !== null &&
@@ -356,6 +452,19 @@ function shippingFromInput(body: SellerProductInput) {
         ? { lengthCm: dims.lengthCm, widthCm: dims.widthCm, heightCm: dims.heightCm }
         : null,
     hsCode: body.hsCode?.replace(/\D/g, "") || null,
+  };
+}
+
+/** Descrição da declaração normalizada (Programa 7.4 e 7.6). */
+function declarationFromInput(body: SellerProductInput) {
+  return {
+    nature: body.nature?.trim() || null,
+    brand: body.unbranded ? null : body.brand?.trim() || null,
+    unbranded: Boolean(body.unbranded),
+    model: body.model?.trim() || null,
+    material: body.material?.trim() || null,
+    packageQuantity: body.packageQuantity ?? 1,
+    originCountry: body.originCountry?.trim().toUpperCase() || null,
   };
 }
 
@@ -419,6 +528,7 @@ function overrideFromInput(body: SellerProductInput) {
     warrantyMonths: body.warrantyMonths,
     handlingDays: { min: body.handlingDaysMin, max: body.handlingDaysMax },
     ...shippingFromInput(body),
+    ...declarationFromInput(body),
     attributes: body.attributes ?? [],
     images: (body.images ?? []).map((img, i) => ({
       id: `${i + 1}`,
@@ -476,11 +586,31 @@ export const sellerPanelHandlers = [
     if (!body.city) errors.city = ["Escolha a cidade de envio."];
     if (!body.description || body.description.trim().length < 20)
       errors.description = ["Descreva sua loja com pelo menos 20 caracteres."];
-    if (!body.acceptTerms) errors.acceptTerms = ["Aceite os termos para continuar."];
+    if (!body.acceptTerms) errors.acceptTerms = ["É preciso aceitar os termos para vendedores."];
+    if (!body.acceptSellerPolicy)
+      errors.acceptSellerPolicy = ["É preciso ler e aceitar a Política de Admissão e de Monitoramento de Vendedores."];
+    if (!body.representativeDeclaration)
+      errors.representativeDeclaration = ["Confirme que você é o representante legal da empresa (ou age em nome dele)."];
     Object.assign(errors, validateContact(body));
     const kyc = validateKyc(body, null);
     if ("errors" in kyc) Object.assign(errors, kyc.errors);
     if (Object.keys(errors).length || "errors" in kyc) return validation(errors);
+
+    // Política 3.5: loja excluída não volta com os mesmos dados ou documentos.
+    const excluded = excludedMatchFor({
+      ruc: body.ruc,
+      document: kyc.kyc.responsibleDocument,
+      payoutAccount: kyc.kyc.payoutAccount,
+    });
+    if (excluded) {
+      logAction("CadastroRecusado", `Dados em comum com ${excluded}.`, "Cadastro recusado: dados de loja excluída (Política 3.5).");
+      persistDb();
+      return problem(
+        409,
+        "SELLER_EXCLUDED",
+        "Não é possível cadastrar a loja: os dados ou documentos informados pertencem a uma loja excluída da plataforma.",
+      );
+    }
 
     const id = crypto.randomUUID();
     const baseSlug = slugify(body.name);
@@ -521,7 +651,21 @@ export const sellerPanelHandlers = [
       originPostalCode: body.originPostalCode?.trim() || null,
       phone: body.phone?.replace(/\D/g, "") || null,
     };
-    db.sellerKyc[seller.id] = kyc.kyc;
+    const acceptedAt = nowIso();
+    db.sellerKyc[seller.id] = {
+      ...kyc.kyc,
+      policyVersionAccepted: db.settings.sellerPolicyVersion,
+      policyAcceptedAt: acceptedAt,
+    };
+    // Política 2.2: aceite eletrônico do representante legal, com data, hora e identificação.
+    db.acceptances.unshift({
+      sellerId: seller.id,
+      policyVersion: db.settings.sellerPolicyVersion,
+      acceptedAt,
+      representativeName: kyc.kyc.responsibleName ?? db.user.fullName,
+      representativeDocumentMasked: null,
+      ipAddress: "181.120.44.9",
+    });
     db.sellerByUser[db.user.id] = slug;
     if (!db.user.roles.includes("Vendedor")) db.user.roles = [...db.user.roles, "Vendedor"];
     db.audit.push({
@@ -563,6 +707,8 @@ export const sellerPanelHandlers = [
     if ("errors" in kyc) Object.assign(errors, kyc.errors);
     if (Object.keys(errors).length || "errors" in kyc) return validation(errors);
     db.sellerKyc[seller.id] = kyc.kyc;
+    // Dados atualizados respondem os pedidos de correção cadastral, que a equipe confere (Política 4.2 e 8.4).
+    markDataConfirmed(seller.id, "Dados atualizados pelo vendedor");
     db.sellerOverrides[seller.id] = {
       ...db.sellerOverrides[seller.id],
       name: body.name.trim(),
@@ -644,7 +790,8 @@ export const sellerPanelHandlers = [
     db.productOverrides[product.id] = {
       images: overrideFromInput(body).images,
       ...shipping,
-      ...decideListing(product.id, product.name, body.priceAmount, shipping.hsCode, body.status),
+      ...declarationFromInput(body),
+      ...decideListing(product.id, product.name, body.priceAmount, shipping.hsCode, body.status, body),
       updatedAt: nowIso(),
     };
     persistDb();
@@ -673,7 +820,7 @@ export const sellerPanelHandlers = [
     db.productOverrides[product.id] = {
       ...db.productOverrides[product.id],
       ...next,
-      ...decideListing(product.id, next.name, body.priceAmount, next.hsCode, body.status),
+      ...decideListing(product.id, next.name, body.priceAmount, next.hsCode, body.status, body),
     };
     persistDb();
     return HttpResponse.json(toSellerProduct(findProduct(product.id)!));

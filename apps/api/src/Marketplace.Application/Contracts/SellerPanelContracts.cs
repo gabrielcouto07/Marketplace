@@ -25,9 +25,15 @@ public sealed record SellerProfileDto(
     IReadOnlyList<CategoryRefDto> Categories,
     string? OriginPostalCode,
     string? Phone,
-    SellerVerificationDto? Verification = null);
+    SellerVerificationDto? Verification = null,
+    /// <summary>Denominação social (pessoa jurídica paraguaia).</summary>
+    string? LegalName = null,
+    string? Email = null);
 
-/// <summary>Dados de admissão do vendedor (critério v). O documento volta mascarado.</summary>
+/// <summary>
+/// Dados de admissão do vendedor (Política de Vendedores 3.1 e 3.2). Documento e conta voltam mascarados; os arquivos
+/// voltam como links temporários (armazenamento privado).
+/// </summary>
 public sealed record SellerVerificationDto(
     string? LegalAddress,
     string? ResponsibleName,
@@ -37,7 +43,23 @@ public sealed record SellerVerificationDto(
     string? RucCertificateUrl,
     bool Complete,
     DateTime? VerifiedAt,
-    string? SuspensionReason);
+    string? SuspensionReason,
+    string? TaxComplianceCertificateUrl = null,
+    string? ArticlesOfIncorporationUrl = null,
+    SellerPayoutMethod? PayoutMethod = null,
+    string? PayoutInstitution = null,
+    string? PayoutAccountMasked = null,
+    string? PayoutHolder = null,
+    /// <summary>Tudo o que os itens 3.1 e 3.2 pedem está preenchido.</summary>
+    bool AdmissionComplete = false,
+    IReadOnlyList<string>? MissingAdmissionData = null,
+    IReadOnlyList<string>? Checklist = null,
+    string? PolicyVersionAccepted = null,
+    DateTime? PolicyAcceptedAt = null,
+    DateTime? DataConfirmedAt = null,
+    DateTime? SuspendedUntil = null,
+    /// <summary>Chaves dos documentos (para reenviar o formulário sem trocar o arquivo).</summary>
+    IReadOnlyDictionary<string, string>? DocumentKeys = null);
 
 public sealed record SellerRegisterRequest(
     string? Name,
@@ -56,7 +78,19 @@ public sealed record SellerRegisterRequest(
     SellerDocumentType? ResponsibleDocumentType = null,
     string? ResponsibleDocument = null,
     string? IdentityDocumentUrl = null,
-    string? RucCertificateUrl = null);
+    string? RucCertificateUrl = null,
+    string? LegalName = null,
+    string? Email = null,
+    SellerPayoutMethod? PayoutMethod = null,
+    string? PayoutInstitution = null,
+    string? PayoutAccount = null,
+    string? PayoutHolder = null,
+    string? TaxComplianceCertificateUrl = null,
+    string? ArticlesOfIncorporationUrl = null,
+    /// <summary>Aceite eletrônico da Política de Vendedores (Política 2.2).</summary>
+    bool? AcceptSellerPolicy = null,
+    /// <summary>Quem aceita declara ser o representante legal da empresa.</summary>
+    bool? RepresentativeDeclaration = null);
 
 public sealed record SellerProfileInput(
     string? Name,
@@ -75,7 +109,16 @@ public sealed record SellerProfileInput(
     /// <summary>Nulo mantém o documento atual (o perfil só devolve a versão mascarada).</summary>
     string? ResponsibleDocument = null,
     string? IdentityDocumentUrl = null,
-    string? RucCertificateUrl = null);
+    string? RucCertificateUrl = null,
+    string? LegalName = null,
+    string? Email = null,
+    SellerPayoutMethod? PayoutMethod = null,
+    string? PayoutInstitution = null,
+    /// <summary>Nulo mantém a conta atual (o perfil só devolve a versão mascarada).</summary>
+    string? PayoutAccount = null,
+    string? PayoutHolder = null,
+    string? TaxComplianceCertificateUrl = null,
+    string? ArticlesOfIncorporationUrl = null);
 
 /// <summary>Cadastro devolve a loja e uma nova sessão (o JWT passa a carregar o papel Vendedor).</summary>
 public sealed record SellerRegisterResponseDto(SellerProfileDto Seller, AuthResponseDto Session);
@@ -133,7 +176,17 @@ public sealed record SellerProductDto(
     string? HsCode,
     string? ModerationReason = null,
     string? ModerationNote = null,
-    string? HsCodeDescription = null);
+    string? HsCodeDescription = null,
+    // Descrição da declaração (Programa 7.4 e 7.6)
+    string? Nature = null,
+    string? Brand = null,
+    bool Unbranded = false,
+    string? Model = null,
+    string? Material = null,
+    int PackageQuantity = 1,
+    string? OriginCountry = null,
+    /// <summary>Como a mercadoria sai na declaração (null enquanto faltar dado).</summary>
+    string? DeclarationPreview = null);
 
 public sealed record SellerProductInput(
     string? Name,
@@ -151,7 +204,14 @@ public sealed record SellerProductInput(
     ProductStatus? Status,
     int? WeightGrams = null,
     ParcelDimensionsDto? Dimensions = null,
-    string? HsCode = null);
+    string? HsCode = null,
+    string? Nature = null,
+    string? Brand = null,
+    bool Unbranded = false,
+    string? Model = null,
+    string? Material = null,
+    int? PackageQuantity = null,
+    string? OriginCountry = null);
 
 /// <summary>Dimensões da embalagem em centímetros (cotação com transportadoras).</summary>
 public sealed record ParcelDimensionsDto(int LengthCm, int WidthCm, int HeightCm);

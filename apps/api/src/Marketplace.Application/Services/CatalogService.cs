@@ -52,13 +52,13 @@ public sealed class CatalogService(IAppDbContext db, ExchangeRateService rates, 
             .GroupBy(p => p.CategoryId)
             .Select(g => new { g.Key, Count = g.Count() })
             .ToDictionaryAsync(g => g.Key, g => g.Count, ct);
-        var categories = await db.Categories.AsNoTracking().OrderBy(c => c.SortOrder).ThenBy(c => c.Name).ToListAsync(ct);
+        var categories = await db.Categories.AsNoTracking().Where(c => c.IsActive).OrderBy(c => c.SortOrder).ThenBy(c => c.Name).ToListAsync(ct);
         return categories.Select(c => c.ToDto(counts.GetValueOrDefault(c.Id))).ToList();
     }
 
     public async Task<CategoryDto> CategoryAsync(string slug, CancellationToken ct)
     {
-        var category = await db.Categories.AsNoTracking().FirstOrDefaultAsync(c => c.Slug == slug, ct)
+        var category = await db.Categories.AsNoTracking().FirstOrDefaultAsync(c => c.Slug == slug && c.IsActive, ct)
                        ?? throw AppException.NotFound("Categoria");
         var count = await ActiveProducts().CountAsync(p => p.CategoryId == category.Id, ct);
         return category.ToDto(count);

@@ -123,6 +123,12 @@ public sealed class RemessaConformeFlowTests : IClassFixture<ApiFactory>
             images = new[] { new { url = "/images/products/perfumes-1-1.webp" } },
             hsCode,
             status,
+            // Descrição da declaração (Programa 7.4 e 7.6).
+            nature = "Perfume eau de parfum 100 ml",
+            unbranded = true,
+            material = "Solução alcoólica perfumada em frasco de vidro",
+            packageQuantity = 1,
+            originCountry = "FR",
         };
 
         var noNcm = await client.PostAsJsonAsync("/api/seller/products", Input("Eau de Parfum floral 100 ml", null), Json);
@@ -180,7 +186,7 @@ public sealed class RemessaConformeFlowTests : IClassFixture<ApiFactory>
     public async Task RepeatedOccurrences_SuspendTheSeller()
     {
         var admin = await AdminAsync();
-        var sellers = await admin.GetFromJsonAsync<JsonElement>("/api/admin/sellers?q=Bebidas", Json);
+        var sellers = await admin.GetFromJsonAsync<JsonElement>("/api/admin/sellers?q=Game", Json);
         var sellerId = sellers.GetProperty("items")[0].GetProperty("id").GetGuid();
         for (var i = 0; i < 3; i++)
         {
@@ -207,7 +213,11 @@ public sealed class RemessaConformeFlowTests : IClassFixture<ApiFactory>
         var sellerId = pending.GetProperty("items")[0].GetProperty("id").GetGuid();
         var direct = await admin.PutAsJsonAsync($"/api/admin/sellers/{sellerId}", new { status = "Aprovado" }, Json);
         Assert.Equal(HttpStatusCode.UnprocessableEntity, direct.StatusCode);
-        var verified = await admin.PostAsJsonAsync($"/api/admin/sellers/{sellerId}/verify", new { approve = true }, Json);
+        // Política 3.3: aprovar exige a conferência de cada item do cadastro.
+        var partial = await admin.PostAsJsonAsync($"/api/admin/sellers/{sellerId}/verify", new { approve = true, checks = new[] { "ruc" } }, Json);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, partial.StatusCode);
+        var verified = await admin.PostAsJsonAsync($"/api/admin/sellers/{sellerId}/verify",
+            new { approve = true, checks = Marketplace.Application.Services.SellerGovernanceService.VerificationItems }, Json);
         Assert.Equal(HttpStatusCode.OK, verified.StatusCode);
         var dto = await verified.Content.ReadFromJsonAsync<JsonElement>(Json);
         Assert.Equal("Aprovado", dto.GetProperty("summary").GetProperty("status").GetString());

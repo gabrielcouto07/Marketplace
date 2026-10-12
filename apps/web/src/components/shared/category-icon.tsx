@@ -1,5 +1,6 @@
 import {
   Dumbbell,
+  Gamepad2,
   Laptop,
   Package,
   Shirt,
@@ -16,6 +17,8 @@ const ICONS: Record<string, LucideIcon> = {
   "spray-can": SprayCan,
   laptop: Laptop,
   smartphone: Smartphone,
+  "gamepad-2": Gamepad2,
+  // Categoria antiga (bebidas alcoólicas são oferta vedada): mantida para bancos que ainda a tenham inativa.
   wine: Wine,
   sofa: Sofa,
   dumbbell: Dumbbell,

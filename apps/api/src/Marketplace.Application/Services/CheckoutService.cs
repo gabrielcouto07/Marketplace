@@ -4,6 +4,7 @@ using Marketplace.Application.Common;
 using Marketplace.Application.Contracts;
 using Marketplace.Domain;
 using Marketplace.Domain.Common;
+using Marketplace.Domain.Compliance;
 using Marketplace.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -19,6 +20,8 @@ public sealed class CheckoutService(
     ITaxpayerRegistry taxpayers,
     OrderService orders,
     PaymentService payments,
+    MonitoringService monitoring,
+    Microsoft.Extensions.Options.IOptions<CpfVerificationOptions> cpfOptions,
     ICurrentUser currentUser,
     JsonSerializerOptions json,
     TimeProvider clock,
@@ -56,6 +59,9 @@ public sealed class CheckoutService(
         {
             var seller = await db.Sellers.AsNoTracking().FirstOrDefaultAsync(s => s.Id == g.SellerId, ct)
                          ?? throw AppException.Validation("groups", $"Loja {g.SellerId} não encontrada.");
+            // Política 3.3 e 8.1: só loja verificada e sem suspensão vende.
+            if (seller.Status != SellerStatus.Aprovado)
+                throw AppException.Validation("groups", $"A loja {seller.Name} não está vendendo no momento. Remova os produtos dela do carrinho.");
             if (g.Items is null || g.Items.Count == 0) throw AppException.Validation("items", "Grupo sem itens.");
             var lines = await shipping.ResolveLinesAsync(g.Items, seller.Id, ct);
             var stockErrors = new ValidationErrors();
@@ -170,9 +176,26 @@ public sealed class CheckoutService(
         var recipientCpf = Documents.OnlyDigits(address.RecipientDocument);
         if (!Documents.IsValidCpf(recipientCpf))
             throw AppException.Validation("addressId", "Informe o CPF de quem vai receber no endereço de entrega. Ele vai na declaração de importação.");
+        // Programa 7.2: antes de concluir a venda, o CPF confere com a base da Receita quanto ao número e ao nome do titular.
         var recipientCheck = await taxpayers.CheckCpfAsync(recipientCpf, ct);
         if (recipientCheck.BlocksDeclaration)
             throw AppException.Validation("addressId", "O CPF do destinatário não está regular na Receita Federal. Corrija o endereço de entrega.");
+        string verificationSource;
+        // Sem o nome do titular na resposta, só o número foi conferido: o item 7.2 pede os dois.
+        if (recipientCheck.Situation == TaxpayerSituation.NaoVerificado || string.IsNullOrWhiteSpace(recipientCheck.Name))
+        {
+            if (cpfOptions.Value.RequireRegistryCheck)
+                throw new AppException(503, "CPF_VERIFICATION_UNAVAILABLE",
+                    "Não foi possível conferir o CPF do destinatário na Receita Federal agora. Tente de novo em alguns minutos.");
+            verificationSource = "sandbox";
+        }
+        else
+        {
+            if (!PersonName.Matches(recipientCheck.Name, address.RecipientName))
+                throw AppException.Validation("addressId",
+                    "O nome de quem vai receber não confere com o titular do CPF na Receita Federal. Corrija o endereço de entrega com o nome completo do titular.");
+            verificationSource = recipientCheck.Source;
+        }
 
         var payment = request.Payment ?? throw AppException.Validation("payment", "Informe a forma de pagamento.");
         var payerDocument = Documents.OnlyDigits(payment.PayerDocument);
@@ -244,6 +267,9 @@ public sealed class CheckoutService(
         {
             var group = quote.Groups[gi];
             var input = request.Groups?.FirstOrDefault(g => g.SellerId == group.Seller.Id);
+            // A loja pode ter sido suspensa ou excluída depois da cotação (Política 8.1).
+            if (!await db.Sellers.AnyAsync(s => s.Id == group.Seller.Id && s.Status == SellerStatus.Aprovado, ct))
+                throw AppException.Validation("items", $"A loja {group.Seller.Name} não está vendendo no momento. Atualize o carrinho.");
             // Impostos e total foram calculados com a opção selecionada na cotação; mudar o frete exige recotar.
             if (input?.ShippingOptionId is { } chosen && chosen != group.SelectedShippingOptionId)
                 throw AppException.Validation("quoteId", "A opção de frete mudou. Atualize o resumo do pedido.");
@@ -264,6 +290,9 @@ public sealed class CheckoutService(
             {
                 var product = await db.Products.AsNoTracking().Include(p => p.Variants).FirstAsync(p => p.Id == line.ProductId, ct);
                 var variant = line.VariantId is { } vid ? product.Variants.First(v => v.Id == vid) : null;
+                // O anúncio pode ter saído da vitrine depois da cotação (análise, Anexo I, dados da declaração).
+                if (product.Status != ProductStatus.Ativo || !product.HasDeclarationData || Ncm.ProhibitionReason(product.HsCode!) is not null)
+                    throw AppException.Validation("items", $"\"{product.Name}\" não está mais disponível. Atualize o carrinho.");
                 var quantity = line.Quantity;
                 // Reserva atômica (UPDATE ... WHERE stock >= qtd): duas compras simultâneas não vendem a mesma unidade.
                 var reserved = variant is not null
@@ -289,6 +318,10 @@ public sealed class CheckoutService(
                     Quantity = line.Quantity,
                     UnitPriceAmount = line.UnitPrice.Amount,
                     LineTotalAmount = line.LineTotal.Amount,
+                    // Dados da declaração como vendidos (Programa 7.5): a etiqueta usa estes, não o anúncio editado depois.
+                    HsCode = product.HsCode,
+                    OriginCountry = product.OriginCountry,
+                    DeclarationDescription = product.DeclarationDescription(variant?.Label),
                 });
             }
 
@@ -306,6 +339,8 @@ public sealed class CheckoutService(
                 UpdatedAt = now,
                 ShippingAddress = address.ToSnapshot(),
                 RecipientDocument = recipientCpf,
+                RecipientVerifiedAt = now,
+                RecipientVerificationSource = verificationSource,
                 ShippingOption = option.ToSnapshot(),
                 EstimatedDeliveryMin = BusinessDays.Add(now, handlingDays + option.EstimatedDays.Min),
                 EstimatedDeliveryMax = BusinessDays.Add(now, handlingDays + option.EstimatedDays.Max),
@@ -332,6 +367,17 @@ public sealed class CheckoutService(
         }
         await db.SaveChangesAsync(ct);
         await tx.CommitAsync(ct);
+
+        // Programa 6.4: compras do mesmo comprador para o mesmo endereço em 7 dias que mudam a faixa viram alerta.
+        try
+        {
+            var orderIds = db.Orders.Local.Where(o => o.PurchaseId == purchaseId).Select(o => o.Id).ToList();
+            await monitoring.CheckFractioningAsync(userId, orderIds, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogError(ex, "Falha na checagem de fracionamento da compra {PurchaseId}", purchaseId);
+        }
 
         // 2) Gateway (fora da transação): cria a cobrança e aplica o resultado.
         try

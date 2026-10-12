@@ -28,13 +28,14 @@ public static class LabelPdf
         var c = new Canvas();
         var p = r.Platform;
 
-        // Faixa da plataforma (identidade obrigatória no remetente).
+        // Faixa da plataforma: marca, nome comercial e CNPJ/TIN em destaque (Programa 9.1) e, no lugar do selo, o texto
+        // "PROGRAMA REMESSA CONFORME" em caixa alta e negrito (9.3 e 9.4). Etiqueta em português (9.2).
         c.Fill(0, H - 58, W, 58, 0.06f, 0.11f, 0.24f);
         c.Text(12, H - 24, 15, bold: true, p.Brand.ToUpperInvariant(), white: true);
-        c.Text(12, H - 37, 7.5f, false, $"{p.TradeName} · {p.DocumentType} {FormatDocument(p.DocumentType, p.Document)}", white: true);
-        c.Text(12, H - 49, 7.5f, false, string.IsNullOrWhiteSpace(p.AdeNumber)
-            ? "Remessa Conforme · tributos pagos na compra"
-            : $"Remessa Conforme · ADE {p.AdeNumber} · tributos pagos na compra", white: true);
+        c.Text(12, H - 36, 7.5f, false, $"{p.TradeName} · {p.DocumentType} {FormatDocument(p.DocumentType, p.Document)}", white: true);
+        c.Text(12, H - 51, 9.5f, bold: true, "PROGRAMA REMESSA CONFORME", white: true);
+        if (!string.IsNullOrWhiteSpace(p.AdeNumber))
+            c.Text(W - 12 - Measure($"ADE {p.AdeNumber}", 7), H - 50, 7, false, $"ADE {p.AdeNumber}", white: true);
 
         // Rastreio. No sandbox, uma faixa vermelha de largura total avisa que a etiqueta é de teste.
         var y = H - 72;

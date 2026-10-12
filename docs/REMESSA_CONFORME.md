@@ -5,8 +5,9 @@ o que cada exigência pede, onde ela está no código, como o cálculo dos tribu
 até o despacho, o que já funciona sem credencial e **qual chave falta** para cada integração com o governo e com o
 operador logístico.
 
-**Situação em 05/10/2026.** Todas as exigências técnicas estão implementadas e testadas (API: 123 testes; web:
-typecheck e lint limpos). O que funciona sem chave já está ligado: a tabela NCM oficial (Siscomex) e a cotação PTAX
+**Situação em 12/10/2026.** Todas as exigências técnicas estão implementadas e testadas, incluindo o Programa de
+Conformidade Tributária e Aduaneira e a Política de Admissão e de Monitoramento de Vendedores (seção 9), conferidos
+cláusula a cláusula com o texto aprovado em 12/10/2026 (o texto publicado da Política é idêntico ao aprovado). O que funciona sem chave já está ligado: a tabela NCM oficial (Siscomex) e a cotação PTAX
 (Banco Central). Operador logístico, Siscomex e Serpro rodam em sandbox ou desligados até receberem as credenciais da
 seção 5. O selo no site está em **simulação** até a empresa receber o Ato Declaratório Executivo (ADE) da Coana.
 
@@ -26,13 +27,13 @@ Base legal:
 | # | Exigência | Como foi atendida | Onde |
 | --- | --- | --- | --- |
 | 1 | **Declaração antecipada** da remessa (art. 8º, I): dados da DIR enviados ao operador antes do despacho | Ao gerar a etiqueta, a plataforma monta a declaração no layout da DIR (remetente com RUC, destinatário com CPF, mercadorias com NCM, valor aduaneiro em BRL e USD, bloco `remessaConforme` com II, ICMS, IBS estadual, IBS municipal e CBS provisionados, `codigoECE` e `codigoOND`) e registra no operador. O pedido não segue sem NCM em todos os itens, CPF válido do destinatário e endereço de origem da loja | `Application/Services/RemessaService.cs` (`CreateAsync`, `BuildRequestAsync`), `Infrastructure/RemessaConforme/CarrierGateways.cs` (`ToPayload`) |
-| 2 | **Informação clara ao comprador** (art. 8º, II): tributos discriminados, valor total e aviso de produto importado | Página de produto, carrinho, checkout e pedido mostram produtos, frete, seguro, outras despesas, desconto, valor aduaneiro (com o equivalente em US$), II (com a alíquota e a dedução), ICMS (com a UF), IBS, CBS, total de tributos e câmbio usado. Aviso "Produto importado do Paraguai e tributado" na página de produto | `Domain/ImportTaxCalculator.cs`, `apps/web/src/components/shared/tax-breakdown.tsx` |
+| 2 | **Informação clara ao comprador** (art. 8º, II; Programa 4.1 e 4.2): tributos discriminados, valor total e aviso de produto importado | Página de produto, carrinho, checkout e pedido mostram produtos, frete (ou "incluído no preço"), seguro, outras despesas, desconto, valor aduaneiro (com o equivalente em US$), II (com a alíquota e a dedução), ICMS (com a UF), IBS, CBS, total a pagar e câmbio vigente. Aviso de produto proveniente do exterior, sujeito a declaração de importação e à tributação federal e estadual | `Domain/ImportTaxCalculator.cs`, `apps/web/src/components/shared/tax-breakdown.tsx` |
 | 3 | **Etiqueta com a identidade da plataforma** (art. 8º, III): marca, nome comercial e CNPJ/TIN | Etiqueta 10×15 cm gerada pela plataforma, com Code 128 do rastreio S10, destinatário (CPF mascarado), remetente com RUC e a declaração resumida. O vendedor não digita rastreio: só confirma a postagem da etiqueta emitida (`RequirePlatformLabel`, ligado por padrão) | `Infrastructure/RemessaConforme/LabelPdf.cs`, `apps/web/src/features/seller-panel/components/order-shipment-actions.tsx` |
 | 4 | **Tributos cobrados na compra e repassados** (art. 8º, IV) | No modo Remessa Conforme o valor é definitivo e entra no total pago. Cada remessa gera um `TaxRemittance` (II, ICMS, IBS e CBS) que o job envia ao operador e acompanha até a confirmação | `Domain/Entities/Commerce.cs` (`TaxRemittance`), `Infrastructure/RemessaConforme/RemessaJobs.cs` |
-| 5 | **Admissão de vendedores** (art. 8º, V) | Cadastro da loja exige endereço de origem, responsável, documento (cédula paraguaia, CPF ou passaporte, validados) e as imagens do documento e da constância do RUC. A loja nasce *Pendente* e só vende depois que o admin aprova os documentos; trocar documento exige nova verificação | `Application/Services/SellerPanelService.cs`, `AdminService.VerifySellerAsync`, `apps/web/src/features/seller-panel/components/verification-section.tsx` |
+| 5 | **Admissão de vendedores** (art. 8º, V; Política 2 e 3) | Cadastro da loja exige denominação social, endereço, telefone, e-mail, RUC, meio de recebimento, representante legal e os quatro documentos da Política 3.2 (privados), além do aceite eletrônico da Política. A loja nasce *Pendente* e só vende depois que a equipe confere os 9 itens; trocar dados de identificação exige nova verificação | `Application/Services/SellerPanelService.cs`, `AdminService.VerifySellerAsync`, `apps/web/src/features/seller-panel/components/verification-section.tsx` |
 | 6 | **Monitoramento de vendedores** (art. 8º, V) | Produtos com marca protegida no nome ou preço abaixo de 40% da mediana do mesmo NCM vão para análise antes da vitrine; compradores denunciam produtos; ocorrências (do Siscomex, do rastreio, de denúncias procedentes ou registradas pela equipe) contam para a reincidência; com 3 ocorrências em 365 dias a loja é descredenciada sozinha | `Application/Services/ComplianceService.cs`, `apps/web/src/features/admin/components/admin-compliance.tsx` |
-| 7 | **NCM correto** em cada mercadoria (qualidade da declaração) | NCM de 8 dígitos obrigatório para publicar, conferido na tabela oficial do Siscomex; capítulos proibidos em remessa (24 tabaco, 30 medicamentos, 36 explosivos, 93 armas) e incoerência com a categoria são recusados | `Domain/Compliance/Compliance.cs` (`Ncm`), `Infrastructure/Gov/SiscomexNcmCatalog.cs`, `apps/web/src/features/seller-panel/components/ncm-field.tsx` |
-| 8 | **CPF do destinatário** (qualidade da declaração) | Obrigatório e validado em cada endereço; o checkout não paga sem ele (endereços antigos pedem o CPF ali mesmo). Com a chave do Serpro, CPF cancelado ou nulo é recusado | `AccountService`, `CheckoutService`, `Infrastructure/Gov/SerproTaxpayerRegistry.cs` |
+| 7 | **NCM correto** em cada mercadoria (qualidade da declaração) | NCM de 8 dígitos obrigatório para publicar, conferido na tabela oficial do Siscomex; posições do Anexo I da Política (armas, tabaco, bebidas alcoólicas, medicamentos, usados, perecíveis…) e incoerência com a categoria são recusadas; natureza, marca, material, quantidade e país de origem completam a descrição | `Domain/Compliance/Compliance.cs` (`Ncm`), `Infrastructure/Gov/SiscomexNcmCatalog.cs`, `apps/web/src/features/seller-panel/components/ncm-field.tsx` |
+| 8 | **CPF do destinatário** (qualidade da declaração; Programa 7.2) | Obrigatório e validado em cada endereço; o checkout confere número e nome do titular no Serpro antes de concluir a venda. Fora de Development, sem a chave a venda não conclui | `AccountService`, `CheckoutService`, `Infrastructure/Gov/SerproTaxpayerRegistry.cs` |
 | 9 | **Indicadores da Portaria Coana 193/2026** | Painel com os três indicadores no ciclo e mês a mês, faixa e consequência de cada um, contagem para o selo (100 mil remessas), lojas com ocorrências, fila de denúncias, produtos em análise e lojas a verificar. Contestação de ocorrência só por erro material, falha de sistema ou duplicidade | `ComplianceService.DashboardAsync`, `/admin/conformidade` |
 | — | **Selo no site** | Selo no header (faixa de departamentos no desktop, faixa sob a busca no celular), na página de produto, no checkout e no rodapé, com a medalha da faixa do ciclo. Em `simulacao` aparece sempre com a etiqueta "Simulação" | `apps/web/src/components/shared/trust-badge.tsx`, `apps/web/src/lib/env.ts` |
 
@@ -190,8 +191,11 @@ Implementação: `Infrastructure/Gov/PortalUnicoSiscomexClient.cs` + `Applicatio
 ### 5.2 Serpro — Consulta CPF v3
 
 `POST {BaseUrl}/token` (client credentials com `ConsumerKey:ConsumerSecret`) e
-`GET {BaseUrl}/consulta-cpf-df/v3/cpf/{cpf}`. Situação *cancelada* ou *nula* bloqueia o endereço e o checkout; demais
-situações passam. Resultado em cache por `Serpro:CacheHours` (24 h). Falha do serviço não bloqueia a compra.
+`GET {BaseUrl}/consulta-cpf-df/v3/cpf/{cpf}`. Situação *cancelada* ou *nula* bloqueia o endereço e o checkout, e o
+nome do titular precisa conferir com o nome do destinatário (Programa 7.2). Resultado em cache por `Serpro:CacheHours`
+(24 h). Fora de Development, sem chave ou com o serviço fora do ar, a venda **não conclui** (503
+`CPF_VERIFICATION_UNAVAILABLE`); `Serpro__AllowUnverifiedOutsideDevelopment=true` libera só o dígito verificador
+(demonstração).
 
 ### 5.3 Operador logístico — contrato de integração v1
 
@@ -251,20 +255,25 @@ depois o repasse aparece *com falha* em **Remessas**.
 
 | Quem | Onde | O que tem |
 | --- | --- | --- |
-| Comprador | página de produto | tributos discriminados (prévia sem frete), aviso de importado, selo, "Denunciar produto" |
+| Comprador | página de produto | aviso de importado (4.1); a conta inteira com frete do CEP, total a pagar e câmbio (4.2); marca, modelo e país de fabricação; "Denunciar produto" sem login |
+| Qualquer pessoa | `/denuncia` e `/politica-de-vendedores` | canal de denúncias com protocolo e prazo; texto integral da Política |
+| Comprador | pedido | comprovante em PDF (pagamento e valor da compra) |
 | Comprador | carrinho | impostos estimados com II, ICMS, IBS e CBS |
 | Comprador | checkout | valor aduaneiro (com US$), tributos definitivos por remessa, câmbio e faixa; endereço sem CPF bloqueia o pagamento e abre o formulário para completar |
 | Comprador | pedido | os mesmos valores gravados na compra e o rastreio S10 |
 | Comprador | `/remessa-conforme` | como funcionam os impostos, exemplo calculado com a cotação do dia e as regras para as lojas |
-| Vendedor | produtos | campo NCM com a descrição da tabela oficial; aviso de produto em análise ou bloqueado |
+| Vendedor | produtos | campo NCM com a descrição da tabela oficial; declaração (natureza, marca/sem marca, modelo, material, unidades, país de origem) com prévia; aviso de produto em análise ou bloqueado |
+| Vendedor | cadastro | texto da Política, aceite e declaração de representante legal |
+| Vendedor | comunicações | medidas, pedidos de documentos e correções, com prazo de 10 dias e resposta com anexos |
+| Vendedor | painel | avisos de suspensão/exclusão, nova versão da Política, confirmação anual e comunicações abertas |
 | Vendedor | pedidos | Gerar etiqueta → Baixar etiqueta → Confirmar postagem |
-| Vendedor | configurações | responsável e documentos, com a situação da verificação |
-| Admin | Conformidade | indicadores, apuração mensal, selo do ciclo, filas e ocorrências (registrar, contestar, anular) |
-| Admin | Denúncias | julgar (procedente com indicador e bloqueio, ou improcedente) |
-| Admin | Remessas | rastreio, declaração, DIR, situação aduaneira, repasse, etiqueta e reenvio |
+| Vendedor | configurações | dados da empresa, recebimento, representante legal e os quatro documentos; confirmação anual dos dados |
+| Admin | Conformidade | painel do Programa (pendências e prazos), indicadores, apuração mensal, selo do ciclo e ocorrências; abas Receita Federal, Monitoramento, Comunicações, Capacitação, Registro de ações e Auditorias |
+| Admin | Denúncias | protocolo, canal, prazo de 2 dias úteis, titular do direito e evidências; julgar (procedente com indicador, infração e remoção, ou improcedente) |
+| Admin | Remessas | rastreio, declaração, DIR, situação aduaneira, repasse, conferências da remessa, etiqueta e reenvio |
 | Admin | Integrações | o quadro da seção 5 |
-| Admin | Produtos / Vendedores | moderação e verificação de documentos |
-| Admin | Configurações | tributos (ICMS por UF, IBS, CBS, seguro, despesas) e regras de conformidade |
+| Admin | Produtos / Vendedores | moderação; conferência do cadastro (9 itens); comunicações, infrações, medidas graduadas, aceites, auditorias e dossiê |
+| Admin | Configurações | tributos (ICMS por UF, IBS, CBS, seguro, despesas), regras de conformidade, responsável pelo Programa, datas de aprovação, versão da Política e limites do monitoramento |
 
 O selo no header fica na faixa de departamentos (desktop) para não estreitar a busca: só o emblema no `md`,
 emblema + "Remessa Conforme" + medalha + "Simulação" a partir do `lg`. No celular, faixa sob a busca na home.
@@ -280,12 +289,22 @@ emblema + "Remessa Conforme" + medalha + "Simulação" a partir do `lg`. No celu
 - Seed de demonstração (API e mock iguais): remessas com rastreio `LB…PY`, declaração, DIR e repasse confirmado; duas
   ocorrências; duas denúncias abertas; um produto em análise por preço; a loja *Eletro Ponte Import* aguardando
   verificação.
-- Mock (MSW): `src/mocks/fixtures/remessa.ts` reproduz a calculadora, a tabela NCM (recorte), as faixas e o S10;
-  `src/mocks/handlers/remessa.ts` cobre todas as rotas acima, inclusive a etiqueta em PDF. O banco do mock mudou para
-  `mktpy.mockdb.v3`.
+- Migration `20261009182542_ProgramaConformidade`: dados de admissão e aceite em `sellers`; declaração em `products` e
+  nos itens do pedido; `seller_policy_acceptances`, `seller_notices`, `seller_infractions`, `seller_measures`,
+  `monitoring_alerts`, `rf_interactions`, `compliance_trainings`, `enforcement_actions`, `order_documents` e
+  `seller_audits`; conferências em `shipments`; protocolo, canal e prazo em `product_reports`; contestação em
+  `compliance_occurrences`; Programa e limites em `platform_settings`. Os padrões preenchem as linhas existentes.
+- Mock (MSW): `src/mocks/fixtures/remessa.ts` reproduz a calculadora, a tabela NCM (recorte), o Anexo I, as faixas e o S10;
+  `src/mocks/governance.ts` e `src/mocks/handlers/governance.ts` reproduzem o Programa e a Política (comunicações,
+  medidas, monitoramento, Receita, capacitação, auditoria, comprovante e dossiê). O banco do mock mudou para
+  `mktpy.mockdb.v4`.
 - Testes: `Unit/RemessaConformeTests.cs` (calculadora, NCM, faixas, S10, Code 128, marcas) e
   `Integration/RemessaConformeFlowTests.cs` (etiqueta e postagem, NCM e marca protegida, denúncia procedente,
-  reincidência, verificação de loja, CPF do destinatário, integrações, política de envio do vendedor e segunda via da etiqueta).
+  reincidência, verificação de loja, CPF do destinatário, integrações, política de envio do vendedor e segunda via da etiqueta);
+  `Unit/ComplianceProgramTests.cs` e `Integration/ComplianceProgramFlowTests.cs` (Anexo I, declaração, nome do titular do
+  CPF, fracionamento, graduação das medidas, prazos, comprovante, canal público, aceite, comunicações, loja suspensa fora
+  do checkout e prazo da correção cadastral); `Integration/StrictCpfCheckoutTests.cs` (Consulta CPF obrigatória: resposta
+  sem o nome do titular não conclui a venda).
 
 ## 8. Antes de ligar em produção
 
@@ -293,6 +312,101 @@ emblema + "Remessa Conforme" + medalha + "Simulação" a partir do `lg`. No celu
 2. Contratar o operador logístico e configurar `RemessaConforme__Carrier__*` (ou adaptar o contrato v1).
 3. Gerar a chave de acesso EMPRCOMEL no Portal Único e configurar `Siscomex__*` no ambiente de validação; depois trocar
    `Siscomex__BaseUrl` para produção.
-4. Contratar o Serpro Consulta CPF e configurar `Serpro__*`.
+4. Contratar o Serpro Consulta CPF e configurar `Serpro__*` (sem a chave, fora de Development, nenhuma venda conclui).
 5. Confirmar com a consultoria tributária as alíquotas de ICMS por UF, IBS e CBS e ajustar em **Configurações**.
 6. Trocar o selo de `simulacao` para `true` (e preencher o ADE) no build do `web`.
+7. Concluir as pendências da seção 9.4 (contrato com os Correios, responsável e datas de aprovação, capacitação).
+---
+
+## 9. Programa de Conformidade Tributária e Aduaneira e Política de Vendedores
+
+Os dois documentos da empresa (o **Programa** e a **Política de Admissão e de Monitoramento de Vendedores**, com o
+Anexo I) estão implementados item a item. O texto integral da Política é publicado em `/politica-de-vendedores`
+(`apps/web/src/features/compliance/content/seller-policy.ts`); a razão social, o documento, a sede e a data de aprovação
+vêm da configuração. Os dados pessoais do Responsável pelo Programa (CPF, RG, endereço) **não** ficam no código nem no
+banco: só nome e e-mail, em **Configurações**.
+
+### 9.1 Programa de Conformidade
+
+| Item | Exigência | Como foi atendida | Onde |
+| --- | --- | --- | --- |
+| 2.4, 3 | Responsável pelo Programa e relacionamento com a Receita | Nome, e-mail e datas de aprovação em Configurações; painel do Programa com as pendências e prazos; registro de toda interação com a Receita (consulta mensal, plano de ação, notificação, ouvidoria, contestação, manifestação, comunicação de fato) | `ComplianceProgramService.ProgramAsync`, `ReceitaRelationsService`, `/admin/conformidade`, `/admin/conformidade/receita` |
+| 3.6 | Comunicar à Receita fato que comprometa o PRC | Tipo "Comunicação de fato" no registro da Receita | `RfInteractionType.ComunicacaoDeFato` |
+| 4.1 | Página do produto informa que ele vem do exterior, será importado, é objeto de declaração e está sujeito à tributação federal e estadual | Aviso fixo no topo do bloco de tributos | `ImportedProductNotice` (`tax-breakdown.tsx`), chaves `taxes.importedTitle/importedHint` |
+| 4.2 | Na mesma página: produto, frete e seguro (ou "incluído no preço"), descontos, despesas, II, ICMS, IBS, CBS, total a pagar e câmbio vigente | A página do produto mostra a conta inteira, na ordem do item; o frete entra quando o comprador informa o CEP (`/taxes/estimate?freight=`) e aparece como "Incluído no preço do produto" no frete grátis; a linha de descontos aparece sempre (zerada quando não há) e a promoção "de/por" do anúncio entra nela (produto pelo preço "de", desconto pela diferença; o valor aduaneiro não muda); total a pagar e câmbio com a data da cotação | `product-view.tsx`, `TaxBreakdown` (`freightIncluded`, `freightPending`, `listingDiscount`, `showTotal`), `ImportTaxService.EstimateAsync` |
+| 5 | Contrato com os Correios; declaração antecipada; repasse dos tributos | Declaração e repasse já implementados (seção 3); o **contrato** é da empresa (ver 9.4) | `RemessaService`, `RemessaJobs` |
+| 6.1, 6.3 | Subfaturamento, fracionamento e ocultação de remetente; valor declarado = valor cobrado | Antes de registrar a remessa, conferências gravadas com a remessa (remetente, destinatário, mercadorias, regime, valor); diferença entre declarado e cobrado bloqueia (`DECLARED_VALUE_MISMATCH`) | `RemessaService.PrepareAsync`, `Shipment.ChecksJson`, admin › Remessas (link "conferências") |
+| 6.2 | Valor declarado = produto + frete + seguro | Valor aduaneiro da calculadora | `ImportTaxCalculator` |
+| 6.4, 6.5 | Fracionamento: mesmo comprador e endereço em 7 dias mudando a faixa de US$ 50 ou passando de US$ 3.000 | Conferido no checkout e no monitoramento; alerta para a equipe; da mesma loja, retém a etiqueta (`MONITORING_HOLD`) até o julgamento; procedente e atribuído ao vendedor vira infração | `Fractioning`, `MonitoringService`, `/admin/conformidade/monitoramento` |
+| 7.1, 7.3 | Dados do remetente, destinatário e bens; remetente correto e completo | Remetente = denominação social + RUC + endereço de origem da loja verificada | `RemessaService.PrepareAsync`, `Seller.SenderName` |
+| 7.2 | CPF do destinatário conferido na Receita (número e nome do titular) antes de concluir a venda | Checkout consulta o Serpro e compara o nome do titular com o nome do destinatário; resposta sem o nome do titular conta como não conferida; fora de Development, sem chave do Serpro a venda **não conclui** (503 `CPF_VERIFICATION_UNAVAILABLE`), salvo `Serpro__AllowUnverifiedOutsideDevelopment=true` (demonstração). Com operador real, a etiqueta só sai de pedido conferido na Receita (o "sandbox" da demonstração não vale) | `CheckoutService`, `PersonName.Matches`, `CpfVerificationOptions`, `RemessaService.PrepareAsync` |
+| 7.4 | Descrição com natureza, marca e modelo (quando houver), material e quantidade, sem termos genéricos | Campos obrigatórios para publicar; termos genéricos recusados; prévia do texto da declaração no formulário; texto congelado no item do pedido | `DeclarationText`, `declaration-section.tsx`, `OrderItem.DeclarationDescription` |
+| 7.5 | Não informar conteúdo diverso do vendido | A declaração sai dos itens do pedido (snapshot), nunca de texto livre | `RemessaService` |
+| 7.6 | Regime, classificação fiscal e origem | Regime e limite de US$ 3.000 conferidos; NCM oficial; país de origem (ISO) obrigatório | `PrepareAsync`, `Countries` |
+| 8.1–8.4 | Contrafação: verificar anúncios antes e depois da publicação; remover; exigir documentos de autenticidade | Anexo I por NCM (bloqueio) e por termos (análise) na publicação e na rotina a cada 6 h; marca protegida e preço muito abaixo vão para análise; pedido de documentos de autenticidade com prazo de 10 dias; não comprovado remove o anúncio | `ProhibitedGoods`, `ComplianceService.ScreenPublishedListingsAsync`, `SellerGovernanceService` |
+| 8.5 | Canal específico para notificações | `/denuncia` (público, sem login) e botão na página do produto, com protocolo | `ComplianceEndpoints.MapCompliancePublic`, `public-report-view.tsx` |
+| 8.6 | Suspender quem oferta contrafeito | Denúncia procedente = infração + medida graduada (8.2) | `ComplianceService.ResolveReportAsync`, `MeasureGuide` |
+| 8.7 | Acompanhar o indicador de contrafação e ocorrências por vendedor | Painel de indicadores e ocorrências por loja | `/admin/conformidade` |
+| 8.8 | Informações às autoridades | Dossiê da loja (JSON) com cadastro, aceites, anúncios, pedidos, remessas, ocorrências e medidas; cada exportação fica registrada | `ComplianceProgramService.SellerDossierAsync`, admin › Vendedores › Dossiê |
+| 8.9 | Registrar ações contra contrafeitos e resultados | Registro automático de cada decisão | `EnforcementAction`, `/admin/conformidade/acoes` |
+| 9.1, 9.2 | Etiqueta com marca, nome comercial e CNPJ/TIN, em PT/ES/EN | Etiqueta da plataforma | `LabelPdf.cs` |
+| 9.3, 9.4 | Selo do PRC ou "PROGRAMA REMESSA CONFORME" em caixa alta e negrito | Texto em negrito na faixa da etiqueta, com o ADE quando configurado | `LabelPdf.cs`, `mocks/pdf.ts` |
+| 9.5 | Iniciada a operação, nada fora do fluxo | Com o ADE configurado a etiqueta da plataforma não pode ser desligada; o admin não marca "Enviado" sem etiqueta (`LABEL_REQUIRED`) | `AdminService.UpdateSettingsAsync`, `AdminService.TransitionOrderAsync` |
+| 10.1–10.3 | Registros por pedido, com vendedor, remessa, comprovante de pagamento e do valor | Comprovante em PDF gerado na aprovação do pagamento e guardado com o pedido; download pelo comprador, pela loja e pelo admin | `ReceiptService`, `OrderDocument`, `GET /orders/{id}/receipt` |
+| 10.4 | Conservar por 5 anos | Exclusão de conta anonimiza o comprador, mas os registros do pedido ficam 5 anos; a limpeza diária só apaga o que passou do prazo | `PrivacyService.RetentionEnds`, `PurgeExpiredRecordsAsync` |
+| 11.2 | Consulta mensal dos indicadores | Registro da consulta do mês com os indicadores oficiais; pendência no painel até ser registrada | `RfInteractionType.ConsultaMensal` |
+| 11.3 | Faixas e medidas | Textos das faixas iguais aos do Programa; Bronze e Advertência pedem plano de ação | `ComplianceBands.Consequence`, `RequiresActionPlan` |
+| 11.4, 11.5 | Plano de ação e saneamento em 30 dias | Registros com prazo de 30 dias e alerta de vencimento | `ProgramDeadlines` |
+| 11.6, 11.7 | Contestação só por erro material, inconsistência sistêmica ou impropriedade na metodologia, com indicador, remessas, fundamentação e evidências | Formulário de contestação (na ocorrência ou na tela da Receita); a decisão da Receita anula ou confirma as ocorrências | `ReceitaRelationsService.ContestAsync` |
+| 11.8 | Manifestação anual de 1º a 31 de outubro | Janela no painel e registro próprio | `AnnualManifestationWindow` |
+| 12 | Ouvidoria: prazo da Receita ou 5 dias úteis | Registro com prazo calculado em dias úteis | `AddBusinessDays` |
+| 13.1 | Capacitação no início da função e a cada 12 meses | Registro por pessoa, com vencimento; administradores entram na lista sozinhos | `/admin/conformidade/capacitacao` |
+
+### 9.2 Política de Admissão e de Monitoramento de Vendedores
+
+| Item | Exigência | Como foi atendida | Onde |
+| --- | --- | --- | --- |
+| 1.1 a | Vendedor = pessoa jurídica estabelecida no Paraguai | RUC paraguaio com dígito verificador, país de origem fixo `PY`, atos constitutivos e registro comercial obrigatórios; a conferência da equipe tem os itens "RUC de pessoa jurídica" e "pessoa jurídica estabelecida no Paraguai" | `Documents.IsValidRuc`, `Seller.Country`, `VerificationItems` |
+| 2.2 | Aceite eletrônico do representante legal com data, hora e identificação | Aceite no cadastro (Política + declaração de representante) e a cada nova versão; grava versão, data/hora, nome, documento e IP | `SellerPolicyAcceptance`, `SellerPanelService.RegisterAsync/AcceptPolicyAsync` |
+| 2.3, 2.4 | Política apresentada antes do cadastro e disponível na plataforma | Texto integral no cadastro da loja e em `/politica-de-vendedores` (rodapé e sitemap) | `seller-register-view.tsx`, `seller-policy-view.tsx` |
+| 3.1 | Denominação social, endereço, telefone e e-mail, RUC e meio de pagamento | Campos obrigatórios no cadastro e nas configurações da loja; conta guardada criptografada e exibida mascarada | `SellerPanelService.ValidateProfileAsync`, `store-form.tsx`, `PayoutSection` |
+| 3.2 | Atos constitutivos e registro comercial; Constancia de RUC e Certificado de Cumplimiento Tributario; documento com foto do representante | Quatro documentos em armazenamento **privado** (volume da API, nunca no bucket público), abertos só por link assinado de 30 min | `LocalDocumentStorage`, `DocumentLinks`, `DocumentUpload` |
+| 3.3, 3.4 | Verificar antes de liberar; recusar o que não validar | Loja nasce *Pendente*; aprovação exige os 9 itens da conferência marcados; recusa suspende, registra e pede correção em 10 dias. Só loja *Aprovada* vende: vitrine, cotação do checkout e fechamento do pedido recusam loja pendente, suspensa ou excluída, inclusive pelo carrinho ou cotação de antes da medida | `AdminService.VerifySellerAsync`, `SELLER_VERIFICATION_ITEMS`, `ShippingService.ResolveLinesAsync`, `CheckoutService` |
+| 3.5 | Recusar novo cadastro de loja excluída | RUC, documento do representante ou conta de recebimento de loja excluída barram o cadastro (`SELLER_EXCLUDED`); denominação, e-mail ou telefone em comum aparecem na ficha da loja para a equipe conferir | `SellerGovernanceService.MatchExcludedAsync` |
+| 3.6 | Cadastro ligado a anúncios, pedidos e remessas | Chaves do banco e o dossiê | `Seller`, `Product`, `Order`, `Shipment` |
+| 4.2, 4.3 | Atualizar dados; confirmar a cada 12 meses | Atualizar conta como confirmação; aviso no painel 30 dias antes do vencimento e botão "Confirmar dados"; vencido gera pedido de correção | `ConfirmDataAsync`, `DataConfirmationCard`, `RunDailyAsync` |
+| 4.4, 4.9, 4.10 | Preço cobrado e descrição corretos; etiqueta da plataforma; nada fora do fluxo | Valor declarado = cobrado; etiqueta obrigatória | seções 3 e 9.1 |
+| 4.6, 6.2 | Documentos de valor e de autenticidade quando pedidos | Comunicação "Pedido de documentos" com prazo de 10 dias; resposta com texto e anexos privados | `SellerNotice`, `/vendedor/comunicacoes` |
+| 4.7, 4.8, 7.4 | Registros do vendedor e auditoria anual | Auditoria anual: lojas com infração no período + amostra (% configurável); pede os registros; não conforme vira infração | `ComplianceProgramService.PlanAuditsAsync`, `/admin/conformidade/auditorias` |
+| 5.1–5.3, Anexo I | Produtos de oferta vedada | NCM do Anexo I bloqueia a publicação; termos e NCM sensíveis mandam para análise; anúncios publicados são reconferidos a cada 6 h. A categoria **Bebidas** saiu (bebidas alcoólicas, item f): bancos existentes têm os produtos bloqueados com medida e comunicação, a categoria desativada e a loja suspensa; entrou **Games** | `ProhibitedGoods`, `DatabaseInitializer.BackfillGovernanceAsync`, `SeedCatalog` |
+| 6.4, 6.5 | Canal aberto a qualquer pessoa; decisão em 2 dias úteis | `/denuncia` e o botão do produto, sem login (rate limit e campo isca); protocolo e prazo para quem denuncia; fila com vencimento; decisão enviada por e-mail | `ComplianceService.SubmitPublicReportAsync`, `NoticeMailerJob` |
+| 6.6, 6.7, 7.2 | Ocorrências por vendedor; contrafeito é infração; reincidência | Infrações com gravidade, intenção e reincidência em 12 meses | `SellerInfraction`, `SellerGovernanceService.AddInfractionAsync` |
+| 7.1, 7.3 | Monitoramento e padrões anômalos | Rotina a cada 6 h: aumento abrupto (vezes a média de 8 semanas), concentração no mesmo destinatário (30 dias), fracionamento, preço muito abaixo, divergência reiterada; limites em Configurações | `MonitoringService`, `ComplianceMonitorJob` |
+| 8.1–8.3 | Medidas graduadas (remoção, suspensão temporária, exclusão) | Sugestão pela gravidade, número de infrações e intenção; a equipe decide; suspensão com prazo volta sozinha | `MeasureGuide.Recommend`, `SellerGovernanceSection` |
+| 8.4 | Suspender quem não corrige dados em 10 dias | Rotina diária suspende automaticamente. O pedido só se encerra com os dados corrigidos ou confirmados no cadastro (responder por escrito não para o prazo); correção recusada pela equipe mantém o prazo da solicitação original e, se ele já venceu, suspende na hora; atualizar o cadastro levanta a suspensão | `SellerGovernanceService.RunDailyAsync`, `RespondAsync`, `ResolveNoticeAsync`, `MarkDataConfirmedAsync` |
+| 8.5, 8.6 | Comunicar a medida com o motivo; resposta em 10 dias | Toda medida gera comunicação (painel e e-mail) com prazo de resposta | `NoticeMailerJob`, `SellerNotices` |
+| 9.1, 9.2 | Informações às autoridades | Dossiê (9.1 do Programa 8.8) e ciência no aceite | `SellerDossierAsync` |
+| 9.3, 9.4 | Dados pessoais só para a Política; segurança | Documentos privados com link assinado; documento e conta criptografados; dados mascarados nas telas | `DocumentLinks`, Data Protection |
+| 10.1, 10.3 | Aprovação; comunicar alterações | Data de aprovação em Configurações (aparece no item 10.1); nova versão notifica todas as lojas e exige novo aceite | `AdminService.UpdateSettingsAsync`, `SellerComplianceBanners` |
+
+### 9.3 Rotinas
+
+- `ComplianceMonitorJob` (`ComplianceMonitoring:IntervalMinutes`, padrão 360): reconfere anúncios (Anexo I), procura
+  padrões anômalos e cuida dos prazos (confirmação anual, correção cadastral, fim de suspensões).
+- `NoticeMailerJob` (1 min): envia por e-mail as comunicações gravadas para as lojas e a decisão das denúncias.
+- Limpeza diária: apaga só os registros que passaram de 5 anos (Programa 10.4).
+
+### 9.4 O que depende da empresa (fora do código)
+
+1. **Contrato com os Correios** (Programa 5.1 a 5.4), direto ou por intermediária, com as obrigações dos itens 5.2 e 5.3.
+2. **Chave do Serpro (Consulta CPF)**: sem ela, fora de Development, nenhuma venda conclui. Para demonstração em produção,
+   `Serpro__AllowUnverifiedOutsideDevelopment=true` libera só o dígito verificador (não atende o item 7.2).
+3. **ADE da Coana** (`RemessaConforme__Platform__AdeNumber`) e **razão social, CNPJ/TIN e sede**
+   (`RemessaConforme__Platform__*`): completam a etiqueta, a declaração e o preâmbulo da Política publicada.
+4. **Responsável pelo Programa e datas de aprovação** em admin › Configurações (o Programa e a Política citam a data). O
+   Programa (item 1.1 f) designa Thiago Silva Barreira; no sistema ficam só o nome e o e-mail.
+5. **Capacitação** de quem trabalha com as remessas, registrada em admin › Conformidade › Capacitação.
+6. **Consulta mensal** dos indicadores no Portal Único, **manifestação anual** (outubro) e respostas à Receita, registradas
+   em admin › Conformidade › Receita Federal.
+7. **Revisão jurídica** do texto da Política publicada e da tradução (o texto oficial está em português).
+

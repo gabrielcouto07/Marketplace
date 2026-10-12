@@ -11,6 +11,8 @@ public class Category
     public string? ImageUrl { get; set; }
     public Guid? ParentId { get; set; }
     public int SortOrder { get; set; }
+    /// <summary>Desativada some da vitrine (ex.: a antiga categoria de bebidas, vedada pelo Anexo I, f).</summary>
+    public bool IsActive { get; set; } = true;
 
     public List<Product> Products { get; set; } = [];
 }
@@ -37,25 +39,66 @@ public class Seller
     public SellerStatus Status { get; set; } = SellerStatus.Aprovado;
     public Guid? OwnerUserId { get; set; }
 
-    // ----- Remetente e verificação de identidade (critério v: política de admissão) -----
+    // ----- Admissão (Política de Vendedores 3.1 e 3.2) — o vendedor é pessoa jurídica estabelecida no Paraguai -----
+    /// <summary>Denominação social (razão social). <see cref="Name"/> é o nome da loja na vitrine.</summary>
+    public string? LegalName { get; set; }
+    /// <summary>Endereço eletrônico de contato da empresa (comunicações formais da Política).</summary>
+    public string? Email { get; set; }
     /// <summary>Endereço completo de origem (rua, número, bairro): remetente da declaração e da etiqueta.</summary>
     public string? LegalAddress { get; set; }
+    /// <summary>Representante legal que responde pela loja e aceita a Política.</summary>
     public string? ResponsibleName { get; set; }
     public SellerDocumentType? ResponsibleDocumentType { get; set; }
-    /// <summary>Documento do responsável (cifrado em repouso).</summary>
+    /// <summary>Documento do representante legal (cifrado em repouso).</summary>
     public string? ResponsibleDocument { get; set; }
-    /// <summary>Foto do documento do responsável e constância do RUC (uploads do vendedor).</summary>
+    /// <summary>Conta bancária, carteira digital ou outro meio de pagamento associado (3.1 e).</summary>
+    public SellerPayoutMethod? PayoutMethod { get; set; }
+    /// <summary>Banco, carteira ou instituição.</summary>
+    public string? PayoutInstitution { get; set; }
+    /// <summary>Número da conta ou identificador da carteira (cifrado em repouso).</summary>
+    public string? PayoutAccount { get; set; }
+    public string? PayoutHolder { get; set; }
+    /// <summary>Documento oficial com foto do representante legal (3.2 c).</summary>
     public string? IdentityDocumentUrl { get; set; }
+    /// <summary>Constancia de RUC (3.2 b).</summary>
     public string? RucCertificateUrl { get; set; }
+    /// <summary>Certificado de Cumplimiento Tributario (3.2 b).</summary>
+    public string? TaxComplianceCertificateUrl { get; set; }
+    /// <summary>Atos constitutivos e registro comercial (3.2 a).</summary>
+    public string? ArticlesOfIncorporationUrl { get; set; }
     public DateTime? VerifiedAt { get; set; }
     public Guid? VerifiedByUserId { get; set; }
+    /// <summary>Itens conferidos pela equipe na última verificação (3.3).</summary>
+    public List<string> VerificationChecklist { get; set; } = [];
     public string? SuspensionReason { get; set; }
     public DateTime? SuspendedAt { get; set; }
+    /// <summary>Fim da suspensão temporária; nulo = até a revisão da equipe.</summary>
+    public DateTime? SuspendedUntil { get; set; }
+    /// <summary>Exclusão (suspensão permanente, 8.1 c).</summary>
+    public DateTime? ExcludedAt { get; set; }
 
+    // ----- Monitoramento (Política 4.3, 8.4 e 10.3) -----
+    /// <summary>Última confirmação dos dados cadastrais pelo vendedor (a cada 12 meses).</summary>
+    public DateTime? DataConfirmedAt { get; set; }
+    /// <summary>Versão da Política aceita por último (aceite completo em <see cref="SellerPolicyAcceptance"/>).</summary>
+    public string? PolicyVersionAccepted { get; set; }
+    public DateTime? PolicyAcceptedAt { get; set; }
+
+    /// <summary>Documento do representante e constância do RUC: o mínimo que vem do cadastro antigo.</summary>
     public bool HasVerificationDocuments =>
         !string.IsNullOrWhiteSpace(ResponsibleName) && ResponsibleDocumentType is not null &&
         !string.IsNullOrWhiteSpace(ResponsibleDocument) && !string.IsNullOrWhiteSpace(IdentityDocumentUrl) &&
         !string.IsNullOrWhiteSpace(RucCertificateUrl) && !string.IsNullOrWhiteSpace(LegalAddress);
+
+    /// <summary>Todos os dados e documentos dos itens 3.1 e 3.2 da Política.</summary>
+    public bool HasAdmissionData =>
+        HasVerificationDocuments && !string.IsNullOrWhiteSpace(LegalName) && !string.IsNullOrWhiteSpace(Email) &&
+        !string.IsNullOrWhiteSpace(Phone) && PayoutMethod is not null && !string.IsNullOrWhiteSpace(PayoutAccount) &&
+        !string.IsNullOrWhiteSpace(PayoutHolder) && !string.IsNullOrWhiteSpace(TaxComplianceCertificateUrl) &&
+        !string.IsNullOrWhiteSpace(ArticlesOfIncorporationUrl);
+
+    /// <summary>Remetente da declaração: a denominação social; lojas antigas sem ela usam o nome da loja.</summary>
+    public string SenderName => string.IsNullOrWhiteSpace(LegalName) ? Name : LegalName;
 
     public int SalesCount { get; set; }
     public int PositiveRatingPercent { get; set; }
@@ -107,6 +150,22 @@ public class Product
     public int? HeightCm { get; set; }
     /// <summary>Código NCM (8 dígitos) para a declaração aduaneira. Obrigatório para o produto ir à vitrine.</summary>
     public string? HsCode { get; set; }
+
+    // ----- Descrição da declaração (Programa 7.4 e 7.6) -----
+    /// <summary>Natureza do produto, sem expressões genéricas (ex.: "Fone de ouvido Bluetooth").</summary>
+    public string? Nature { get; set; }
+    public string? Brand { get; set; }
+    /// <summary>O produto não tem marca: a declaração diz "sem marca" (a marca só é dispensada quando não houver).</summary>
+    public bool Unbranded { get; set; }
+    public string? Model { get; set; }
+    public string? Material { get; set; }
+    /// <summary>Unidades em cada item vendido (ex.: kit com 2 películas = 2).</summary>
+    public int PackageQuantity { get; set; } = 1;
+    /// <summary>País de origem (fabricação), ISO 3166-1 alfa-2.</summary>
+    public string? OriginCountry { get; set; }
+    /// <summary>Última verificação automática do anúncio publicado (Política 5.2).</summary>
+    public DateTime? ScreenedAt { get; set; }
+
     public ProductStatus Status { get; set; } = ProductStatus.Ativo;
     /// <summary>Por que está em análise ou bloqueado (MARCA_PROTEGIDA, PRECO_ABAIXO_REFERENCIA, CONTRAFACAO…).</summary>
     public string? ModerationReason { get; set; }
@@ -115,6 +174,8 @@ public class Product
     /// <summary>Nome e preço que o admin liberou: mudar qualquer um dos dois volta o produto para análise.</summary>
     public string? ApprovedName { get; set; }
     public long? ApprovedPriceAmount { get; set; }
+    /// <summary>Impressão do texto e do NCM liberados pelo admin: termos de oferta vedada já conferidos não voltam à análise.</summary>
+    public string? ApprovedFingerprint { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 
@@ -138,6 +199,24 @@ public class Product
 
     public bool IsOffer => DiscountPercent >= 15;
     public bool IsNew(DateTime now) => (now - CreatedAt).TotalDays < 30;
+
+    /// <summary>Tem o que a declaração pede: NCM, natureza, marca (ou "sem marca"), material, quantidade e origem.</summary>
+    public bool HasDeclarationData =>
+        !string.IsNullOrWhiteSpace(HsCode) && !string.IsNullOrWhiteSpace(Nature) && (Unbranded || !string.IsNullOrWhiteSpace(Brand)) &&
+        !string.IsNullOrWhiteSpace(Material) && PackageQuantity >= 1 && Compliance.Countries.IsValid(OriginCountry);
+
+    /// <summary>Descrição da mercadoria na declaração (Programa 7.4); null sem os dados.</summary>
+    public string? DeclarationDescription(string? variantLabel = null) =>
+        HasDeclarationData
+            ? Compliance.DeclarationText.Build(Nature!, Unbranded ? null : Brand, Model, Material!, PackageQuantity, variantLabel)
+            : null;
+
+    /// <summary>Impressão do que a moderação confere (texto e NCM): muda quando o vendedor edita qualquer um deles.</summary>
+    public string ListingFingerprint()
+    {
+        var text = Compliance.TextFold.Fold(string.Join('|', Name, Nature, Brand, Model, Material, Description, HsCode));
+        return Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(text)))[..32];
+    }
 }
 
 public record VariantOption(string Name, List<string> Values);

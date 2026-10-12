@@ -5,7 +5,16 @@ namespace Marketplace.Application.Contracts;
 
 // ----- Denúncia de produto (comprador) -----
 
-public sealed record ProductReportRequest(ProductReportReason Reason, string? Details);
+/// <summary>Denúncia pela página do produto: com ou sem login (canal aberto a qualquer pessoa, Política 6.4).</summary>
+public sealed record ProductReportRequest(
+    ProductReportReason Reason,
+    string? Details,
+    string? ReporterName = null,
+    string? ReporterEmail = null,
+    bool IsRightsHolder = false,
+    string? RightsHolderName = null,
+    IReadOnlyList<string>? EvidenceUrls = null,
+    string? Website = null);
 
 public sealed record ProductReportDto(
     Guid Id,
@@ -22,7 +31,16 @@ public sealed record ProductReportDto(
     string? ReporterEmail,
     DateTime? ResolvedAt,
     string? ResolutionNote,
-    Guid? OccurrenceId);
+    Guid? OccurrenceId,
+    string? Protocol = null,
+    ReportChannel Channel = ReportChannel.PaginaDoProduto,
+    string? ReporterName = null,
+    bool IsRightsHolder = false,
+    string? RightsHolderName = null,
+    IReadOnlyList<string>? EvidenceUrls = null,
+    /// <summary>Prazo da decisão: 2 dias úteis (Política 6.5).</summary>
+    DateTime? DueAt = null,
+    bool Overdue = false);
 
 /// <summary>Procedente gera ocorrência no indicador escolhido (padrão: o que a denúncia aponta) e pode bloquear o produto.</summary>
 public sealed record ProductReportResolveRequest(bool Upheld, ComplianceIndicator? Indicator, bool BlockProduct, string? Note);
@@ -45,7 +63,11 @@ public sealed record ComplianceOccurrenceDto(
     string? ExternalId,
     DateTime OccurredAt,
     DateTime RegisteredAt,
-    string? StatusReason);
+    string? StatusReason,
+    ContestationReason? ContestationReason = null,
+    string? ContestationGrounds = null,
+    DateTime? ContestedAt = null,
+    Guid? RfInteractionId = null);
 
 public sealed record ComplianceOccurrenceInput(
     ComplianceIndicator Indicator,
@@ -57,8 +79,17 @@ public sealed record ComplianceOccurrenceInput(
     string? OrderNumber,
     DateTime? OccurredAt);
 
-/// <summary>Contestação (erro material, falha de sistema, duplicidade) ou anulação.</summary>
-public sealed record OccurrenceStatusRequest(OccurrenceStatus Status, string? Reason);
+/// <summary>
+/// Contestação (só por erro material, inconsistência sistêmica ou impropriedade na metodologia — Programa 11.6, com
+/// fundamentação e evidências — 11.7), anulação (a Receita acolheu) ou confirmação.
+/// </summary>
+public sealed record OccurrenceStatusRequest(
+    OccurrenceStatus Status,
+    string? Reason,
+    ContestationReason? ContestationReason = null,
+    string? Grounds = null,
+    IReadOnlyList<string>? Evidence = null,
+    string? Reference = null);
 
 public sealed record ComplianceIndicatorDto(
     ComplianceIndicator Indicator,
@@ -93,7 +124,8 @@ public sealed record ComplianceDashboardDto(
 /// <summary>Aprovar (vai à vitrine e grava nome/preço liberados) ou Bloquear (sai da vitrine; vendedor não reativa).</summary>
 public sealed record ProductModerationRequest(string? Action, string? Reason, string? Note);
 
-public sealed record SellerVerificationRequest(bool Approve, string? Note);
+/// <param name="Checks">Itens conferidos pela equipe (Política 3.3): aprovar exige todos de <c>SellerGovernanceService.VerificationItems</c>.</param>
+public sealed record SellerVerificationRequest(bool Approve, string? Note, IReadOnlyList<string>? Checks = null);
 
 // ----- Remessas no admin -----
 
@@ -112,7 +144,11 @@ public sealed record AdminShipmentListItemDto(
     TaxRemittanceStatus? RemittanceStatus,
     Money Taxes,
     DateTime CreatedAt,
-    string? LastError);
+    string? LastError,
+    /// <summary>Conferências feitas antes de registrar a remessa (Programa 6.3 e 7.1 a 7.6).</summary>
+    IReadOnlyList<ShipmentCheckDto>? Checks = null);
+
+public sealed record ShipmentCheckDto(string Check, bool Ok, string Detail);
 
 // ----- Integrações (governo e operador) -----
 

@@ -13,7 +13,7 @@ import { HttpResponse, http } from "msw";
 import { convert, multiplyBasisPoints, sum } from "@/lib/money";
 import { isValidCpf } from "@/lib/validation/documents";
 
-import { findProductRecord, findSellerById } from "../catalog-state";
+import { findProductRecord, findSellerById, sellerStatus } from "../catalog-state";
 import { db, nextOrderNumber, persistDb } from "../db";
 import { getRate, toSellerSummary } from "../fixtures/base";
 import {
@@ -60,6 +60,11 @@ function buildGroups(
   for (const g of body.groups) {
     const seller = findSellerById(g.sellerId);
     if (!seller) return { error: validation({ groups: [`Loja ${g.sellerId} não encontrada.`] }) };
+    // Política 3.3 e 8.1: só loja verificada e sem suspensão vende.
+    if (sellerStatus(seller.id) !== "Aprovado")
+      return {
+        error: validation({ groups: [`A loja ${seller.name} não está vendendo no momento. Remova os produtos dela do carrinho.`] }),
+      };
     const lines: CheckoutLineDto[] = [];
     for (const item of g.items) {
       const record = findProductRecord(item.productId);
@@ -183,6 +188,9 @@ export const checkoutHandlers = [
 
     const quote = quotes.get(body.quoteId);
     if (!quote) return validation({ quoteId: ["Cotação expirada. Atualize o resumo do pedido."] });
+    // A loja pode ter sido suspensa ou excluída depois da cotação (Política 8.1).
+    const stopped = quote.groups.find((g) => sellerStatus(g.seller.id) !== "Aprovado");
+    if (stopped) return validation({ items: [`A loja ${stopped.seller.name} não está vendendo no momento. Atualize o carrinho.`] });
     const address = db.addresses.find((a) => a.id === body.addressId);
     if (!address) return notFound("Endereço");
     // A declaração da remessa leva o CPF de quem recebe (indicador de qualidade da declaração).

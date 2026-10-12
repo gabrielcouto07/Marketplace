@@ -56,8 +56,9 @@ import {
   useAdminErrorToast,
 } from "./admin-widgets";
 import { SellerVerificationSection } from "./admin-compliance";
+import { SellerGovernanceSection } from "./admin-governance";
 
-const STATUSES: SellerStatus[] = ["Aprovado", "Pendente", "Suspenso"];
+const STATUSES: SellerStatus[] = ["Aprovado", "Pendente", "Suspenso", "Excluido"];
 type Filter = "all" | SellerStatus;
 
 function SellerDetail({ id, onClose }: { id: string | null; onClose: () => void }) {
@@ -75,6 +76,7 @@ function SellerDetail({ id, onClose }: { id: string | null; onClose: () => void 
   const [reputationEdit, setReputation] = useState<number | null>(null);
   const [officialEdit, setOfficial] = useState<boolean | null>(null);
   const [suspensionReason, setSuspensionReason] = useState("");
+  const [suspensionDays, setSuspensionDays] = useState("");
   const d = detail.data;
   const name = nameEdit ?? d?.summary.name ?? "";
   const city = cityEdit ?? d?.summary.city ?? "";
@@ -150,6 +152,8 @@ function SellerDetail({ id, onClose }: { id: string | null; onClose: () => void 
 
           <SellerVerificationSection detail={d} />
 
+          <SellerGovernanceSection detail={d} />
+
           <SheetSection title={t("editSeller")}>
             <FormField id="seller-status" label={t("colStatus")} hint={t("sellerStatusHint")}>
               <Select
@@ -193,15 +197,32 @@ function SellerDetail({ id, onClose }: { id: string | null; onClose: () => void 
                 <Switch checked={official} onCheckedChange={setOfficial} />
               </label>
             </div>
-            {status === "Suspenso" && d.summary.status !== "Suspenso" ? (
-              <FormField id="seller-suspension" label={t("suspensionReason")} hint={t("suspensionReasonHint")}>
-                <Textarea
-                  id="seller-suspension"
-                  rows={2}
-                  value={suspensionReason}
-                  onChange={(e) => setSuspensionReason(e.target.value)}
-                />
-              </FormField>
+            {(status === "Suspenso" || status === "Excluido") && d.summary.status !== status ? (
+              <>
+                <FormField id="seller-suspension" label={t("suspensionReason")} hint={t("suspensionReasonHint")}>
+                  <Textarea
+                    id="seller-suspension"
+                    rows={2}
+                    value={suspensionReason}
+                    onChange={(e) => setSuspensionReason(e.target.value)}
+                  />
+                </FormField>
+                {status === "Suspenso" ? (
+                  <FormField id="seller-suspension-days" label={t("suspensionDays")} optional hint={t("suspensionDaysHint")}>
+                    <Input
+                      id="seller-suspension-days"
+                      type="number"
+                      inputMode="numeric"
+                      min={1}
+                      max={365}
+                      value={suspensionDays}
+                      onChange={(e) => setSuspensionDays(e.target.value)}
+                    />
+                  </FormField>
+                ) : (
+                  <p className="rounded-md bg-danger-soft p-3 text-body-sm text-danger">{t("exclusionWarning")}</p>
+                )}
+              </>
             ) : null}
             <FormField id="seller-name" label={t("colSeller")}>
               <Input id="seller-name" value={name} onChange={(e) => setName(e.target.value)} />
@@ -232,6 +253,7 @@ function SellerDetail({ id, onClose }: { id: string | null; onClose: () => void 
                       reputationLevel: reputation,
                       isOfficialStore: official,
                       suspensionReason: suspensionReason.trim() || null,
+                      suspensionDays: status === "Suspenso" && suspensionDays ? Number(suspensionDays) : null,
                     },
                   },
                   { onSuccess: () => toast.success(t("saved")), onError },
@@ -298,6 +320,7 @@ export function AdminSellers() {
     Aprovado: t("sellerStatus.Aprovado"),
     Pendente: t("sellerStatus.Pendente"),
     Suspenso: t("sellerStatus.Suspenso"),
+    Excluido: t("sellerStatus.Excluido"),
   };
 
   return (
@@ -379,7 +402,13 @@ export function AdminSellers() {
                         {s.openDisputes
                           ? ` · ${t("disputesCount", { count: s.openDisputes })}`
                           : ""}
+                        {s.infractions12Months
+                          ? ` · ${t("infractions12m", { count: s.infractions12Months })}`
+                          : ""}
                       </span>
+                      {s.admissionComplete === false ? (
+                        <span className="block text-caption font-medium text-warning">{t("admissionIncomplete")}</span>
+                      ) : null}
                     </TableCell>
                     <TableCell className="hidden text-foreground-secondary tabular-nums sm:table-cell">
                       {s.ruc}

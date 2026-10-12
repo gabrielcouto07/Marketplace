@@ -51,6 +51,14 @@ public static class CommerceEndpoints
 
         orders.MapGet("/orders/{id}/tracking", (string id, OrderService svc, CancellationToken ct) => svc.TrackingAsync(id, ct));
 
+        // Programa 10.3: comprovante do pagamento e do valor da compra, guardado com o pedido.
+        orders.MapGet("/orders/{id}/receipt", async (string id, OrderService svc, ReceiptService receipts, CancellationToken ct) =>
+        {
+            var order = await svc.GetAsync(id, ct);
+            var document = await receipts.GetOrCreateAsync(order.Id, ct);
+            return Results.File(document.Content, document.ContentType, document.FileName);
+        });
+
         orders.MapPost("/orders/{id}/cancel", (string id, OrderService svc, CancellationToken ct) => svc.CancelAsync(id, ct));
 
         orders.MapPost("/orders/{id}/disputes", async (string id, OrderService svc, CancellationToken ct) =>

@@ -79,7 +79,11 @@ public sealed record ProductDetailDto(
     string OriginCity,
     DayRange HandlingDays,
     int? WarrantyMonths,
-    int QuestionCount);
+    int QuestionCount,
+    /// <summary>País de fabricação (ISO alfa-2), marca e modelo informados para a declaração.</summary>
+    string? OriginCountry = null,
+    string? Brand = null,
+    string? Model = null);
 
 public enum ProductSort
 {

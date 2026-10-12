@@ -22,11 +22,15 @@ public sealed class RemessaService(
     ExchangeRateService rates,
     PlatformSettingsProvider settingsProvider,
     OrderService orders,
+    MonitoringService monitoring,
     ICurrentUser currentUser,
     JsonSerializerOptions json,
     TimeProvider clock,
     ILogger<RemessaService> logger)
 {
+    /// <summary>Uma conferência feita antes de enviar a declaração ao operador.</summary>
+    public sealed record PreflightCheck(string Check, bool Ok, string Detail);
+
     private const int MaxRemittanceAttempts = 8;
 
     private DateTime Now => clock.GetUtcNow().UtcDateTime;
@@ -68,7 +72,12 @@ public sealed class RemessaService(
             throw new AppException(503, "CARRIER_NOT_CONFIGURED",
                 "A integração com o operador logístico não está configurada. Avise o suporte da plataforma.");
 
-        var request = await BuildRequestAsync(order, shipment?.Id ?? Guid.NewGuid(), ct);
+        // Indício de fracionamento da mesma loja em análise: a etiqueta espera o julgamento (Programa 6.4 e 6.5).
+        if (await monitoring.HoldingAlertAsync(order.Id, ct) is { } hold)
+            throw AppException.Conflict("MONITORING_HOLD",
+                $"Este pedido está em análise de conformidade ({hold.Summary}). A etiqueta é liberada depois da análise da equipe.");
+
+        var (request, checks) = await PrepareAsync(order, shipment?.Id ?? Guid.NewGuid(), strict: true, ct);
         var now = Now;
         if (shipment is null)
         {
@@ -79,6 +88,7 @@ public sealed class RemessaService(
         shipment.Attempts++;
         shipment.UpdatedAt = now;
         shipment.RequestJson = JsonSerializer.Serialize(Masked(request), json);
+        shipment.ChecksJson = JsonSerializer.Serialize(checks, json);
 
         RemessaShipmentResult result;
         try
@@ -146,26 +156,79 @@ public sealed class RemessaService(
         await db.SaveChangesAsync(ct);
     }
 
-    /// <summary>Dados da declaração no layout da DIR. Erros de cadastro viram 422 com a lista do que falta.</summary>
-    public async Task<RemessaShipmentRequest> BuildRequestAsync(Order order, Guid shipmentId, CancellationToken ct)
+    /// <summary>Dados da declaração no layout da DIR, sem as conferências (segunda via da etiqueta).</summary>
+    public async Task<RemessaShipmentRequest> BuildRequestAsync(Order order, Guid shipmentId, CancellationToken ct) =>
+        (await PrepareAsync(order, shipmentId, strict: false, ct)).Request;
+
+    /// <summary>
+    /// Monta a declaração no layout da DIR e, em modo estrito (emissão da etiqueta), confere antes de enviar ao operador:
+    /// remetente completo e verificado (Programa 7.3), CPF do destinatário conferido na Receita (7.2), NCM, origem e
+    /// descrição de cada mercadoria iguais ao vendido (7.4 a 7.6), regime de tributação (7.6) e valor declarado igual ao
+    /// cobrado do comprador (6.3). Falhas viram 422 com a lista do que falta; valor divergente abre alerta e devolve 409.
+    /// </summary>
+    public async Task<(RemessaShipmentRequest Request, List<PreflightCheck> Checks)> PrepareAsync(Order order, Guid shipmentId, bool strict, CancellationToken ct)
     {
         var seller = await db.Sellers.AsNoTracking().FirstAsync(s => s.Id == order.SellerId, ct);
         var buyer = await db.Users.AsNoTracking().FirstAsync(u => u.Id == order.UserId, ct);
         var productIds = order.Items.Select(i => i.ProductId).Distinct().ToList();
         var products = await db.Products.AsNoTracking().Where(p => productIds.Contains(p.Id)).ToDictionaryAsync(p => p.Id, ct);
         var identity = platform.Current;
-
+        var sandbox = carrier.IsSandbox;
+        var checks = new List<PreflightCheck>();
         var errors = new ValidationErrors();
+
+        // Remetente (7.1 e 7.3): a loja verificada, com denominação social, RUC válido e endereço de origem.
+        var senderProblems = new List<string>();
+        if (seller.Status == SellerStatus.Excluido) senderProblems.Add("loja excluída");
+        if (seller.VerifiedAt is null) senderProblems.Add("cadastro ainda não verificado pela equipe");
+        if (string.IsNullOrWhiteSpace(seller.LegalName)) senderProblems.Add("denominação social");
+        if (!Documents.IsValidRuc(seller.Ruc)) senderProblems.Add("RUC válido");
+        if (string.IsNullOrWhiteSpace(seller.LegalAddress)) senderProblems.Add("endereço de origem");
+        if (string.IsNullOrWhiteSpace(seller.City) || seller.Country != "PY") senderProblems.Add("cidade e país de origem");
+        checks.Add(new PreflightCheck("remetente", senderProblems.Count == 0,
+            senderProblems.Count == 0 ? $"{seller.SenderName} · RUC {seller.Ruc} · {seller.City}, PY" : $"Falta: {string.Join(", ", senderProblems)}"));
+        if (strict && senderProblems.Count > 0)
+            errors.Add("sender", $"Dados do remetente incompletos ({string.Join(", ", senderProblems)}). Complete o cadastro da loja em Configurações.");
+
+        // Destinatário (7.1 e 7.2): CPF válido e conferido na Receita antes de concluir a venda.
+        var recipientCpf = Documents.OnlyDigits(order.RecipientDocument);
+        // "sandbox" = só o dígito verificador (demonstração): com operador real a remessa exige a conferência na Receita.
+        var registryChecked = order.RecipientVerifiedAt is not null && order.RecipientVerificationSource != "sandbox";
+        var cpfOk = Documents.IsValidCpf(recipientCpf) && (registryChecked || sandbox);
+        checks.Add(new PreflightCheck("destinatario", cpfOk, order.RecipientVerifiedAt is { } verified
+            ? registryChecked
+                ? $"CPF conferido em {verified:dd/MM/yyyy HH:mm} ({order.RecipientVerificationSource})"
+                : $"Só o dígito verificador do CPF em {verified:dd/MM/yyyy HH:mm}, sem consulta à Receita (sandbox)"
+            : sandbox ? "CPF com dígito válido (pedido anterior à conferência na Receita; sandbox)" : "CPF não conferido na Receita"));
+        if (strict && !Documents.IsValidCpf(recipientCpf))
+            errors.Add("recipient", "O pedido está sem CPF do destinatário. Fale com o suporte para corrigir antes de enviar.");
+        else if (strict && !cpfOk)
+            errors.Add("recipient", "O CPF do destinatário não foi conferido na base da Receita Federal. Fale com o suporte antes de enviar.");
+
+        // Mercadorias (7.4 a 7.6): o que foi vendido, com NCM, origem e descrição completos.
+        var items = new List<RemessaItem>();
+        var sequence = 1;
         foreach (var item in order.Items)
         {
-            var hs = products.GetValueOrDefault(item.ProductId)?.HsCode;
-            errors.AddIf(!Ncm.IsWellFormed(hs), "items", $"\"{item.Name}\" está sem NCM válido. Complete o cadastro do produto.");
+            var product = products.GetValueOrDefault(item.ProductId);
+            var ncm = item.HsCode ?? product?.HsCode;
+            var origin = Countries.Normalize(item.OriginCountry ?? product?.OriginCountry);
+            var description = item.DeclarationDescription ?? product?.DeclarationDescription(item.VariantLabel);
+            var problems = new List<string>();
+            if (!Ncm.IsWellFormed(ncm)) problems.Add("NCM");
+            else if (Ncm.ProhibitionReason(ncm!) is { } prohibited) problems.Add($"oferta vedada ({prohibited})");
+            if (!Countries.IsValid(origin)) problems.Add("país de origem");
+            if (description is null || DeclarationText.IsGeneric(description)) problems.Add("descrição da declaração (natureza, marca, material, quantidade)");
+            checks.Add(new PreflightCheck($"mercadoria:{sequence}", problems.Count == 0,
+                problems.Count == 0 ? $"NCM {Ncm.Format(ncm!)} · origem {origin} · {description}" : $"\"{item.Name}\": falta {string.Join(", ", problems)}"));
+            if (problems.Count > 0 && (strict || !Ncm.IsWellFormed(ncm)))
+                errors.Add("items", $"\"{item.Name}\": {string.Join(", ", problems)}. Complete o cadastro do produto.");
+            items.Add(new RemessaItem(sequence++, description ?? (item.VariantLabel is null ? item.Name : $"{item.Name} ({item.VariantLabel})"),
+                ncm ?? string.Empty, item.Quantity, Money.Brl(item.UnitPriceAmount), Money.Brl(item.LineTotalAmount),
+                product?.WeightGrams is { } w ? w * item.Quantity : null, origin ?? seller.Country));
         }
-        var recipientCpf = Documents.OnlyDigits(order.RecipientDocument);
-        errors.AddIf(!Documents.IsValidCpf(recipientCpf), "recipient", "O pedido está sem CPF do destinatário. Fale com o suporte para corrigir antes de enviar.");
-        errors.AddIf(string.IsNullOrWhiteSpace(seller.LegalAddress), "sender", "Complete o endereço de origem da loja em Configurações (vai na declaração e na etiqueta).");
-        errors.AddIf(!carrier.IsSandbox && !identity.IsComplete, "platform", "Os dados da empresa (razão social e CNPJ/TIN) não estão configurados na plataforma.");
-        errors.ThrowIfAny();
+        if (strict && !sandbox && !identity.IsComplete)
+            errors.Add("platform", "Os dados da empresa (razão social e CNPJ/TIN) não estão configurados na plataforma.");
 
         var settings = await settingsProvider.GetAsync(ct);
         var taxes = order.TaxBreakdown;
@@ -176,34 +239,62 @@ public sealed class RemessaService(
                 Money.Brl(order.DiscountAmount), order.ShippingAddress.State), settings, usd);
         }
 
-        var items = order.Items.Select((item, i) =>
+        // Regime (7.6): Remessa Conforme e até US$ 3.000.
+        var regimeOk = taxes.Regime == ImportTaxRegime.RemessaConforme && !taxes.ExceedsSimplifiedLimit;
+        checks.Add(new PreflightCheck("regime", regimeOk, taxes.ExceedsSimplifiedLimit
+            ? "Acima de US$ 3.000: fora do regime de tributação simplificada"
+            : taxes.Regime == ImportTaxRegime.RemessaConforme ? "Remessa Conforme (tributos recolhidos na compra)" : "Tributos estimados (modo Flat)"));
+        if (strict && taxes.ExceedsSimplifiedLimit)
+            errors.Add("regime", "A remessa passa de US$ 3.000 e não cabe no regime de tributação simplificada.");
+        else if (strict && !regimeOk && !sandbox)
+            errors.Add("regime", "Os tributos deste pedido foram estimados fora do Remessa Conforme. Fale com o suporte.");
+
+        // Valor (6.2 e 6.3): o valor declarado é o cobrado do comprador (produto + frete + seguro + despesas − desconto).
+        var itemsTotal = order.Items.Sum(i => i.LineTotalAmount);
+        var declared = taxes.CustomsValue.Amount;
+        var charged = order.SubtotalAmount + order.ShippingAmount + taxes.Insurance.Amount + taxes.OtherExpenses.Amount - order.DiscountAmount;
+        var valueOk = declared == charged && taxes.Products.Amount == order.SubtotalAmount && taxes.Freight.Amount == order.ShippingAmount
+                      && taxes.Discount.Amount == order.DiscountAmount && taxes.Total.Amount == order.TotalAmount && itemsTotal == order.SubtotalAmount;
+        if (valueOk && strict && order.Payment is { } payment)
         {
-            var product = products[item.ProductId];
-            var description = item.VariantLabel is null ? item.Name : $"{item.Name} ({item.VariantLabel})";
-            return new RemessaItem(i + 1, description, product.HsCode!, item.Quantity, Money.Brl(item.UnitPriceAmount),
-                Money.Brl(item.LineTotalAmount), product.WeightGrams is { } w ? w * item.Quantity : null, seller.Country);
-        }).ToList();
-        var weight = order.Items.Sum(i => (products[i.ProductId].WeightGrams ?? ShippingQuoteContext.DefaultItemWeightGrams) * i.Quantity);
-        var biggest = order.Items.Select(i => products[i.ProductId])
+            var purchaseTotal = await db.Orders.Where(o => o.PurchaseId == order.PurchaseId).SumAsync(o => o.TotalAmount, ct);
+            valueOk = payment.Status == PaymentStatus.Aprovado && payment.Amount == purchaseTotal;
+        }
+        checks.Add(new PreflightCheck("valor", valueOk, string.Create(System.Globalization.CultureInfo.GetCultureInfo("pt-BR"),
+            $"Declarado R$ {declared / 100m:N2} · cobrado R$ {charged / 100m:N2} · total do pedido R$ {order.TotalAmount / 100m:N2}")));
+        if (strict && !valueOk)
+        {
+            await monitoring.RaiseAsync(MonitoringAlertType.ValorDeclarado, $"valor:{order.Id:N}", order.SellerId, order.UserId,
+                $"Pedido {order.Number}: valor da declaração diferente do cobrado do comprador (declarado {declared}, cobrado {charged}).",
+                [order.Id], new { declared, charged, order.TotalAmount, itemsTotal }, holdsShipments: true, ct);
+            await db.SaveChangesAsync(ct);
+            throw AppException.Conflict("DECLARED_VALUE_MISMATCH",
+                "O valor da declaração não confere com o valor cobrado do comprador. A remessa ficou retida para análise da equipe.");
+        }
+        errors.ThrowIfAny();
+
+        var weight = order.Items.Sum(i => (products.GetValueOrDefault(i.ProductId)?.WeightGrams ?? ShippingQuoteContext.DefaultItemWeightGrams) * i.Quantity);
+        var biggest = order.Items.Select(i => products.GetValueOrDefault(i.ProductId))
             .Where(p => p is { LengthCm: not null, WidthCm: not null, HeightCm: not null })
-            .Select(p => new ParcelDimensions(p.LengthCm!.Value, p.WidthCm!.Value, p.HeightCm!.Value))
+            .Select(p => new ParcelDimensions(p!.LengthCm!.Value, p.WidthCm!.Value, p.HeightCm!.Value))
             .OrderByDescending(d => d.LengthCm * d.WidthCm * d.HeightCm).FirstOrDefault();
 
         var address = order.ShippingAddress;
         var recipient = new RemessaParty(address.RecipientName, "CPF", recipientCpf,
             $"{address.Street}, {address.Number}{(address.Complement is null ? "" : " – " + address.Complement)} – {address.Neighborhood}",
             address.City, address.State, address.PostalCode, address.Country, address.Phone ?? buyer.Phone, buyer.Email);
-        var sender = new RemessaParty(seller.Name, "RUC", seller.Ruc, seller.LegalAddress!, seller.City, null, seller.OriginPostalCode,
-            seller.Country, seller.Phone, null);
+        var sender = new RemessaParty(seller.SenderName, "RUC", seller.Ruc, seller.LegalAddress ?? seller.City, seller.City, null, seller.OriginPostalCode,
+            seller.Country, seller.Phone, seller.Email);
 
-        var description = items.Count == 1 ? items[0].Description : $"{items.Count} itens: {string.Join("; ", items.Select(i => i.Description))}";
-        return new RemessaShipmentRequest(
+        var summary = items.Count == 1 ? items[0].Description : $"{items.Count} itens: {string.Join("; ", items.Select(i => i.Description))}";
+        var request = new RemessaShipmentRequest(
             shipmentId, order.Number, order.CreatedAt, identity, sender, recipient, items,
-            description.Length > 4000 ? description[..4000] : description,
+            summary.Length > 4000 ? summary[..4000] : summary,
             taxes.Products, taxes.Freight, taxes.Insurance, taxes.Discount, taxes.CustomsValue, taxes.CustomsValueUsdCents,
             new RemessaTaxes(taxes.ImportDuty, taxes.Icms, taxes.IbsState, taxes.IbsMunicipal, taxes.Cbs, taxes.TotalTaxes),
             taxes.Regime.ToString(), taxes.UsdRate?.Display,
             weight, biggest, order.ShippingOption.ServiceCode, order.ShippingOption.Carrier);
+        return (request, checks);
     }
 
     /// <summary>Cópia para auditoria com CPF e documentos mascarados.</summary>
@@ -333,7 +424,20 @@ public sealed class RemessaService(
         var paged = await query.OrderByDescending(x => x.s.CreatedAt).ToPagedAsync(page, pageSize, 20, ct);
         return paged.Map(x => new AdminShipmentListItemDto(x.s.Id, x.s.OrderId, x.Number, x.SellerName, x.s.Status, x.s.Provider,
             IsSandbox(x.s), x.s.TrackingCode, x.s.DeclarationNumber, x.s.DirNumber, x.s.CustomsStatus, x.RemittanceStatus,
-            Money.Brl(x.ImportTaxAmount), x.s.CreatedAt, x.s.LastError));
+            Money.Brl(x.ImportTaxAmount), x.s.CreatedAt, x.s.LastError, ReadChecks(x.s.ChecksJson)));
+    }
+
+    private IReadOnlyList<ShipmentCheckDto> ReadChecks(string? checksJson)
+    {
+        if (string.IsNullOrWhiteSpace(checksJson)) return [];
+        try
+        {
+            return JsonSerializer.Deserialize<List<ShipmentCheckDto>>(checksJson, json) ?? [];
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
     }
 
     public async Task<(byte[] Pdf, string FileName)> AdminLabelAsync(Guid shipmentId, CancellationToken ct)

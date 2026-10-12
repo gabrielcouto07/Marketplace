@@ -61,6 +61,14 @@ import {
   seeded,
   hashString,
 } from "../fixtures/base";
+import {
+  SELLER_VERIFICATION_ITEMS,
+  addNotice,
+  applyMeasure,
+  governanceDto,
+  infractionsIn12Months,
+  logAction,
+} from "../governance";
 import { audit, isResponse, requireAdmin } from "./guards";
 import { advanceOrder, settlePendingPayments } from "./orders";
 import { openReportsFor, sellerOccurrences, withShipment } from "./remessa";
@@ -352,6 +360,8 @@ function toSellerItem(s: SellerDto): AdminSellerListItemDto {
     openDisputes: orders.filter((o) => o.status === "EmDisputa").length,
     verified: Boolean(sellerKyc(s.id).verifiedAt),
     occurrences: sellerOccurrences(s.id).length,
+    infractions12Months: infractionsIn12Months(s.id).length,
+    admissionComplete: sellerVerification(s.id).admissionComplete,
   };
 }
 
@@ -371,6 +381,10 @@ function toSellerDetail(s: SellerDto): AdminSellerDetailDto {
       .slice(0, 5),
     verification: sellerVerification(s.id),
     occurrences: sellerOccurrences(s.id),
+    governance: governanceDto(s.id),
+    legalName: sellerKyc(s.id).legalName,
+    email: sellerKyc(s.id).email,
+    phone: db.sellerOverrides[s.id]?.phone ?? sellerKyc(s.id).phone,
   };
 }
 
@@ -646,20 +660,31 @@ export const adminHandlers = [
     if (level !== undefined && (level < 1 || level > 5))
       return validation({ reputationLevel: ["Reputação de 1 a 5."] });
     const current = sellerStatus(seller.id);
+    let measured = false;
     if (body.status && body.status !== current) {
       const reason = body.suspensionReason?.trim() ?? "";
-      if (body.status === "Suspenso") {
-        if (reason.length < 5)
+      if (current === "Excluido")
+        return validation({ status: ["Loja excluída não volta a vender (Política de Vendedores 3.5 e 8.1 c)."] });
+      if (body.status === "Suspenso" || body.status === "Excluido") {
+        if (reason.length < 10)
           return validation({
             suspensionReason: [
-              "Informe o motivo da suspensão (fica no histórico e aparece para o vendedor).",
+              "Informe o motivo (fica no histórico e o vendedor recebe a comunicação com ele).",
             ],
           });
-        db.sellerKyc[seller.id] = { ...sellerKyc(seller.id), suspensionReason: reason.slice(0, 500) };
+        if (body.suspensionDays != null && (body.suspensionDays < 1 || body.suspensionDays > 365))
+          return validation({ suspensionDays: ["Suspensão entre 1 e 365 dias (vazio = até a revisão da equipe)."] });
+        // Suspensão e exclusão são medidas da Política (8.1): ficam registradas e são comunicadas ao vendedor (8.5).
+        applyMeasure(seller.id, {
+          type: body.status === "Suspenso" ? "SuspensaoTemporaria" : "Exclusao",
+          reason: reason.slice(0, 500),
+          suspensionDays: body.status === "Suspenso" ? (body.suspensionDays ?? null) : null,
+        });
+        measured = true;
       } else if (body.status === "Aprovado") {
         if (current === "Pendente" && !sellerKyc(seller.id).verifiedAt)
           return validation({ status: ["Verifique os documentos da loja antes de aprovar."] });
-        db.sellerKyc[seller.id] = { ...sellerKyc(seller.id), suspensionReason: null };
+        db.sellerKyc[seller.id] = { ...sellerKyc(seller.id), suspensionReason: null, suspendedUntil: null };
       }
     }
     db.sellerOverrides[seller.id] = {
@@ -667,7 +692,7 @@ export const adminHandlers = [
       name: body.name?.trim() || undefined,
       city: body.city?.trim() || undefined,
       description: body.description?.trim() || undefined,
-      status: body.status,
+      status: measured ? db.sellerOverrides[seller.id]?.status : body.status,
       reputationLevel: level as SellerDto["reputationLevel"] | undefined,
       isOfficialStore: body.isOfficialStore,
     };
@@ -797,25 +822,39 @@ export const adminHandlers = [
     const body = (await request.json()) as SellerVerificationRequest;
     const note = body.note?.trim() ?? "";
     const kyc = sellerKyc(seller.id);
+    const checks = [...new Set((body.checks ?? []).map((c) => c.trim()))];
     if (body.approve) {
-      if (!sellerVerification(seller.id).complete)
+      const verification = sellerVerification(seller.id);
+      if (!verification.admissionComplete)
         return validation({
-          verification: [
-            "A loja ainda não enviou todos os documentos (responsável, documento, constância do RUC e endereço de origem).",
-          ],
+          verification: [`A loja ainda não completou o cadastro: ${(verification.missingAdmissionData ?? []).join(", ")}.`],
         });
-      db.sellerKyc[seller.id] = { ...kyc, verifiedAt: nowIso() };
+      // Política 3.3: todos os itens conferidos pela equipe antes de liberar as vendas.
+      const missing = SELLER_VERIFICATION_ITEMS.filter((item) => !checks.includes(item));
+      if (missing.length) return validation({ checks: [`Confira todos os itens antes de aprovar (faltam ${missing.length}).`] });
+      if (kyc.policyVersionAccepted !== db.settings.sellerPolicyVersion)
+        return validation({ checks: ["O representante legal ainda não aceitou a versão vigente da Política de Vendedores."] });
+      db.sellerKyc[seller.id] = { ...kyc, verifiedAt: nowIso(), checklist: checks };
       if (sellerStatus(seller.id) === "Pendente")
         db.sellerOverrides[seller.id] = { ...db.sellerOverrides[seller.id], status: "Aprovado" };
     } else {
       if (note.length < 5)
         return validation({ note: ["Explique o motivo da recusa (o vendedor vê esta mensagem)."] });
+      // Política 3.4: cadastro com dados ou documentos não validados é recusado (fica registrado).
       db.sellerKyc[seller.id] = {
         ...kyc,
         verifiedAt: null,
+        checklist: checks,
         suspensionReason: `Cadastro recusado: ${note}`,
       };
       db.sellerOverrides[seller.id] = { ...db.sellerOverrides[seller.id], status: "Suspenso" };
+      addNotice({
+        sellerId: seller.id,
+        type: "AtualizacaoCadastral",
+        title: "Cadastro recusado: corrija os dados",
+        message: `Seu cadastro não foi aprovado: ${note}\n\nCorrija os dados e documentos em Configurações em até 10 dias (Política de Vendedores, itens 3.4 e 8.4).`,
+      });
+      logAction("CadastroRecusado", note, "Cadastro recusado; vendedor comunicado.", { sellerId: seller.id });
     }
     log(body.approve ? "admin.seller.verify" : "admin.seller.reject", seller.slug);
     persistDb();
@@ -1166,6 +1205,22 @@ export const adminHandlers = [
     if (!within(body.priceFloorPercent, 0, 100)) errors.priceFloorPercent = ["Entre 0% e 100%."];
     if ((body.protectedBrands ?? "").length > 2000)
       errors.protectedBrands = ["Lista muito longa (máximo 2.000 caracteres)."];
+    // Programa de Conformidade e Política de Vendedores (mesmos limites da API).
+    if (db.settings.platformLabelLocked && !body.requirePlatformLabel)
+      errors.requirePlatformLabel = ["Com a operação no PRC iniciada, a etiqueta da plataforma é obrigatória (Programa 9.5)."];
+    const policyVersion = (body.sellerPolicyVersion ?? "").trim();
+    if (!policyVersion || policyVersion.length > 32)
+      errors.sellerPolicyVersion = ["Informe a versão da Política (até 32 caracteres)."];
+    if ((body.programOwnerName ?? "").length > 160) errors.programOwnerName = ["Nome muito longo."];
+    if (body.programOwnerEmail?.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.programOwnerEmail.trim()))
+      errors.programOwnerEmail = ["E-mail inválido."];
+    const future = (iso: string | null) => Boolean(iso) && Date.parse(iso!) > Date.now() + 86_400_000;
+    if (future(body.sellerPolicyApprovedAt) || future(body.complianceProgramApprovedAt))
+      errors.sellerPolicyApprovedAt = ["A data de aprovação não pode estar no futuro."];
+    if (!within(body.abruptIncreaseFactor, 2, 20)) errors.abruptIncreaseFactor = ["Entre 2 e 20 vezes a média semanal."];
+    if (!within(body.abruptIncreaseMinShipments, 1, 10_000)) errors.abruptIncreaseMinShipments = ["Entre 1 e 10.000 remessas."];
+    if (!within(body.concentrationThreshold, 2, 1000)) errors.concentrationThreshold = ["Entre 2 e 1.000 remessas."];
+    if (!within(body.auditSamplePercent, 1, 100)) errors.auditSamplePercent = ["Entre 1% e 100%."];
     const overrides = (body.icmsStateOverrides ?? "")
       .split(/[;,\n]/)
       .map((part) => part.trim())
@@ -1180,9 +1235,23 @@ export const adminHandlers = [
         "Use UF=pontos-base separados por ponto e vírgula, ex.: SP=2000; RJ=2000.",
       ];
     if (Object.keys(errors).length) return validation(errors);
+    // Política 10.3: nova versão da Política é comunicada a todos os vendedores, que aceitam de novo.
+    const policyChanged = policyVersion !== db.settings.sellerPolicyVersion;
+    if (policyChanged)
+      for (const seller of allSellers().filter((x) => sellerStatus(x.id) !== "Excluido"))
+        addNotice({
+          sellerId: seller.id,
+          type: "AlteracaoPolitica",
+          title: `Nova versão da Política de Vendedores (${policyVersion})`,
+          message: `A Política de Admissão e de Monitoramento de Vendedores mudou (versão ${policyVersion}). Leia o texto atualizado em /politica-de-vendedores e aceite no painel para continuar vendendo (Política, itens 2.2 e 10.3).`,
+        });
     db.settings = {
       ...db.settings,
       ...body,
+      sellerPolicyVersion: policyVersion,
+      programOwnerName: (body.programOwnerName ?? "").trim(),
+      programOwnerEmail: (body.programOwnerEmail ?? "").trim().toLowerCase(),
+      platformLabelLocked: db.settings.platformLabelLocked,
       icmsStateOverrides: overrides
         .map((part) => part.replace(/\s*=\s*/, "=").toUpperCase())
         .sort()

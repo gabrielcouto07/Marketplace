@@ -74,5 +74,9 @@ export const queryKeys = {
     product: (id: string) => ["seller", "products", "detail", id] as const,
     orders: (query: OrderListQuery) => ["seller", "orders", query] as const,
     shippingPolicy: ["seller", "shipping-policy"] as const,
+    /** Situação da loja na Política de Vendedores (aceite, confirmação anual, comunicações, medidas). */
+    compliance: ["seller", "compliance"] as const,
+    notices: (query: { status?: string; page?: number }) => ["seller", "notices", query] as const,
+    notice: (id: string) => ["seller", "notices", "detail", id] as const,
   },
 } as const;

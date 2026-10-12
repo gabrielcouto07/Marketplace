@@ -17,11 +17,14 @@ import type {
   SellerDto,
   SellerRiskDto,
   SellerShippingPolicyDto,
+  ShipmentCheckDto,
   ShipmentDto,
   ShipmentStatus,
 } from "@marketplace/contracts";
 import { HttpResponse, http } from "msw";
 
+import { buildDeclaration, isGenericNature } from "@/lib/compliance/declaration";
+import { isCountryCode } from "@/lib/countries";
 import { formatMoney } from "@/lib/money";
 import { isValidCpf } from "@/lib/validation/documents";
 
@@ -30,6 +33,7 @@ import {
   allSellers,
   findProduct,
   findSellerById,
+  productDeclaration,
   productNcm,
   productStatus,
   sellerKyc,
@@ -40,6 +44,7 @@ import { hashString } from "../fixtures/base";
 import {
   BAND_CONSEQUENCE,
   NCM_TABLE,
+  checkNcmRestriction,
   SEAL_MINIMUM_SHIPMENTS,
   bandOf,
   calculateImportTax,
@@ -52,6 +57,15 @@ import {
   s10,
   searchNcm,
 } from "../fixtures/remessa";
+import {
+  addInfraction,
+  applyMeasure,
+  contest,
+  createReport,
+  holdingAlertFor,
+  logAction,
+  withOverdue,
+} from "../governance";
 import { buildShipmentLabelPdf } from "../pdf";
 import { audit, isResponse, requireAdmin, requireSeller } from "./guards";
 import { advanceOrder } from "./orders";
@@ -64,7 +78,6 @@ import {
   paginate,
   problem,
   simulateLatency,
-  unauthorized,
   validation,
 } from "./utils";
 
@@ -114,18 +127,61 @@ function issueShipment(order: OrderDto, seller: SellerDto): ShipmentDto | Respon
   if (existing && (existing.status === "EtiquetaEmitida" || existing.status === "Postada"))
     return problem(409, "SHIPMENT_EXISTS", "Este pedido já tem etiqueta. Baixe a etiqueta emitida.");
 
+  // Indício de fracionamento da mesma loja em análise: a etiqueta espera o julgamento (Programa 6.4 e 6.5).
+  const hold = holdingAlertFor(order.number);
+  if (hold)
+    return problem(
+      409,
+      "MONITORING_HOLD",
+      `Este pedido está em análise de conformidade (${hold.summary}). A etiqueta é liberada depois da análise da equipe.`,
+    );
+
   const errors: Record<string, string[]> = {};
-  const withoutNcm = order.items.find((item) => !productNcm(item.productId));
-  if (withoutNcm)
-    errors.items = [`"${withoutNcm.name}" está sem NCM válido. Complete o cadastro do produto.`];
-  if (!isValidCpf(order.shippingAddress.recipientCpf ?? ""))
-    errors.recipient = [
-      "O pedido está sem CPF do destinatário. Fale com o suporte para corrigir antes de enviar.",
-    ];
-  if (!sellerKyc(seller.id).legalAddress)
-    errors.sender = [
-      "Complete o endereço de origem da loja em Configurações (vai na declaração e na etiqueta).",
-    ];
+  const checks: ShipmentCheckDto[] = [];
+  const kyc = sellerKyc(seller.id);
+  // Remetente (7.1 e 7.3).
+  const senderProblems: string[] = [];
+  if (sellerStatus(seller.id) === "Excluido") senderProblems.push("loja excluída");
+  if (!kyc.verifiedAt) senderProblems.push("cadastro ainda não verificado pela equipe");
+  if (!kyc.legalName) senderProblems.push("denominação social");
+  if (!/^\d{6,8}-\d$/.test(seller.ruc)) senderProblems.push("RUC válido");
+  if (!kyc.legalAddress) senderProblems.push("endereço de origem");
+  checks.push({
+    check: "remetente",
+    ok: senderProblems.length === 0,
+    detail: senderProblems.length === 0 ? `${kyc.legalName} · RUC ${seller.ruc} · ${seller.city}, PY` : `Falta: ${senderProblems.join(", ")}`,
+  });
+  if (senderProblems.length)
+    errors.sender = [`Dados do remetente incompletos (${senderProblems.join(", ")}). Complete o cadastro da loja em Configurações.`];
+  // Destinatário (7.1 e 7.2): no mock só o dígito verificador é conferido (sandbox).
+  const cpfOk = isValidCpf(order.shippingAddress.recipientCpf ?? "");
+  checks.push({
+    check: "destinatario",
+    ok: cpfOk,
+    detail: cpfOk ? "CPF com dígito válido (demonstração: consulta à Receita simulada)" : "CPF do destinatário ausente ou inválido",
+  });
+  if (!cpfOk) errors.recipient = ["O pedido está sem CPF do destinatário. Fale com o suporte para corrigir antes de enviar."];
+  // Mercadorias (7.4 a 7.6).
+  order.items.forEach((item, i) => {
+    const ncm = productNcm(item.productId);
+    const d = productDeclaration(item.productId);
+    const problems: string[] = [];
+    if (!ncm) problems.push("NCM");
+    else if (checkNcmRestriction(ncm)?.level === "Bloqueio") problems.push("oferta vedada (Anexo I)");
+    if (!d || !isCountryCode(d.originCountry)) problems.push("país de origem");
+    if (!d || d.nature.trim().length < 3 || isGenericNature(d.nature) || d.material.trim().length < 2)
+      problems.push("descrição da declaração (natureza, marca, material, quantidade)");
+    const description =
+      d && problems.length === 0
+        ? buildDeclaration({ nature: d.nature, brand: d.brand, unbranded: d.unbranded, model: d.model, material: d.material, quantity: d.packageQuantity })
+        : null;
+    checks.push({
+      check: `mercadoria:${i + 1}`,
+      ok: problems.length === 0,
+      detail: problems.length === 0 ? `NCM ${formatNcm(ncm!)} · origem ${d!.originCountry} · ${description}` : `"${item.name}": falta ${problems.join(", ")}`,
+    });
+    if (problems.length) errors.items = [`"${item.name}": ${problems.join(", ")}. Complete o cadastro do produto.`];
+  });
   if (Object.keys(errors).length) return validation(errors);
 
   const now = nowIso();
@@ -142,6 +198,28 @@ function issueShipment(order: OrderDto, seller: SellerDto): ShipmentDto | Respon
       },
       db.settings,
     );
+  // Regime (7.6) e valor (6.2 e 6.3): o declarado é o cobrado do comprador.
+  const charged = order.totals.subtotal.amount + order.totals.shipping.amount + taxes.insurance.amount + taxes.otherExpenses.amount - order.totals.discount.amount;
+  checks.push({
+    check: "regime",
+    ok: taxes.regime === "RemessaConforme" && !taxes.exceedsSimplifiedLimit,
+    detail: taxes.exceedsSimplifiedLimit
+      ? "Acima de US$ 3.000: fora do regime de tributação simplificada"
+      : taxes.regime === "RemessaConforme"
+        ? "Remessa Conforme (tributos recolhidos na compra)"
+        : "Tributos estimados (modo Flat)",
+  });
+  checks.push({
+    check: "valor",
+    ok: taxes.customsValue.amount === charged,
+    detail: `Declarado ${brl(taxes.customsValue)} · cobrado ${brl({ amount: charged, currency: "BRL" })} · total do pedido ${brl(order.totals.total)}`,
+  });
+  if (taxes.exceedsSimplifiedLimit)
+    return validation({ regime: ["A remessa passa de US$ 3.000 e não cabe no regime de tributação simplificada."] });
+  if (taxes.customsValue.amount !== charged)
+    return problem(409, "DECLARED_VALUE_MISMATCH", "O valor declarado não coincide com o valor cobrado do comprador. Fale com o suporte.");
+  db.shipmentChecks[id] = checks;
+
   const shipment: ShipmentDto = {
     id,
     orderId: order.id,
@@ -206,7 +284,7 @@ function labelPdf(order: OrderDto): Uint8Array {
     recipientCpf: maskDocument(a.recipientCpf) ?? "-",
     recipientAddress: `${a.street}, ${a.number}${a.complement ? ` - ${a.complement}` : ""} - ${a.neighborhood}`,
     recipientCityLine: `CEP ${a.postalCode.slice(0, 5)}-${a.postalCode.slice(5)} - ${a.city}/${a.state}`,
-    senderName: `${seller?.name ?? order.seller.name} - RUC ${seller?.ruc ?? ""}`,
+    senderName: `${kyc.legalName ?? seller?.name ?? order.seller.name} - RUC ${seller?.ruc ?? ""}`,
     senderAddress: `${kyc.legalAddress ?? ""} - ${seller?.city ?? order.seller.city}, PY`,
     itemsLine: `${order.items.length === 1 ? "1 item" : `${order.items.length} itens`} - NCM ${ncms.join(", ")}`,
     customsLine: taxes
@@ -361,14 +439,29 @@ function newOccurrence(
   };
 }
 
-/** Falsificado → contrafação; preço suspeito → subvaloração; o resto → qualidade da declaração. */
+/** Falsificado ou propriedade intelectual → contrafação; preço suspeito → subvaloração; o resto → qualidade da declaração. */
 const indicatorFor = (reason: ProductReportReason): ComplianceIndicator =>
-  reason === "Falsificado" ? "Contrafacao" : reason === "PrecoSuspeito" ? "Subvaloracao" : "QualidadeDeclaracao";
+  reason === "Falsificado" || reason === "PropriedadeIntelectual"
+    ? "Contrafacao"
+    : reason === "PrecoSuspeito"
+      ? "Subvaloracao"
+      : "QualidadeDeclaracao";
 
-/** Denúncia com nome e status atuais do produto. */
+/** Infração do vendedor por motivo da denúncia procedente (InfractionFor da API). */
+const INFRACTION_FOR: Record<ProductReportReason, [code: string, severity: "Leve" | "Media" | "Grave", moderation: string]> = {
+  Falsificado: ["CONTRAFACAO", "Grave", "CONTRAFACAO"],
+  PropriedadeIntelectual: ["PROPRIEDADE_INTELECTUAL", "Grave", "CONTRAFACAO"],
+  OrigemIlicita: ["ORIGEM_ILICITA", "Grave", "ORIGEM_ILICITA"],
+  ProdutoProibido: ["PRODUTO_PROIBIDO", "Grave", "PRODUTO_PROIBIDO"],
+  PrecoSuspeito: ["SUBFATURAMENTO", "Media", "DENUNCIA"],
+  DescricaoIncorreta: ["DIVERGENCIA", "Leve", "DENUNCIA"],
+  Outro: ["OUTRO", "Leve", "DENUNCIA"],
+};
+
+/** Denúncia com nome e status atuais do produto e o prazo vencido calculado. */
 function liveReport(report: ProductReportDto): ProductReportDto {
   const product = findProduct(report.productId);
-  return product ? { ...report, productName: product.name, productStatus: productStatus(product.id) } : report;
+  return withOverdue(product ? { ...report, productName: product.name, productStatus: productStatus(product.id) } : report);
 }
 
 function shipmentItem(order: OrderDto): AdminShipmentListItemDto {
@@ -389,6 +482,7 @@ function shipmentItem(order: OrderDto): AdminShipmentListItemDto {
     taxes: order.totals.taxes?.totalTaxes ?? order.totals.importTax,
     createdAt: s.createdAt,
     lastError: s.lastError,
+    checks: db.shipmentChecks[s.id] ?? [],
   };
 }
 
@@ -446,13 +540,13 @@ function integrations(): IntegrationStatusDto[] {
       key: "serpro",
       name: "Serpro — Consulta CPF",
       purpose:
-        "Situação do CPF do destinatário na Receita antes da compra (indicador de qualidade da declaração).",
+        "CPF e nome do destinatário conferidos na base da Receita antes de concluir a venda (Programa de Conformidade 7.2).",
       provider: "serpro",
       configured: false,
       requiresCredential: true,
-      mode: "Só dígito verificador",
+      mode: "Só dígito verificador (demonstração)",
       missing: ["Serpro__ConsumerKey", "Serpro__ConsumerSecret"],
-      detail: null,
+      detail: "Demonstração: só o dígito verificador é conferido. Em produção, sem a chave nenhuma venda conclui.",
       docsUrl: DOCS,
     },
     {
@@ -483,28 +577,21 @@ function integrations(): IntegrationStatusDto[] {
   ];
 }
 
-const REPORT_REASONS: ProductReportReason[] = [
-  "Falsificado",
-  "PrecoSuspeito",
-  "DescricaoIncorreta",
-  "ProdutoProibido",
-  "Outro",
-];
-
 export const remessaHandlers = [
   // ----- Público: tributos e NCM -----
   http.get(`${API}/taxes/estimate`, async ({ request }) => {
     await simulateLatency();
     const url = new URL(request.url);
     const amount = num(url.searchParams.get("amount"), 0)!;
+    const freight = num(url.searchParams.get("freight"), 0)!;
     const state = url.searchParams.get("state")?.trim().toUpperCase() || null;
     const errors: Record<string, string[]> = {};
     if (!Number.isInteger(amount) || amount < 1 || amount > 100_000_000) errors.amount = ["Valor inválido."];
+    if (!Number.isInteger(freight) || freight < 0 || freight > 10_000_000) errors.freight = ["Frete inválido."];
     if (state && state.length !== 2) errors.state = ["UF inválida."];
     if (Object.keys(errors).length) return validation(errors);
-    return HttpResponse.json(
-      calculateImportTax({ products: amount, freight: 0, discount: 0, state }, db.settings),
-    );
+    // Programa 4.2: com o frete cotado para o CEP, a conta inteira (produto, frete, seguro, tributos e total).
+    return HttpResponse.json(calculateImportTax({ products: amount, freight, discount: 0, state }, db.settings));
   }),
 
   http.get(`${API}/ncm`, async ({ request }) => {
@@ -520,47 +607,18 @@ export const remessaHandlers = [
     return HttpResponse.json(result);
   }),
 
-  // ----- Comprador: denúncia -----
+  // ----- Denúncia pela página do produto: aberta a qualquer pessoa, com ou sem login (Política 6.4) -----
   http.post(`${API}/products/:id/reports`, async ({ request, params }) => {
     await simulateLatency();
-    if (!isAuthorized(request)) return unauthorized();
     const body = (await request.json()) as ProductReportRequest;
-    const details = body.details?.trim() ?? "";
-    const errors: Record<string, string[]> = {};
-    if (!REPORT_REASONS.includes(body.reason)) errors.reason = ["Escolha o motivo da denúncia."];
-    if (details.length > 1000) errors.details = ["Conte em até 1.000 caracteres."];
-    if (body.reason === "Outro" && details.length < 10)
-      errors.details = ["Explique o problema em pelo menos 10 caracteres."];
-    if (Object.keys(errors).length) return validation(errors);
     const product = findProduct(String(params.id));
     if (!product) return notFound("Produto");
-    if (
-      db.reports.some(
-        (r) => r.productId === product.id && r.reporterEmail === db.user.email && r.status === "Aberta",
-      )
-    )
-      return problem(409, "REPORT_ALREADY_OPEN", "Você já denunciou este produto. A equipe está analisando.");
-    const report: ProductReportDto = {
-      id: crypto.randomUUID(),
-      productId: product.id,
-      productName: product.name,
-      productSlug: product.slug,
-      productStatus: productStatus(product.id),
-      sellerId: product.seller.id,
-      sellerName: product.seller.name,
-      reason: body.reason,
-      details,
-      status: "Aberta",
-      createdAt: nowIso(),
-      reporterEmail: db.user.email,
-      resolvedAt: null,
-      resolutionNote: null,
-      occurrenceId: null,
-    };
-    db.reports.unshift(report);
+    const result = createReport(product, body, "PaginaDoProduto", isAuthorized(request));
+    if ("errors" in result) return validation(result.errors);
+    if ("conflict" in result) return problem(409, "REPORT_ALREADY_OPEN", result.conflict);
     audit("product.report", product.slug);
     persistDb();
-    return HttpResponse.json(report, { status: 201 });
+    return HttpResponse.json(result, { status: 201 });
   }),
 
   // ----- Vendedor: etiqueta da plataforma -----
@@ -684,13 +742,33 @@ export const remessaHandlers = [
     const occurrence = db.occurrences.find((o) => o.id === params.id);
     if (!occurrence) return notFound("Ocorrência");
     const body = (await request.json()) as OccurrenceStatusRequest;
+    if (body.status === "Contestada") {
+      // Programa 11.6 e 11.7: só por erro material, inconsistência sistêmica ou impropriedade na metodologia.
+      if (!body.contestationReason)
+        return validation({
+          contestationReason: [
+            "A contestação só cabe por erro material, inconsistência sistêmica ou impropriedade na aplicação da metodologia de cálculo (Programa 11.6).",
+          ],
+        });
+      const result = contest(
+        {
+          indicator: occurrence.indicator,
+          occurrenceIds: [occurrence.id],
+          reason: body.contestationReason,
+          grounds: body.grounds ?? body.reason ?? "",
+          evidence: body.evidence,
+          reference: body.reference,
+        },
+        admin.email,
+      );
+      if ("errors" in result) return validation(result.errors);
+      audit("admin.occurrence.status", `${occurrence.id}/Contestada`);
+      persistDb();
+      return HttpResponse.json(occurrence);
+    }
     const reason = body.reason?.trim() || null;
-    if (body.status !== "Confirmada" && (!reason || reason.length < 5))
-      return validation({
-        reason: [
-          "Informe o motivo (contestação só cabe por erro material, falha de sistema ou duplicidade).",
-        ],
-      });
+    if (body.status === "Anulada" && (!reason || reason.length < 5))
+      return validation({ reason: ["Informe o motivo da anulação (ex.: contestação acolhida pela Receita)."] });
     if (reason && reason.length > 500) return validation({ reason: ["Máximo de 500 caracteres."] });
     occurrence.status = body.status;
     occurrence.statusReason = reason;
@@ -743,15 +821,36 @@ export const remessaHandlers = [
       });
       db.occurrences.unshift(occurrence);
       report.occurrenceId = occurrence.id;
+      // Política 6.7: denúncia procedente é infração; com bloqueio, o anúncio é removido e o vendedor comunicado (8.5).
+      const [code, severity, moderation] = INFRACTION_FOR[report.reason];
+      const why = note ?? `Denúncia ${report.protocol ?? ""} julgada procedente (${report.reason}).`;
+      const infraction = addInfraction(report.sellerId, {
+        code,
+        description: why,
+        severity,
+        intentional: false,
+        productId: report.productId,
+      });
       if (body.blockProduct)
-        db.productOverrides[report.productId] = {
-          ...db.productOverrides[report.productId],
-          status: "Bloqueado",
-          moderationReason: report.reason === "Falsificado" ? "CONTRAFACAO" : "DENUNCIA",
-          moderationNote: note ?? "Bloqueado após denúncia procedente.",
-          updatedAt: now,
-        };
+        applyMeasure(
+          report.sellerId,
+          { type: "RemocaoAnuncio", reason: why, infractionId: infraction.id, productId: report.productId },
+          false,
+          moderation,
+        );
+      logAction(
+        "DenunciaProcedente",
+        note ?? report.reason,
+        body.blockProduct ? "Anúncio removido; ocorrência e infração registradas." : "Ocorrência e infração registradas.",
+        { sellerId: report.sellerId, productId: report.productId, reportId: report.id },
+      );
       evaluateStrikes(report.sellerId);
+    } else {
+      logAction("DenunciaImprocedente", note ?? report.reason, "Anúncio mantido.", {
+        sellerId: report.sellerId,
+        productId: report.productId,
+        reportId: report.id,
+      });
     }
     audit("admin.report.resolve", report.id);
     persistDb();

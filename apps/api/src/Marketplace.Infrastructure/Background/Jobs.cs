@@ -139,8 +139,11 @@ public sealed class HousekeepingJob(
         var reset = await db.PasswordResetTokens.Where(t => t.ExpiresAt < tokenCutoff).ExecuteDeleteAsync(ct);
         var webhooks = await db.WebhookEvents.Where(w => w.ProcessedAt != null && w.ReceivedAt < now.AddDays(-o.WebhookRetentionDays)).ExecuteDeleteAsync(ct);
 
-        if (quotes + refresh + reset + webhooks > 0)
-            logger.LogInformation("Limpeza: {Quotes} cotações, {Refresh} refresh tokens, {Reset} tokens de senha, {Webhooks} webhooks", quotes, refresh, reset, webhooks);
+        // Programa 10.4: contas encerradas perdem os dados pessoais dos pedidos depois dos 5 anos de guarda.
+        var records = await scope.ServiceProvider.GetRequiredService<PrivacyService>().PurgeExpiredRecordsAsync(ct);
+
+        if (quotes + refresh + reset + webhooks + records > 0)
+            logger.LogInformation("Limpeza: {Quotes} cotações, {Refresh} refresh tokens, {Reset} tokens de senha, {Webhooks} webhooks, {Records} pedido(s) fora da guarda", quotes, refresh, reset, webhooks, records);
     }
 }
 

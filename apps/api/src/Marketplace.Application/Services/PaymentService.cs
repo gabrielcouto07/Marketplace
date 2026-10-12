@@ -13,6 +13,7 @@ public sealed class PaymentService(
     OrderService orders,
     PayoutService payouts,
     RefundService refunds,
+    ReceiptService receipts,
     IPaymentGatewayRegistry gateways,
     ICurrentUser currentUser,
     TimeProvider clock,
@@ -142,6 +143,20 @@ public sealed class PaymentService(
             }
         }
         await db.SaveChangesAsync(ct);
+
+        // Programa 10.3: o pedido guarda o comprovante do pagamento e do valor da compra. Falha aqui não desfaz o
+        // pagamento: o comprovante é gerado na primeira consulta.
+        try
+        {
+            await receipts.EnsureForPurchaseAsync(payment.PurchaseId, ct);
+            await db.SaveChangesAsync(ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            foreach (var entry in db.ChangeTracker.Entries<OrderDocument>().Where(e => e.State == EntityState.Added).ToList())
+                entry.State = EntityState.Detached;
+            logger.LogError(ex, "Falha ao emitir o comprovante da compra {PurchaseId}", payment.PurchaseId);
+        }
     }
 
     public async Task DeclineAsync(Payment payment, string reason, CancellationToken ct)

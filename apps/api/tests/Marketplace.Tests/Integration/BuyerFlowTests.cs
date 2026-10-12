@@ -157,7 +157,7 @@ public sealed class BuyerFlowTests : IClassFixture<ApiFactory>
     public async Task DeclinedCard_CancelsOrders()
     {
         var client = await _factory.LoginAsync();
-        var search = await client.GetFromJsonAsync<JsonElement>("/api/products?categorySlug=bebidas&pageSize=1", Json);
+        var search = await client.GetFromJsonAsync<JsonElement>("/api/products?categorySlug=games&pageSize=1", Json);
         var item = search.GetProperty("items")[0];
         var product = await client.GetFromJsonAsync<JsonElement>($"/api/products/{item.GetProperty("slug").GetString()}", Json);
         var variants = product.GetProperty("variants");

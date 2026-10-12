@@ -64,7 +64,7 @@ public sealed class AccountService(IAppDbContext db, ICurrentUser currentUser, I
     {
         var userId = currentUser.RequireUserId();
         var validated = Validate(input);
-        await EnsureRecipientCpfAsync(validated.RecipientCpf, ct);
+        await EnsureRecipientCpfAsync(validated.RecipientCpf, validated.RecipientName, ct);
         var others = await db.Addresses.Where(a => a.UserId == userId && a.DeletedAt == null).ToListAsync(ct);
         var address = new Address
         {
@@ -96,7 +96,7 @@ public sealed class AccountService(IAppDbContext db, ICurrentUser currentUser, I
         var address = await db.Addresses.FirstOrDefaultAsync(a => a.Id == id && a.UserId == userId && a.DeletedAt == null, ct)
                       ?? throw AppException.NotFound("Endereço");
         var validated = Validate(input);
-        await EnsureRecipientCpfAsync(validated.RecipientCpf, ct);
+        await EnsureRecipientCpfAsync(validated.RecipientCpf, validated.RecipientName, ct);
         address.Label = validated.Label;
         address.RecipientName = validated.RecipientName;
         address.PostalCode = validated.PostalCode;
@@ -133,12 +133,17 @@ public sealed class AccountService(IAppDbContext db, ICurrentUser currentUser, I
 
     private sealed record ValidatedAddress(string Label, string RecipientName, string PostalCode, string Street, string Number, string? Complement, string Neighborhood, string City, string State, string? Phone, string RecipientCpf);
 
-    /// <summary>Com a Consulta CPF do Serpro configurada, recusa CPF cancelado, nulo, inexistente ou de titular falecido.</summary>
-    private async Task EnsureRecipientCpfAsync(string cpf, CancellationToken ct)
+    /// <summary>
+    /// Com a Consulta CPF do Serpro configurada, recusa CPF cancelado, nulo, inexistente ou de titular falecido e nome que
+    /// não confere com o titular (Programa 7.2). Serviço fora do ar não impede salvar: o checkout confere de novo.
+    /// </summary>
+    private async Task EnsureRecipientCpfAsync(string cpf, string recipientName, CancellationToken ct)
     {
         var check = await taxpayers.CheckCpfAsync(cpf, ct);
         if (check.BlocksDeclaration)
             throw AppException.Validation("recipientCpf", "Este CPF não está regular na Receita Federal. Confira o número de quem vai receber.");
+        if (check.Name is { Length: > 0 } holder && !Domain.Compliance.PersonName.Matches(holder, recipientName))
+            throw AppException.Validation("recipientName", "O nome não confere com o titular do CPF na Receita Federal. Use o nome completo de quem vai receber.");
     }
 
     private static ValidatedAddress Validate(AddressInput input)

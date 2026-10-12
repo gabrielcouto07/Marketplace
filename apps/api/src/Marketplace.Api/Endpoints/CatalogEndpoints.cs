@@ -51,12 +51,15 @@ public static class CatalogEndpoints
                 Results.Created($"/api/products/{id}/questions", await svc.AskQuestionAsync(id, body, ct)))
             .RequireAuthorization();
 
+        // Política 6.4: denúncia aberta a qualquer pessoa, cadastrada ou não.
         g.MapPost("/products/{id:guid}/reports", async (Guid id, ProductReportRequest body, ComplianceService svc, CancellationToken ct) =>
                 Results.Created($"/api/products/{id}/reports", await svc.ReportProductAsync(id, body, ct)))
-            .RequireAuthorization();
+            .AllowAnonymous()
+            .RequireRateLimiting("reports");
 
         // ----- Remessa Conforme: tributos discriminados e tabela NCM oficial -----
-        g.MapGet("/taxes/estimate", (long amount, string? state, ImportTaxService svc, CancellationToken ct) => svc.EstimateAsync(amount, state, ct));
+        g.MapGet("/taxes/estimate", (long amount, string? state, long? freight, ImportTaxService svc, CancellationToken ct) =>
+            svc.EstimateAsync(amount, state, freight, ct));
         g.MapGet("/ncm", async (string? q, INcmCatalog catalog, CancellationToken ct) =>
             (await catalog.SearchAsync(q ?? string.Empty, 20, ct)).Select(e => new NcmLookupDto(e.Code, Ncm.Format(e.Code), e.Description, true)));
         g.MapGet("/ncm/{code}", async (string code, INcmCatalog catalog, CancellationToken ct) =>

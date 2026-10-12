@@ -69,7 +69,7 @@ export function useRecentSearches(): string[] {
 }
 
 /** Conteúdo estático de exemplo ("em alta"); virá do backend quando existir. */
-const TRENDING = ["iPhone", "air fryer", "perfume importado", "notebook gamer", "whisky 12 anos"];
+const TRENDING = ["iPhone", "air fryer", "perfume importado", "notebook gamer", "console de videogame"];
 
 /* ----------------------------------- View ----------------------------------- */
 

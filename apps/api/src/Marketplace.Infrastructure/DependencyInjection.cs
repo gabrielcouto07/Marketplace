@@ -60,6 +60,10 @@ public static class DependencyInjection
         services.Configure<SerproOptions>(config.GetSection("Serpro"));
         services.Configure<NcmOptions>(config.GetSection("Ncm"));
         services.Configure<PtaxOptions>(config.GetSection("Ptax"));
+        services.Configure<ComplianceMonitoringOptions>(config.GetSection("ComplianceMonitoring"));
+        // Programa 7.2: fora de Development a venda só conclui com o CPF conferido na Receita, salvo operação de demonstração.
+        services.Configure<CpfVerificationOptions>(o =>
+            o.RequireRegistryCheck = !env.IsDevelopment() && !config.GetValue("Serpro:AllowUnverifiedOutsideDevelopment", false));
 
         var paymentProvider = config["Payments:Provider"] ?? FakePaymentGateway.GatewayName;
         var isMercadoPago = paymentProvider.Equals(MercadoPagoGateway.GatewayName, StringComparison.OrdinalIgnoreCase);
@@ -148,6 +152,10 @@ public static class DependencyInjection
             services.AddSingleton<IImageStorage>(sp => sp.GetRequiredService<LocalImageStorage>());
         }
 
+        // ----- Documentos privados (cadastro de vendedor, respostas, evidências): sempre no volume da API -----
+        services.AddSingleton<LocalDocumentStorage>();
+        services.AddSingleton<IDocumentStorage>(sp => sp.GetRequiredService<LocalDocumentStorage>());
+
         // ----- E-mail -----
         var emailProvider = config["Email:Provider"] ?? "Log";
         if (emailProvider.Equals("Smtp", StringComparison.OrdinalIgnoreCase)) services.AddSingleton<IEmailSender, SmtpEmailSender>();
@@ -160,6 +168,8 @@ public static class DependencyInjection
         services.AddHostedService<LogisticsJob>();
         services.AddHostedService<HousekeepingJob>();
         services.AddHostedService<ExchangeRateRefreshJob>();
+        services.AddHostedService<ComplianceMonitorJob>();
+        services.AddHostedService<NoticeMailerJob>();
         return services;
     }
 

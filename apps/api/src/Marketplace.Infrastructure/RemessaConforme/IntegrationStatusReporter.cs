@@ -13,6 +13,7 @@ public sealed class IntegrationStatusReporter(
     IOptions<SerproOptions> serpro,
     IOptions<NcmOptions> ncm,
     IOptions<PtaxOptions> ptax,
+    IOptions<Application.Services.CpfVerificationOptions> cpf,
     IRemessaCarrierGateway carrier,
     SiscomexNcmCatalog ncmCatalog) : IIntegrationStatusReporter
 {
@@ -63,10 +64,14 @@ public sealed class IntegrationStatusReporter(
         var serproMissing = new List<string>();
         if (string.IsNullOrWhiteSpace(sp.ConsumerKey)) serproMissing.Add("Serpro__ConsumerKey");
         if (string.IsNullOrWhiteSpace(sp.ConsumerSecret)) serproMissing.Add("Serpro__ConsumerSecret");
+        var serproOn = serproMissing.Count == 0;
         list.Add(new IntegrationStatusDto("serpro", "Serpro — Consulta CPF",
-            "Situação do CPF do destinatário na Receita antes da compra (indicador de qualidade da declaração).",
-            "serpro", serproMissing.Count == 0, true, serproMissing.Count == 0 ? "Produção" : "Só dígito verificador", serproMissing,
-            null, Docs));
+            "CPF e nome do destinatário conferidos na base da Receita antes de concluir a venda (Programa de Conformidade 7.2).",
+            "serpro", serproOn, true,
+            serproOn ? "Produção" : cpf.Value.RequireRegistryCheck ? "Vendas bloqueadas" : "Só dígito verificador (demonstração)", serproMissing,
+            serproOn ? null : cpf.Value.RequireRegistryCheck
+                ? "Sem a chave, nenhuma venda conclui: o CPF precisa ser conferido na Receita."
+                : "Serpro__AllowUnverifiedOutsideDevelopment ligado (ou Development): só o dígito verificador é conferido.", Docs));
 
         var n = ncm.Value;
         var offline = n.Source.Equals("Offline", StringComparison.OrdinalIgnoreCase);

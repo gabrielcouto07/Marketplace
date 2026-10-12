@@ -42,11 +42,18 @@ export function Footer({ className }: { className?: string }) {
       links: [
         { href: "/vendedor/cadastro", label: t("registerStore") },
         { href: "/vendedor", label: t("sellerPanel") },
+        // Política de Vendedores disponível na plataforma (item 2.4).
+        { href: "/politica-de-vendedores", label: t("sellerPolicy") },
       ],
     },
     {
-      title: t("app"),
-      links: [{ href: "/instalar", label: t("install") }],
+      title: t("help"),
+      links: [
+        { href: "/remessa-conforme", label: t("taxes") },
+        // Canal aberto a qualquer pessoa para denunciar anúncios (Política de Vendedores 6.4).
+        { href: "/denuncia", label: t("report") },
+        { href: "/instalar", label: t("install") },
+      ],
     },
   ];
 

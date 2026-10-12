@@ -1,22 +1,26 @@
 "use client";
 
-import type {
-  AdminProductListItemDto,
-  AdminSellerDetailDto,
-  AdminShipmentListItemDto,
-  ComplianceBand,
-  ComplianceIndicator,
-  ComplianceOccurrenceDto,
-  IntegrationStatusDto,
-  OccurrenceSource,
-  OccurrenceStatus,
-  ProductReportDto,
-  ProductReportStatus,
-  ShipmentStatus,
+import {
+  SELLER_VERIFICATION_ITEMS,
+  type AdminProductListItemDto,
+  type AdminSellerDetailDto,
+  type AdminShipmentListItemDto,
+  type ComplianceBand,
+  type ComplianceIndicator,
+  type ComplianceOccurrenceDto,
+  type ContestationReason,
+  type IntegrationStatusDto,
+  type OccurrenceSource,
+  type OccurrenceStatus,
+  type ProductReportDto,
+  type ProductReportStatus,
+  type SellerVerificationItem,
+  type ShipmentStatus,
 } from "@marketplace/contracts";
 import {
   BadgeCheck,
   Building2,
+  CheckCircle2,
   Clock,
   Coins,
   ExternalLink,
@@ -32,18 +36,21 @@ import {
   Store,
   Truck,
   UserCheck,
+  XCircle,
 } from "lucide-react";
 import { useFormatter, useTranslations } from "next-intl";
 import { useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { PanelTitle } from "@/components/layout/panel-shell";
+import { DocumentList } from "@/components/shared/document-upload";
 import { FormField } from "@/components/shared/form-field";
 import { FilterSelect, PanelCard, PanelToolbar, SearchInput } from "@/components/shared/panel-widgets";
 import { EmptyState, ErrorState, SectionHeader } from "@/components/shared/states";
 import { ComplianceMedal, RemessaConformeEmblem } from "@/components/shared/trust-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -52,13 +59,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { useDebouncedValue } from "@/hooks/use-debounce";
 import { Link } from "@/i18n/navigation";
-import { downloadAuthenticated } from "@/lib/api/download";
+import { documentHref, downloadAuthenticated } from "@/lib/api/download";
 import { env } from "@/lib/env";
 import { cn } from "@/lib/utils";
 
 import { moderationKey } from "../../seller-panel/moderation";
 import { useAdminSellers } from "../api";
 import {
+  uploadAdminDocument,
   useComplianceDashboard,
   useComplianceMutations,
   useIntegrations,
@@ -66,7 +74,16 @@ import {
   useReports,
   useShipments,
 } from "../api/compliance";
-import { DetailSheet, KeyValueList, Pager, SheetSection, brl, useAdminErrorToast } from "./admin-widgets";
+import { ComplianceTabs, ProgramOverview } from "./admin-program";
+import {
+  CONTESTATION_REASONS,
+  DetailSheet,
+  KeyValueList,
+  Pager,
+  SheetSection,
+  brl,
+  useAdminErrorToast,
+} from "./admin-widgets";
 
 const INDICATORS: ComplianceIndicator[] = ["Contrafacao", "Subvaloracao", "QualidadeDeclaracao"];
 const SOURCES: OccurrenceSource[] = ["Despacho", "Siscomex", "Ouvidoria", "Denuncia", "Interna"];
@@ -123,9 +140,13 @@ export function AdminCompliance() {
     <div className="flex flex-col gap-8">
       <div>
         <PanelTitle>{t("compliance")}</PanelTitle>
+        <ComplianceTabs />
         <p className="-mt-2 max-w-3xl text-body-sm text-foreground-secondary">{t("complianceIntro")}</p>
       </div>
 
+      <ProgramOverview />
+
+      <SectionHeader title={t("indicatorsTitle")} />
       <PanelToolbar>
         <FilterSelect id="compliance-cycle" label={t("cycle")} value={cycle} onChange={setCycle} items={cycles} className="sm:w-80" />
       </PanelToolbar>
@@ -251,7 +272,7 @@ export function AdminCompliance() {
                         </TableCell>
                         <TableCell className="text-right tabular-nums">{s.openReports}</TableCell>
                         <TableCell>
-                          <Badge variant={s.status === "Suspenso" ? "danger" : s.status === "Pendente" ? "warning" : "success"}>
+                          <Badge variant={s.status === "Suspenso" || s.status === "Excluido" ? "danger" : s.status === "Pendente" ? "warning" : "success"}>
                             {t(`sellerStatus.${s.status}`)}
                           </Badge>
                         </TableCell>
@@ -463,7 +484,13 @@ function OccurrenceStatusSheet({ occurrence, onClose }: { occurrence: Compliance
   const onError = useAdminErrorToast();
   const [status, setStatus] = useState<OccurrenceStatus>(occurrence?.status === "Confirmada" ? "Contestada" : "Confirmada");
   const [reason, setReason] = useState("");
-  const statuses: OccurrenceStatus[] = ["Confirmada", "Contestada", "Anulada"];
+  const [contestation, setContestation] = useState<ContestationReason>("ErroMaterial");
+  const [reference, setReference] = useState("");
+  const [evidence, setEvidence] = useState<Array<{ key: string; url: string; name: string }>>([]);
+  // Contestar só sai de "Confirmada"; anular ou confirmar de novo vale para as contestadas.
+  const statuses: OccurrenceStatus[] =
+    occurrence?.status === "Confirmada" ? ["Contestada", "Anulada"] : ["Confirmada", "Anulada"];
+  const contesting = status === "Contestada";
 
   return (
     <DetailSheet open={Boolean(occurrence)} onClose={onClose} title={t("changeStatus")} description={occurrence?.description}>
@@ -482,20 +509,56 @@ function OccurrenceStatusSheet({ occurrence, onClose }: { occurrence: Compliance
             <SimpleSelect id="occ-status" value={status} onChange={(v) => setStatus(v as OccurrenceStatus)}
               items={Object.fromEntries(statuses.map((s) => [s, t(`occurrenceStatus.${s}`)]))} />
           </FormField>
-          <FormField id="occ-reason" label={t("statusReason")} optional={status === "Confirmada"}>
-            <Textarea id="occ-reason" rows={3} value={reason} onChange={(e) => setReason(e.target.value)} />
-          </FormField>
+          {occurrence.contestationReason ? (
+            <div className="flex flex-col gap-1 rounded-md border border-border p-3 text-body-sm">
+              <span className="font-medium text-foreground">{t(`contestationReason.${occurrence.contestationReason}`)}</span>
+              {occurrence.contestationGrounds ? <span className="text-foreground-secondary">{occurrence.contestationGrounds}</span> : null}
+            </div>
+          ) : null}
+          {contesting ? (
+            <>
+              <FormField id="occ-contest-reason" label={t("contestationGround")} hint={t("contestationGroundHint")}>
+                <SimpleSelect id="occ-contest-reason" value={contestation} onChange={(v) => setContestation(v as ContestationReason)}
+                  items={Object.fromEntries(CONTESTATION_REASONS.map((r) => [r, t(`contestationReason.${r}`)]))} />
+              </FormField>
+              <FormField id="occ-grounds" label={t("contestationGrounds")} hint={t("contestationGroundsHint")}>
+                <Textarea id="occ-grounds" rows={4} maxLength={2000} value={reason} onChange={(e) => setReason(e.target.value)} />
+              </FormField>
+              <FormField id="occ-reference" label={t("contestationReference")} optional>
+                <Input id="occ-reference" value={reference} maxLength={120} onChange={(e) => setReference(e.target.value)} />
+              </FormField>
+              <FormField id="occ-evidence" label={t("contestationEvidence")} optional hint={t("contestationEvidenceHint")}>
+                <DocumentList values={evidence} onChange={setEvidence} upload={uploadAdminDocument} label={t("contestationEvidence")} />
+              </FormField>
+            </>
+          ) : (
+            <FormField id="occ-reason" label={t("statusReason")} optional={status === "Confirmada"}>
+              <Textarea id="occ-reason" rows={3} value={reason} onChange={(e) => setReason(e.target.value)} />
+            </FormField>
+          )}
           <Button
             variant="primary"
             loading={setOccurrenceStatus.isPending}
             onClick={() =>
               setOccurrenceStatus.mutate(
-                { id: occurrence.id, body: { status, reason: reason || null } },
-                { onSuccess: () => { toast.success(t("saved")); onClose(); }, onError },
+                {
+                  id: occurrence.id,
+                  body: contesting
+                    ? {
+                        status,
+                        reason: null,
+                        contestationReason: contestation,
+                        grounds: reason || null,
+                        evidence: evidence.map((e) => e.key),
+                        reference: reference || null,
+                      }
+                    : { status, reason: reason || null },
+                },
+                { onSuccess: () => { toast.success(contesting ? t("contestationSaved") : t("saved")); onClose(); }, onError },
               )
             }
           >
-            {t("saveStatus")}
+            {contesting ? t("contest") : t("saveStatus")}
           </Button>
         </>
       ) : null}
@@ -568,7 +631,7 @@ export function AdminReports() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>{t("colDate")}</TableHead>
+                  <TableHead>{t("colProtocol")}</TableHead>
                   <TableHead>{t("colProduct")}</TableHead>
                   <TableHead>{t("colReason")}</TableHead>
                   <TableHead className="hidden lg:table-cell">{t("colDetails")}</TableHead>
@@ -579,7 +642,17 @@ export function AdminReports() {
               <TableBody>
                 {list.data.items.map((r) => (
                   <TableRow key={r.id}>
-                    <TableCell className="text-foreground-secondary tabular-nums">{format.dateTime(new Date(r.createdAt), "short")}</TableCell>
+                    <TableCell className="tabular-nums">
+                      <span className="block font-medium">{r.protocol ?? "—"}</span>
+                      <span className="block text-caption text-foreground-secondary">
+                        {format.dateTime(new Date(r.createdAt), "short")} · {t(`reportChannel.${r.channel ?? "PaginaDoProduto"}`)}
+                      </span>
+                      {r.status === "Aberta" && r.dueAt ? (
+                        <span className={cn("block text-caption", r.overdue ? "font-semibold text-danger" : "text-foreground-muted")}>
+                          {r.overdue ? t("reportOverdue") : t("reportDue", { date: format.dateTime(new Date(r.dueAt), "short") })}
+                        </span>
+                      ) : null}
+                    </TableCell>
                     <TableCell>
                       <span className="block max-w-[260px] truncate font-medium">{r.productName}</span>
                       <span className="block text-caption text-foreground-secondary">{r.sellerName}</span>
@@ -617,19 +690,25 @@ export function AdminReports() {
 
 const DEFAULT_INDICATOR: Record<ProductReportDto["reason"], ComplianceIndicator> = {
   Falsificado: "Contrafacao",
+  PropriedadeIntelectual: "Contrafacao",
+  OrigemIlicita: "QualidadeDeclaracao",
   PrecoSuspeito: "Subvaloracao",
   DescricaoIncorreta: "QualidadeDeclaracao",
   ProdutoProibido: "QualidadeDeclaracao",
   Outro: "QualidadeDeclaracao",
 };
 
+/** Motivos que, procedentes, tiram o anúncio do ar por padrão (Política 5.3 e 6.3). */
+const BLOCK_BY_DEFAULT: ProductReportDto["reason"][] = ["Falsificado", "PropriedadeIntelectual", "OrigemIlicita", "ProdutoProibido"];
+
 function ResolveReportSheet({ report, onClose }: { report: ProductReportDto | null; onClose: () => void }) {
   const t = useTranslations("admin");
   const tr = useTranslations("report");
+  const format = useFormatter();
   const { resolveReport } = useComplianceMutations();
   const onError = useAdminErrorToast();
   const [indicator, setIndicator] = useState<ComplianceIndicator>(report ? DEFAULT_INDICATOR[report.reason] : "Contrafacao");
-  const [block, setBlock] = useState(report?.reason === "Falsificado" || report?.reason === "ProdutoProibido");
+  const [block, setBlock] = useState(report ? BLOCK_BY_DEFAULT.includes(report.reason) : false);
   const [note, setNote] = useState("");
 
   const resolve = (upheld: boolean) =>
@@ -645,9 +724,16 @@ function ResolveReportSheet({ report, onClose }: { report: ProductReportDto | nu
         <>
           <KeyValueList
             items={[
+              { label: t("colProtocol"), value: report.protocol ?? "—" },
               { label: t("colSeller"), value: report.sellerName },
               { label: t("colReason"), value: tr(`reason.${report.reason}`) },
-              { label: t("reporter"), value: report.reporterEmail ?? "—" },
+              { label: t("reportChannelLabel"), value: t(`reportChannel.${report.channel ?? "PaginaDoProduto"}`) },
+              {
+                label: t("reporter"),
+                value: [report.reporterName, report.reporterEmail].filter(Boolean).join(" · ") || t("anonymous"),
+              },
+              ...(report.isRightsHolder ? [{ label: t("rightsHolder"), value: report.rightsHolderName ?? t("yes") }] : []),
+              ...(report.dueAt ? [{ label: t("reportDueLabel"), value: format.dateTime(new Date(report.dueAt), "short") }] : []),
               {
                 label: t("colProduct"),
                 value: (
@@ -659,6 +745,17 @@ function ResolveReportSheet({ report, onClose }: { report: ProductReportDto | nu
             ]}
           />
           {report.details ? <p className="rounded-md bg-surface-muted p-3 text-body-sm text-foreground">{report.details}</p> : null}
+          {report.evidenceUrls?.length ? (
+            <ul className="flex flex-col gap-1">
+              {report.evidenceUrls.map((url) => (
+                <li key={url}>
+                  <a href={url} target="_blank" rel="noopener noreferrer nofollow" className="inline-flex items-center gap-1 text-body-sm break-all text-primary">
+                    {url} <ExternalLink className="size-3.5 shrink-0" aria-hidden />
+                  </a>
+                </li>
+              ))}
+            </ul>
+          ) : null}
           <SheetSection title={t("ifUpheld")}>
             <FormField id="report-indicator" label={t("colIndicator")} hint={t("reportIndicatorHint")}>
               <SimpleSelect id="report-indicator" value={indicator} onChange={(v) => setIndicator(v as ComplianceIndicator)}
@@ -689,6 +786,10 @@ function ResolveReportSheet({ report, onClose }: { report: ProductReportDto | nu
 /* ------------------------------------------------------------------ */
 /* Remessas (declaração + etiqueta + repasse)                           */
 /* ------------------------------------------------------------------ */
+
+/** Conferências feitas antes de registrar a remessa (RemessaService.PrepareAsync). */
+const CHECK_KEYS = ["remetente", "destinatario", "mercadoria", "regime", "valor"] as const;
+type CheckKey = (typeof CHECK_KEYS)[number];
 
 const SHIPMENT_BADGE: Record<ShipmentStatus, "neutral" | "soft" | "success" | "warning" | "danger"> = {
   Pendente: "neutral",
@@ -772,6 +873,15 @@ function ShipmentRow({
   const t = useTranslations("admin");
   const onError = useAdminErrorToast();
   const [downloading, setDownloading] = useState(false);
+  const [checksOpen, setChecksOpen] = useState(false);
+  const checks = s.checks ?? [];
+  // "mercadoria:2" → "Mercadoria 2"; as demais conferências têm rótulo próprio.
+  const checkLabel = (check: string) => {
+    const [key, n] = check.split(":");
+    if (!(CHECK_KEYS as readonly string[]).includes(key)) return check;
+    return n ? `${t(`check.${key as CheckKey}`)} ${n}` : t(`check.${key as CheckKey}`);
+  };
+  const failed = checks.filter((c) => !c.ok).length;
   return (
     <TableRow>
       <TableCell>
@@ -784,7 +894,33 @@ function ShipmentRow({
         <span className="flex flex-col items-start gap-1">
           <Badge variant={SHIPMENT_BADGE[s.status]}>{t(`shipmentStatus.${s.status}`)}</Badge>
           {s.sandbox ? <Badge variant="warning">{t("sandbox")}</Badge> : null}
+          {checks.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => setChecksOpen(true)}
+              className={cn("text-caption font-medium underline-offset-2 hover:underline", failed > 0 ? "text-danger" : "text-success")}
+            >
+              {failed > 0 ? t("checksFailed", { count: failed }) : t("checksOk", { count: checks.length })}
+            </button>
+          ) : null}
         </span>
+        <DetailSheet open={checksOpen} onClose={() => setChecksOpen(false)} title={t("checksTitle", { order: s.orderNumber })} description={t("checksHint")}>
+          <ul className="flex flex-col gap-2">
+            {checks.map((c) => (
+              <li key={c.check} className="flex items-start gap-2 rounded-md border border-border p-3">
+                {c.ok ? (
+                  <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-success" strokeWidth={2} aria-hidden />
+                ) : (
+                  <XCircle className="mt-0.5 size-4 shrink-0 text-danger" strokeWidth={2} aria-hidden />
+                )}
+                <span className="flex min-w-0 flex-col">
+                  <span className="text-body-sm font-medium text-foreground">{checkLabel(c.check)}</span>
+                  <span className="text-caption break-words text-foreground-secondary">{c.detail}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </DetailSheet>
       </TableCell>
       <TableCell className="tabular-nums">{s.trackingCode ?? "—"}</TableCell>
       <TableCell className="hidden md:table-cell">
@@ -843,7 +979,9 @@ const INTEGRATION_ICON: Record<IntegrationStatusDto["key"], typeof Landmark> = {
 
 function modeVariant(i: IntegrationStatusDto): "success" | "soft" | "warning" | "danger" | "neutral" {
   if (i.configured && !i.missing.length) return i.mode === "Validação" ? "soft" : "success";
-  if (i.mode === "Sandbox" || i.mode === "Incompleto" || i.mode === "Só dígito verificador" || i.mode === "Carregando") return "warning";
+  // Sem a consulta de CPF na Receita, o checkout recusa as vendas (Programa 7.2).
+  if (i.mode === "Vendas bloqueadas") return "danger";
+  if (i.mode === "Sandbox" || i.mode === "Incompleto" || i.mode.startsWith("Só dígito verificador") || i.mode === "Carregando") return "warning";
   return "neutral";
 }
 
@@ -1014,12 +1152,19 @@ export function SellerVerificationSection({ detail }: { detail: AdminSellerDetai
   const [rejecting, setRejecting] = useState(false);
   const [note, setNote] = useState("");
   const v = detail.verification;
+  const [checked, setChecked] = useState<SellerVerificationItem[]>(
+    () => (v?.checklist ?? []).filter((c): c is SellerVerificationItem => (SELLER_VERIFICATION_ITEMS as readonly string[]).includes(c)),
+  );
+  const allChecked = SELLER_VERIFICATION_ITEMS.every((item) => checked.includes(item));
+  const payoutMethod = v?.payoutMethod
+    ? { ContaBancaria: ts("payoutMethodBank"), CarteiraDigital: ts("payoutMethodWallet"), Outro: ts("payoutMethodOther") }[v.payoutMethod]
+    : null;
   const docType = v?.responsibleDocumentType
     ? { CedulaPy: ts("docCedulaPy"), Cpf: ts("docCpf"), Passaporte: ts("docPassport") }[v.responsibleDocumentType]
     : null;
   const doc = (url: string | null | undefined, label: string): ReactNode =>
     url ? (
-      <a href={url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-primary">
+      <a href={documentHref(url)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary">
         {label} <ExternalLink className="size-3.5" aria-hidden />
       </a>
     ) : (
@@ -1040,15 +1185,55 @@ export function SellerVerificationSection({ detail }: { detail: AdminSellerDetai
       >
         <KeyValueList
           items={[
+            { label: ts("legalName"), value: detail.legalName ?? <span className="text-danger">{t("missingDoc")}</span> },
+            { label: "RUC", value: detail.summary.ruc },
+            { label: ts("storeEmail"), value: detail.email ?? "—" },
+            { label: ts("storePhone"), value: detail.phone ?? "—" },
+            { label: t("originAddress"), value: v?.legalAddress ?? "—" },
             { label: t("responsible"), value: v?.responsibleName ?? "—" },
             { label: t("document"), value: v?.responsibleDocumentMasked ? `${docType ?? ""} ${v.responsibleDocumentMasked}` : "—" },
-            { label: t("originAddress"), value: v?.legalAddress ?? "—" },
-            { label: ts("identityDocument"), value: doc(v?.identityDocumentUrl, t("openFile")) },
+            {
+              label: ts("payoutTitle"),
+              value: v?.payoutAccountMasked
+                ? [payoutMethod, v.payoutInstitution, v.payoutAccountMasked, v.payoutHolder].filter(Boolean).join(" · ")
+                : <span className="text-danger">{t("missingDoc")}</span>,
+            },
+            { label: ts("articlesOfIncorporation"), value: doc(v?.articlesOfIncorporationUrl, t("openFile")) },
             { label: ts("rucCertificate"), value: doc(v?.rucCertificateUrl, t("openFile")) },
+            { label: ts("taxComplianceCertificate"), value: doc(v?.taxComplianceCertificateUrl, t("openFile")) },
+            { label: ts("identityDocument"), value: doc(v?.identityDocumentUrl, t("openFile")) },
+            {
+              label: t("policyAcceptance"),
+              value: v?.policyAcceptedAt
+                ? t("policyAcceptedOn", { version: v.policyVersionAccepted ?? "—", date: format.dateTime(new Date(v.policyAcceptedAt), "short") })
+                : <span className="text-danger">{t("policyNotAccepted")}</span>,
+            },
+            { label: t("dataConfirmed"), value: v?.dataConfirmedAt ? format.dateTime(new Date(v.dataConfirmedAt), "short") : "—" },
           ]}
         />
+        {v?.missingAdmissionData?.length ? (
+          <p className="rounded-md bg-warning-soft p-3 text-body-sm text-foreground">{t("missingAdmission", { items: v.missingAdmissionData.join(", ") })}</p>
+        ) : null}
         {v?.suspensionReason ? (
           <p className="rounded-md bg-danger-soft p-3 text-body-sm text-danger">{v.suspensionReason}</p>
+        ) : null}
+        {!v?.verifiedAt ? (
+          <fieldset className="flex flex-col gap-2 rounded-md border border-border p-3">
+            <legend className="px-1 text-caption font-semibold text-foreground-secondary uppercase">{t("checklistTitle")}</legend>
+            <p className="text-caption text-foreground-secondary">{t("checklistHint")}</p>
+            {SELLER_VERIFICATION_ITEMS.map((item) => (
+              <label key={item} className="flex cursor-pointer items-start gap-3 py-1 text-body-sm text-foreground">
+                <Checkbox
+                  className="mt-0.5"
+                  checked={checked.includes(item)}
+                  onCheckedChange={(next) =>
+                    setChecked((list) => (next === true ? [...list, item] : list.filter((c) => c !== item)))
+                  }
+                />
+                <span>{t(`checklist.${item}`)}</span>
+              </label>
+            ))}
+          </fieldset>
         ) : null}
         {rejecting ? (
           <div className="flex flex-col gap-3 rounded-md border border-border p-3">
@@ -1057,7 +1242,7 @@ export function SellerVerificationSection({ detail }: { detail: AdminSellerDetai
             </FormField>
             <div className="flex gap-2">
               <Button variant="primary" className="flex-1" loading={verifySeller.isPending}
-                onClick={() => verifySeller.mutate({ id: detail.summary.id, body: { approve: false, note } }, { onSuccess: () => { toast.success(t("sellerRejected")); setRejecting(false); }, onError })}>
+                onClick={() => verifySeller.mutate({ id: detail.summary.id, body: { approve: false, note, checks: checked } }, { onSuccess: () => { toast.success(t("sellerRejected")); setRejecting(false); }, onError })}>
                 {t("confirmReject")}
               </Button>
               <Button variant="secondary" onClick={() => setRejecting(false)}>
@@ -1068,8 +1253,8 @@ export function SellerVerificationSection({ detail }: { detail: AdminSellerDetai
         ) : (
           <div className="flex flex-wrap gap-2">
             {!v?.verifiedAt ? (
-              <Button variant="primary" size="sm" loading={verifySeller.isPending} disabled={!v?.complete}
-                onClick={() => verifySeller.mutate({ id: detail.summary.id, body: { approve: true } }, { onSuccess: () => toast.success(t("sellerVerified")), onError })}>
+              <Button variant="primary" size="sm" loading={verifySeller.isPending} disabled={!v?.complete || !allChecked}
+                onClick={() => verifySeller.mutate({ id: detail.summary.id, body: { approve: true, checks: checked } }, { onSuccess: () => toast.success(t("sellerVerified")), onError })}>
                 <BadgeCheck data-icon="inline-start" strokeWidth={1.75} /> {t("approveDocuments")}
               </Button>
             ) : null}

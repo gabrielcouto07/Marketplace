@@ -27,6 +27,14 @@ public static class DependencyInjection
         services.AddScoped<ComplianceService>();
         services.AddScoped<RemessaService>();
         services.AddScoped<SiscomexSyncService>();
+        // Programa de Conformidade e Política de Vendedores
+        services.AddSingleton<Common.DocumentLinks>();
+        services.AddScoped<SellerGovernanceService>();
+        services.AddScoped<ReceitaRelationsService>();
+        services.AddScoped<MonitoringService>();
+        services.AddScoped<ComplianceProgramService>();
+        services.AddScoped<ReceiptService>();
+        services.AddScoped<ComplianceMonitor>();
         return services;
     }
 }

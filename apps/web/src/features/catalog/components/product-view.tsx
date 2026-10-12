@@ -2,7 +2,7 @@
 
 import type { ProductDetailDto, ShippingQuoteDto } from "@marketplace/contracts";
 import { Share2, ShoppingCart } from "lucide-react";
-import { useFormatter, useTranslations } from "next-intl";
+import { useFormatter, useLocale, useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -34,6 +34,7 @@ import { useTaxEstimate } from "@/features/compliance/api";
 import { useSeller } from "@/features/seller/api";
 import { useExchangeRates } from "@/features/shipping/api";
 import { Link, useRouter } from "@/i18n/navigation";
+import { countryName } from "@/lib/countries";
 import { multiplyBasisPoints } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
@@ -72,6 +73,7 @@ function ProductContent({ product }: { product: ProductDetailDto }) {
   const tc = useTranslations("common");
   const tcat = useTranslations("catalog");
   const format = useFormatter();
+  const locale = useLocale();
   const router = useRouter();
   const addToCart = useCartStore((s) => s.add);
   const rates = useExchangeRates();
@@ -106,6 +108,8 @@ function ProductContent({ product }: { product: ProductDetailDto }) {
       }
     : product.referencePrice;
   const variantLabel = variant ? Object.values(variant.attributes).join(" / ") : null;
+  // País de fabricação informado na declaração (Programa 7.6), no idioma da página.
+  const origin = product.originCountry ? countryName(product.originCountry, locale) : null;
   const canBuy = stock > 0 && (!needsVariant || Boolean(variant));
 
   // Última cotação de frete: alimenta o prazo de entrega do bloco de confiança.
@@ -117,8 +121,16 @@ function ProductContent({ product }: { product: ProductDetailDto }) {
     ) ?? null;
   const deliveryRange = cheapest?.estimatedDays ?? product.handlingDays;
   // Tributos pelas regras do checkout (Remessa Conforme: II por faixa + ICMS + IBS + CBS); a alíquota fixa só
-  // cobre o instante antes da resposta.
-  const estimate = useTaxEstimate(price.amount * quantity);
+  // cobre o instante antes da resposta. Programa 4.2: a conta inteira na página do produto, com o frete cotado para o
+  // CEP (ou "incluído no preço" quando o frete é grátis) e o total a pagar.
+  const freightIncluded = product.freeShipping;
+  const freight = freightIncluded ? 0 : (cheapest?.price.amount ?? null);
+  const estimate = useTaxEstimate(price.amount * quantity, { state: quote?.destination.state, freight });
+  // Promoção do anúncio ("de/por"): o bloco de valores mostra o desconto concedido (Programa 4.2 c).
+  const listingDiscount =
+    compareAt && compareAt.amount > price.amount
+      ? { amount: (compareAt.amount - price.amount) * quantity, currency: price.currency }
+      : undefined;
   const importTax = estimate.data?.totalTaxes ?? multiplyBasisPoints(
     { amount: price.amount * quantity, currency: price.currency },
     IMPORT_TAX_RATE_PERCENT * 100,
@@ -308,7 +320,17 @@ function ProductContent({ product }: { product: ProductDetailDto }) {
               {tTaxes("pdpTitle")}
             </h2>
             <ImportedProductNotice />
-            {estimate.data ? <TaxBreakdown taxes={estimate.data} mode="taxes" /> : <TaxBreakdownSkeleton />}
+            {estimate.data ? (
+              <TaxBreakdown
+                taxes={estimate.data}
+                freightIncluded={freightIncluded}
+                freightPending={freight === null}
+                listingDiscount={listingDiscount}
+                showTotal
+              />
+            ) : (
+              <TaxBreakdownSkeleton />
+            )}
           </section>
 
           <section aria-labelledby="shipping-title" className={cn(CARD, "flex flex-col gap-4")}>
@@ -352,13 +374,16 @@ function ProductContent({ product }: { product: ProductDetailDto }) {
             <p className="text-body leading-relaxed text-pretty whitespace-pre-line text-foreground-secondary">
               {product.description}
             </p>
-            {product.attributes.length > 0 || product.warrantyMonths ? (
+            {product.attributes.length > 0 || product.warrantyMonths || origin || product.brand || product.model ? (
               <div className="flex flex-col gap-2 border-t border-border pt-4">
                 <h3 className="text-body-sm font-medium text-foreground">{t("specs")}</h3>
                 <dl className="flex flex-col divide-y divide-border">
                   {product.attributes.map((a) => (
                     <SpecRow key={a.name} name={a.name} value={a.value} />
                   ))}
+                  {product.brand ? <SpecRow name={t("brandLabel")} value={product.brand} /> : null}
+                  {product.model ? <SpecRow name={t("modelLabel")} value={product.model} /> : null}
+                  {origin ? <SpecRow name={t("originCountryLabel")} value={origin} /> : null}
                   {product.warrantyMonths ? (
                     <SpecRow
                       name={t("warrantyLabel")}

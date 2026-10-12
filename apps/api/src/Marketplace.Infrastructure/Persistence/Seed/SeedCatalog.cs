@@ -25,7 +25,7 @@ public static class SeedCatalog
         new("perfumes", "Perfumes", "spray-can"),
         new("informatica", "Informática", "laptop"),
         new("celulares", "Celulares", "smartphone"),
-        new("bebidas", "Bebidas", "wine"),
+        new("games", "Games", "gamepad-2"),
         new("casa", "Casa", "sofa"),
         new("esportes", "Esportes", "dumbbell"),
         new("moda", "Moda", "shirt"),
@@ -52,9 +52,9 @@ public static class SeedCatalog
         new("nippon-center", "Nippon Center", "Ciudad del Este", 5, true, "80056789-7", 2000, ["celulares", "eletronicos"],
             "Especialista em smartphones e acessórios. Aparelhos com garantia estendida e suporte pós-venda.",
             22150, 97, 98, 1, 4.8, 8020),
-        new("bebidas-del-puente", "Bebidas del Puente", "Ciudad del Este", 3, false, "80067890-7", 400, ["bebidas"],
-            "Destilados, vinhos e espumantes importados. Embalagem reforçada para transporte internacional.",
-            1560, 90, 88, 8, 4.2, 430),
+        new("game-center-cde", "Game Center CDE", "Ciudad del Este", 4, false, "80067891-5", 520, ["games"],
+            "Consoles, controles e acessórios gamer com garantia e suporte em português. Envio rápido de Ciudad del Este.",
+            3240, 96, 95, 3, 4.6, 980),
         new("sport-house-py", "Sport House PY", "Salto del Guairá", 4, false, "80078901-6", 610, ["esportes"],
             "Equipamentos de esporte e outdoor. Envio de Salto del Guairá com rastreio completo.",
             2980, 96, 94, 3, 4.7, 890),
@@ -94,7 +94,19 @@ public static class SeedCatalog
         ("É bivolt?", "Sim, 110/220 V automático."),
     ];
 
-    private sealed record Template(string Name, string? Ncm, long Price, long? CompareAt, List<string[]> Attrs, Dictionary<string, List<string>>? Variants, int? Warranty);
+    /// <summary>Categorias e lojas do seed antigo, retiradas do catálogo: bebidas alcoólicas são oferta vedada (Anexo I, f).</summary>
+    public static readonly string[] RetiredCategorySlugs = ["bebidas"];
+    public static readonly string[] RetiredSellerSlugs = ["bebidas-del-puente"];
+
+    /// <param name="Nature">Natureza do produto para a declaração (Programa 7.4).</param>
+    /// <param name="Origin">País de origem, ISO alfa-2 (7.6).</param>
+    private sealed record Template(string Name, string? Ncm, long Price, long? CompareAt, List<string[]> Attrs, Dictionary<string, List<string>>? Variants, int? Warranty,
+        string? Nature = null, string? Material = null, int Qty = 1, string? Origin = null);
+
+    private static readonly string[] Banks =
+    [
+        "Banco Continental", "Banco Itaú Paraguay", "ueno bank", "Banco Basa", "Banco GNB Paraguay", "Visión Banco", "Banco Atlas", "Banco Familiar",
+    ];
 
     /// <summary>Responsáveis das lojas de demonstração (documento fictício, verificação já feita).</summary>
     private static readonly string[] Responsibles =
@@ -133,7 +145,7 @@ public static class SeedCatalog
         }).ToList();
         var categoryBySlug = categories.ToDictionary(c => c.Slug);
 
-        var sellers = Sellers.Select(s => new Seller
+        var sellers = Sellers.Select((s, index) => new Seller
         {
             Id = Guid($"seller:{s.Slug}"),
             Slug = s.Slug,
@@ -153,6 +165,20 @@ public static class SeedCatalog
             IdentityDocumentUrl = "/images/kyc/documento-responsavel.svg",
             RucCertificateUrl = "/images/kyc/constancia-ruc.svg",
             VerifiedAt = DaysAgo(s.MemberSinceDays - 1),
+            // Política de Vendedores 3.1 e 3.2: pessoa jurídica, contato, meio de pagamento e documentos (fictícios).
+            LegalName = LegalNameFor(s.Name, index),
+            Email = $"contato@{s.Slug}.com.py",
+            Phone = $"+595 61 5{index:00} {100 + index * 37:000}",
+            PayoutMethod = SellerPayoutMethod.ContaBancaria,
+            PayoutInstitution = Banks[index % Banks.Length],
+            PayoutAccount = $"{100_000_000 + index * 7_654_321}",
+            PayoutHolder = LegalNameFor(s.Name, index),
+            TaxComplianceCertificateUrl = "/images/kyc/certificado-cumplimiento.svg",
+            ArticlesOfIncorporationUrl = "/images/kyc/atos-constitutivos.svg",
+            VerificationChecklist = [.. Application.Services.SellerGovernanceService.VerificationItems],
+            DataConfirmedAt = DaysAgo(20),
+            PolicyVersionAccepted = PlatformSettings.InitialSellerPolicyVersion,
+            PolicyAcceptedAt = BaseDate,
             ExchangePolicy = ExchangePolicy,
             SalesCount = s.SalesCount,
             PositiveRatingPercent = s.Positive,
@@ -224,6 +250,12 @@ public static class SeedCatalog
                     HandlingDaysMax = 3,
                     WarrantyMonths = t.Warranty,
                     HsCode = t.Ncm,
+                    // Demonstração sem marcas reais: a declaração sai "sem marca".
+                    Nature = t.Nature,
+                    Unbranded = true,
+                    Material = t.Material,
+                    PackageQuantity = Math.Max(1, t.Qty),
+                    OriginCountry = t.Origin,
                     Status = ProductStatus.Ativo,
                     CreatedAt = DaysAgo(createdDaysAgo),
                     UpdatedAt = DaysAgo(createdDaysAgo),
@@ -239,6 +271,9 @@ public static class SeedCatalog
 
         return new Catalog(categories, sellers, products, reviews, questions);
     }
+
+    /// <summary>Denominação social fictícia da loja de demonstração (S.A. ou S.R.L., como no Paraguai).</summary>
+    public static string LegalNameFor(string storeName, int index) => $"{storeName} {(index % 2 == 0 ? "S.A." : "S.R.L.")}";
 
     private static Seller PickSeller(List<Seller> sellers, Dictionary<string, string[]> categoriesBySeller, string categorySlug, int index)
     {

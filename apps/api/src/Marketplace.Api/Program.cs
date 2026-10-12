@@ -94,6 +94,10 @@ builder.Services.AddRateLimiter(o =>
     o.AddPolicy("quotes", ctx => RateLimitPartition.GetFixedWindowLimiter(
         ClientIp(ctx),
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 60, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
+    // Canal de denúncias aberto (sem login): limite por IP contra abuso.
+    o.AddPolicy("reports", ctx => RateLimitPartition.GetFixedWindowLimiter(
+        ClientIp(ctx),
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 10, Window = TimeSpan.FromMinutes(10), QueueLimit = 0 }));
     o.AddPolicy("webhooks", ctx => RateLimitPartition.GetFixedWindowLimiter(
         ClientIp(ctx),
         _ => new FixedWindowRateLimiterOptions { PermitLimit = 300, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
@@ -155,6 +159,10 @@ api.MapPrivacy();
 api.MapMedia();
 api.MapSellerPanel();
 api.MapAdmin();
+api.MapCompliancePublic();
+api.MapDocuments();
+api.MapSellerCompliance();
+api.MapAdminCompliance();
 
 app.Run();
 

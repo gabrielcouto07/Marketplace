@@ -1,5 +1,8 @@
 import { z } from "zod";
 
+import { isGenericNature } from "@/lib/compliance/declaration";
+import { isCountryCode } from "@/lib/countries";
+
 import { isValidCep, isValidCpf, isValidRuc, onlyDigits } from "./documents";
 
 /**
@@ -104,16 +107,21 @@ const originPostalCodeSchema = z
   .optional()
   .default("");
 
-/** Telefone internacional (8 a 15 dígitos) ou vazio. */
-const optionalPhoneSchema = z
+/** Telefone internacional (8 a 15 dígitos): obrigatório no cadastro da loja (Política de Vendedores 3.1 c). */
+const intlPhoneSchema = z
   .string()
   .trim()
   .refine((v) => {
     const d = onlyDigits(v);
-    return v === "" || (d.length >= 8 && d.length <= 15);
-  }, "invalidPhone")
-  .optional()
-  .default("");
+    return d.length >= 8 && d.length <= 15;
+  }, "invalidPhone");
+
+/** Referência a documento privado (chave, link assinado ou exemplo); `message` diz qual documento falta. */
+const documentRefSchema = (message: string) =>
+  z
+    .string()
+    .nullable()
+    .refine((v) => Boolean(v), message);
 
 export const storeSchema = z.object({
   name: z.string().trim().min(3, "storeNameMin").max(80, "storeNameMax"),
@@ -125,17 +133,34 @@ export const storeSchema = z.object({
   exchangePolicy: z.string().trim().max(1000, "descriptionMax").optional().default(""),
   categoryIds: z.array(z.string()).min(1, "categoryRequired"),
   originPostalCode: originPostalCodeSchema,
-  phone: optionalPhoneSchema,
-  // Política de admissão (Remessa Conforme, critério v) e remetente da declaração/etiqueta.
+  // Política de Vendedores 3.1: denominação social, endereço, telefone e e-mail, RUC e meio de pagamento.
+  legalName: z.string().trim().min(3, "legalNameMin").max(200, "descriptionMax"),
+  email: emailSchema,
+  phone: intlPhoneSchema,
   legalAddress: z.string().trim().min(10, "legalAddressMin").max(300, "descriptionMax"),
+  payoutMethod: z.enum(["ContaBancaria", "CarteiraDigital", "Outro"], { message: "required" }),
+  payoutInstitution: z.string().trim().max(120, "descriptionMax").default(""),
+  /** Vazio no perfil mantém a conta já informada (ela só volta mascarada). */
+  payoutAccount: z.string().trim().default(""),
+  payoutOnFile: z.boolean().default(false),
+  payoutHolder: z.string().trim().min(3, "nameMin").max(200, "descriptionMax"),
+  // Representante legal (3.2 c) e remetente da declaração/etiqueta.
   responsibleName: z.string().trim().min(5, "nameMin").max(160, "descriptionMax"),
   responsibleDocumentType: z.enum(["CedulaPy", "Cpf", "Passaporte"], { message: "required" }),
   /** Vazio no perfil mantém o documento já enviado (ele só volta mascarado). */
   responsibleDocument: z.string().trim().default(""),
   documentOnFile: z.boolean().default(false),
-  identityDocumentUrl: z.string().min(1, "identityDocumentRequired").nullable().refine((v) => Boolean(v), "identityDocumentRequired"),
-  rucCertificateUrl: z.string().min(1, "rucCertificateRequired").nullable().refine((v) => Boolean(v), "rucCertificateRequired"),
+  // Política de Vendedores 3.2: documentos (armazenamento privado).
+  identityDocumentUrl: documentRefSchema("identityDocumentRequired"),
+  rucCertificateUrl: documentRefSchema("rucCertificateRequired"),
+  taxComplianceCertificateUrl: documentRefSchema("taxCertificateRequired"),
+  articlesOfIncorporationUrl: documentRefSchema("articlesRequired"),
 }).superRefine((v, ctx) => {
+  const account = v.payoutAccount.trim();
+  if (!account && !v.payoutOnFile) ctx.addIssue({ code: "custom", path: ["payoutAccount"], message: "required" });
+  else if (account && (account.length < 4 || account.length > 64))
+    ctx.addIssue({ code: "custom", path: ["payoutAccount"], message: "payoutAccountInvalid" });
+
   const doc = v.responsibleDocument.trim();
   if (!doc && v.documentOnFile) return;
   const digits = onlyDigits(doc);
@@ -199,10 +224,31 @@ export const productSchema = z
     status: z.enum(["Ativo", "Rascunho"]).default("Ativo"),
     /** NCM de 8 dígitos (obrigatório para publicar: vai na declaração de importação). */
     hsCode: z.string().trim().default(""),
+    // Descrição da declaração (Programa de Conformidade 7.4 e 7.6): obrigatória para publicar.
+    nature: z.string().trim().max(120, "descriptionMax").default(""),
+    brand: z.string().trim().max(80, "descriptionMax").default(""),
+    unbranded: z.boolean().default(false),
+    model: z.string().trim().max(80, "descriptionMax").default(""),
+    material: z.string().trim().max(160, "descriptionMax").default(""),
+    packageQuantity: z
+      .number({ message: "packageQuantityRange" })
+      .int("packageQuantityRange")
+      .min(1, "packageQuantityRange")
+      .max(1000, "packageQuantityRange")
+      .default(1),
+    originCountry: z.string().trim().default(""),
   })
   .refine((v) => v.status === "Rascunho" || onlyDigits(v.hsCode ?? "").length === 8, {
     path: ["hsCode"],
     message: "ncmRequired",
+  })
+  .refine((v) => v.status === "Rascunho" || v.nature.trim().length >= 3, { path: ["nature"], message: "natureRequired" })
+  .refine((v) => v.nature.trim().length < 3 || !isGenericNature(v.nature), { path: ["nature"], message: "natureGeneric" })
+  .refine((v) => v.status === "Rascunho" || v.unbranded || v.brand.trim().length > 0, { path: ["brand"], message: "brandRequired" })
+  .refine((v) => v.status === "Rascunho" || v.material.trim().length >= 2, { path: ["material"], message: "materialRequired" })
+  .refine((v) => (v.status === "Rascunho" && !v.originCountry) || isCountryCode(v.originCountry), {
+    path: ["originCountry"],
+    message: "originCountryRequired",
   })
   .refine((v) => v.status === "Rascunho" || v.description.trim().length >= 40, {
     path: ["description"],

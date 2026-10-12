@@ -18,6 +18,13 @@ public sealed class StorageOptions
     public string LocalPublicBase { get; set; } = "/api";
     public long MaxUploadBytes { get; set; } = 8 * 1024 * 1024;
     public string[] AllowedContentTypes { get; set; } = ["image/jpeg", "image/png", "image/webp", "image/avif"];
+    /// <summary>
+    /// Documentos privados (cadastro de vendedor, respostas, evidências): sempre no disco da API (volume persistente),
+    /// nunca no bucket público. Abrem só por link assinado (Política de Vendedores 9.4).
+    /// </summary>
+    public string DocumentsPath { get; set; } = Path.Combine(".data", "documents");
+    public long MaxDocumentBytes { get; set; } = 10 * 1024 * 1024;
+    public string[] AllowedDocumentTypes { get; set; } = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
     public R2Options R2 { get; set; } = new();
 
     public sealed class R2Options
@@ -144,6 +151,7 @@ public static class ImageSignatures
             "image/png" => StartsWith(0x89, 0x50, 0x4E, 0x47),
             "image/webp" => StartsWith(0x52, 0x49, 0x46, 0x46) && header.Count >= 12 && header[8] == 0x57 && header[9] == 0x45 && header[10] == 0x42 && header[11] == 0x50,
             "image/avif" => header.Count >= 12 && header[4] == 0x66 && header[5] == 0x74 && header[6] == 0x79 && header[7] == 0x70,
+            "application/pdf" => StartsWith(0x25, 0x50, 0x44, 0x46, 0x2D),
             _ => false,
         };
     }

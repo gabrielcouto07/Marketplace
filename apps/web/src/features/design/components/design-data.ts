@@ -1,4 +1,5 @@
 import type {
+  ImportTaxBreakdownDto,
   OrderTimelineEventDto,
   ProductSummaryDto,
   SellerSummaryDto,
@@ -498,3 +499,37 @@ export const TYPE_SCALE: TypeStep[] = [
     sample: "FRETE GRÁTIS · ≈ ₲ 1.420.000",
   },
 ];
+
+const brl = (amount: number) => ({ amount, currency: "BRL" as const });
+
+/** Remessa Conforme acima de US$ 50 (II de 60% com dedução de US$ 20, ICMS 17% por dentro), frete incluído no preço. */
+export const TAX_BREAKDOWN: ImportTaxBreakdownDto = {
+  regime: "RemessaConforme",
+  isFinal: true,
+  products: brl(34900),
+  freight: brl(0),
+  insurance: brl(0),
+  otherExpenses: brl(0),
+  discount: brl(0),
+  customsValue: brl(34900),
+  customsValueUsd: { amount: 6463, currency: "USD" },
+  importDuty: brl(10140),
+  importDutyBasisPoints: 6000,
+  importDutyDeduction: brl(10800),
+  icms: brl(9225),
+  icmsBasisPoints: 1700,
+  icmsState: "SP",
+  ibs: brl(0),
+  ibsBasisPoints: 0,
+  ibsState: brl(0),
+  ibsStateBasisPoints: 0,
+  ibsMunicipal: brl(0),
+  ibsMunicipalBasisPoints: 0,
+  cbs: brl(0),
+  cbsBasisPoints: 0,
+  totalTaxes: brl(19365),
+  total: brl(54265),
+  effectiveBasisPoints: 5549,
+  usdRate: { numerator: 540, denominator: 100, displayRate: "US$ 1,00 = R$ 5,40", quotedAt: "2026-10-09T12:00:00Z", source: "PTAX" },
+  exceedsSimplifiedLimit: false,
+};

@@ -16,6 +16,10 @@ public sealed class AdminService(
     PrivacyService privacy,
     RefundService refunds,
     ComplianceService compliance,
+    SellerGovernanceService governance,
+    ReceiptService receipts,
+    IPlatformIdentityProvider platform,
+    DocumentLinks links,
     ICatalogCache catalogCache,
     ICurrentUser currentUser,
     TimeProvider clock)
@@ -169,6 +173,10 @@ public sealed class AdminService(
 
         if (request.Status == OrderStatus.Enviado)
         {
+            // Programa 9.5: com a etiqueta da plataforma exigida, nenhuma remessa sai fora do fluxo do programa.
+            var labelRequired = !string.IsNullOrWhiteSpace(platform.Current.AdeNumber) || (await db.PlatformSettings.AsNoTracking().FirstAsync(ct)).RequirePlatformLabel;
+            if (labelRequired && order.Shipment is not { Status: ShipmentStatus.EtiquetaEmitida or ShipmentStatus.Postada })
+                throw AppException.Conflict("LABEL_REQUIRED", "O pedido precisa da etiqueta da plataforma (declaração antecipada) antes de ser enviado.");
             if (!string.IsNullOrWhiteSpace(request.TrackingCode)) order.TrackingCode = request.TrackingCode.Trim().ToUpperInvariant();
             if (!string.IsNullOrWhiteSpace(request.Carrier)) order.Carrier = request.Carrier.Trim();
         }
@@ -197,6 +205,13 @@ public sealed class AdminService(
         Audit("admin.dispute.resolve", order.Number, request.Outcome.ToString());
         await db.SaveChangesAsync(ct);
         return order.ToDto(currentUser.Locale);
+    }
+
+    /// <summary>Comprovante da compra guardado com o pedido (Programa 10.3).</summary>
+    public async Task<OrderDocument> ReceiptAsync(string idOrNumber, CancellationToken ct)
+    {
+        var order = await FindOrderAsync(idOrNumber, track: false, ct);
+        return await receipts.GetOrCreateAsync(order.Id, ct);
     }
 
     private async Task RefundOrderAsync(Order order, CancellationToken ct)
@@ -324,6 +339,7 @@ public sealed class AdminService(
         public long Gross30d { get; init; }
         public int OpenDisputes { get; init; }
         public int Occurrences { get; init; }
+        public int Infractions12m { get; init; }
     }
 
     private IQueryable<SellerRow> SellerListQuery(DateTime from) =>
@@ -336,12 +352,13 @@ public sealed class AdminService(
             Gross30d = db.Orders.Where(o => o.SellerId == s.Id && o.CreatedAt >= from && PaidStatuses.Contains(o.Status)).Sum(o => o.SubtotalAmount + o.ShippingAmount - o.DiscountAmount),
             OpenDisputes = db.Orders.Count(o => o.SellerId == s.Id && o.Status == OrderStatus.EmDisputa),
             Occurrences = db.ComplianceOccurrences.Count(o => o.SellerId == s.Id && o.Status != OccurrenceStatus.Anulada && o.OccurredAt >= from.AddDays(-335)),
+            Infractions12m = db.SellerInfractions.Count(i => i.SellerId == s.Id && i.OccurredAt >= from.AddDays(-335)),
         });
 
     private static AdminSellerListItemDto ToSellerItem(SellerRow r) =>
         new(r.Seller.Id, r.Seller.Slug, r.Seller.Name, r.Seller.Ruc, r.Seller.City, r.Seller.Status, r.Seller.ReputationLevel, r.Seller.IsOfficialStore,
             r.Seller.LogoUrl, r.Seller.OwnerUserId, r.OwnerEmail, r.Seller.MemberSince, r.ProductCount, r.OrdersCount, Money.Brl(r.Gross30d), r.OpenDisputes,
-            r.Seller.VerifiedAt != null, r.Occurrences);
+            r.Seller.VerifiedAt != null, r.Occurrences, r.Infractions12m, r.Seller.HasAdmissionData);
 
     public async Task<PagedResult<AdminSellerListItemDto>> ListSellersAsync(string? q, SellerStatus? status, int? page, int? pageSize, CancellationToken ct)
     {
@@ -364,34 +381,58 @@ public sealed class AdminService(
         var recent = await OrderListQuery().Where(r => r.Order.SellerId == id).OrderByDescending(r => r.Order.CreatedAt).Take(10).ToListAsync(ct);
         var payouts = await PayoutQuery().Where(p => p.Payout.SellerId == id).OrderByDescending(p => p.Payout.ScheduledFor).Take(10).ToListAsync(ct);
         var occurrences = await compliance.SellerOccurrencesAsync(id, 20, ct);
+        var governanceDto = await governance.GovernanceAsync(id, ct);
         return new AdminSellerDetailDto(summary, seller.Description, seller.ExchangePolicy, seller.BannerUrl, seller.Rating, seller.ReviewCount,
             seller.Categories.Select(c => c.Category.ToRef()).ToList(), recent.Select(ToListItem).ToList(), payouts.Select(ToPayoutDto).ToList(),
-            SellerPanelService.ToVerification(seller), occurrences);
+            SellerPanelService.ToVerification(seller, links), occurrences, governanceDto, seller.LegalName, seller.Email, seller.Phone);
     }
 
     /// <summary>
-    /// Política de admissão (critério v): a equipe confere documento do responsável, constância do RUC e endereço de
-    /// origem. Aprovar verifica e libera a loja (Pendente → Aprovado); recusar suspende com o motivo.
+    /// Política de Admissão (3.3 e 3.4): a equipe confere os dados e documentos dos itens 3.1 e 3.2 e marca cada item
+    /// verificado. Aprovar exige todos os itens, o cadastro completo, a Política aceita e nenhum vínculo com loja excluída
+    /// (3.5); recusar tira a loja da vitrine com o motivo e pede a correção (o vendedor reenvia pelo painel).
     /// </summary>
     public async Task<AdminSellerDetailDto> VerifySellerAsync(Guid id, SellerVerificationRequest request, CancellationToken ct)
     {
         var seller = await db.Sellers.FirstOrDefaultAsync(s => s.Id == id, ct) ?? throw AppException.NotFound("Loja");
         var note = request.Note?.Trim();
+        if (seller.Status == SellerStatus.Excluido)
+            throw AppException.Conflict("SELLER_EXCLUDED", "Loja excluída não volta a ser verificada (Política de Vendedores 3.5).");
         if (request.Approve)
         {
-            if (!seller.HasVerificationDocuments)
-                throw AppException.Validation("verification", "A loja ainda não enviou todos os documentos (responsável, documento, constância do RUC e endereço de origem).");
+            var checks = (request.Checks ?? []).Select(c => c.Trim()).Distinct().ToList();
+            var missingChecks = SellerGovernanceService.VerificationItems.Except(checks).ToList();
+            new ValidationErrors()
+                .AddIf(!seller.HasAdmissionData, "verification",
+                    $"O cadastro está incompleto: {string.Join(", ", SellerGovernanceService.MissingAdmissionData(seller))}.")
+                .AddIf(seller.PolicyVersionAccepted is null, "verification", "O representante legal ainda não aceitou a Política de Vendedores.")
+                .AddIf(missingChecks.Count > 0, "checks", $"Confira todos os itens antes de aprovar (faltam: {string.Join(", ", missingChecks)}).")
+                .ThrowIfAny();
+            var (strong, _) = await governance.MatchExcludedAsync(seller.Id, seller.Ruc, seller.LegalName, seller.ResponsibleDocumentType,
+                seller.ResponsibleDocument, seller.PayoutAccount, seller.Email, seller.Phone, ct);
+            if (strong.Count > 0)
+                throw AppException.Conflict("SELLER_EXCLUDED", $"Recadastro de loja excluída (Política 3.5): {string.Join("; ", strong)}.");
             seller.VerifiedAt = Now;
             seller.VerifiedByUserId = currentUser.UserId;
+            seller.VerificationChecklist = [.. SellerGovernanceService.VerificationItems];
+            seller.DataConfirmedAt ??= Now;
             if (seller.Status == SellerStatus.Pendente) seller.Status = SellerStatus.Aprovado;
+            governance.Notify(seller.Id, SellerNoticeType.Aviso, "Cadastro verificado",
+                "Os dados e documentos da loja foram conferidos e validados pela equipe (Política de Vendedores, item 3.3).");
         }
         else
         {
             if (string.IsNullOrWhiteSpace(note) || note.Length < 5) throw AppException.Validation("note", "Explique o motivo da recusa (o vendedor vê esta mensagem).");
             seller.VerifiedAt = null;
+            seller.VerificationChecklist = [];
             seller.Status = SellerStatus.Suspenso;
             seller.SuspendedAt = Now;
             seller.SuspensionReason = $"Cadastro recusado: {note}";
+            governance.Notify(seller.Id, SellerNoticeType.AtualizacaoCadastral, "Cadastro recusado: corrija os dados ou documentos",
+                $"A equipe não validou o cadastro da loja (Política de Vendedores, itens 3.3 e 3.4).\n\nMotivo: {note}\n\n" +
+                "Corrija em Configurações; a loja volta para análise quando os dados forem atualizados.",
+                Now.AddDays(Domain.Compliance.ProgramDeadlines.SellerResponseDays));
+            governance.LogAction(EnforcementActionKind.CadastroRecusado, note, "Cadastro recusado; loja fora da vitrine até a correção.", seller.Id);
         }
         Audit(request.Approve ? "admin.seller.verify" : "admin.seller.reject", seller.Slug, note);
         await db.SaveChangesAsync(ct);
@@ -399,38 +440,54 @@ public sealed class AdminService(
         return await GetSellerAsync(id, ct);
     }
 
+    /// <summary>
+    /// Edição da loja pelo admin. Suspender e excluir são medidas da Política (8.1): ficam registradas, com o motivo
+    /// comunicado ao vendedor e prazo de resposta (8.5 e 8.6); liberar revoga as medidas ativas.
+    /// </summary>
     public async Task<AdminSellerDetailDto> UpdateSellerAsync(Guid id, AdminSellerUpdateRequest request, CancellationToken ct)
     {
         var seller = await db.Sellers.FirstOrDefaultAsync(s => s.Id == id, ct) ?? throw AppException.NotFound("Loja");
+        var reason = request.SuspensionReason?.Trim();
+        var changingStatus = request.Status is { } target && target != seller.Status;
         new ValidationErrors()
             .AddIf(request.Name is { } n && n.Trim().Length < 3, "name", "Nome com pelo menos 3 caracteres.")
             .AddIf(request.ReputationLevel is < 1 or > 5, "reputationLevel", "Reputação de 1 a 5.")
+            .AddIf(changingStatus && request.Status is SellerStatus.Suspenso or SellerStatus.Excluido && (reason is null || reason.Length < 10),
+                "suspensionReason", "Informe o motivo (fica no histórico e o vendedor recebe este texto).")
+            .AddIf(changingStatus && request.Status == SellerStatus.Pendente, "status", "Use a verificação de documentos para voltar a loja à análise.")
+            .AddIf(changingStatus && request.Status == SellerStatus.Aprovado && seller.VerifiedAt is null, "status", "Verifique os documentos da loja antes de aprovar.")
             .ThrowIfAny();
         if (request.Name is not null) seller.Name = request.Name.Trim();
         if (request.City is not null) seller.City = request.City.Trim();
         if (request.Description is not null) seller.Description = request.Description.Trim();
-        if (request.Status is { } status && status != seller.Status)
-        {
-            var reason = request.SuspensionReason?.Trim();
-            if (status == SellerStatus.Suspenso)
-            {
-                if (string.IsNullOrWhiteSpace(reason) || reason.Length < 5)
-                    throw AppException.Validation("suspensionReason", "Informe o motivo da suspensão (fica no histórico e aparece para o vendedor).");
-                seller.SuspensionReason = reason.Length > 500 ? reason[..500] : reason;
-                seller.SuspendedAt = Now;
-            }
-            else if (status == SellerStatus.Aprovado)
-            {
-                if (seller.Status == SellerStatus.Pendente && seller.VerifiedAt is null)
-                    throw AppException.Validation("status", "Verifique os documentos da loja antes de aprovar.");
-                seller.SuspensionReason = null;
-                seller.SuspendedAt = null;
-            }
-            seller.Status = status;
-        }
         if (request.ReputationLevel is { } rep) seller.ReputationLevel = rep;
         if (request.IsOfficialStore is { } official) seller.IsOfficialStore = official;
         Audit("admin.seller.update", seller.Slug, request.Status?.ToString());
+
+        if (changingStatus)
+        {
+            switch (request.Status)
+            {
+                case SellerStatus.Suspenso:
+                    await governance.ApplyMeasureAsync(seller.Id,
+                        new SellerMeasureInput(SellerMeasureType.SuspensaoTemporaria, reason, null, null, request.SuspensionDays), automatic: false, ct, save: false);
+                    break;
+                case SellerStatus.Excluido:
+                    await governance.ApplyMeasureAsync(seller.Id,
+                        new SellerMeasureInput(SellerMeasureType.Exclusao, reason, null, null, null), automatic: false, ct, save: false);
+                    break;
+                case SellerStatus.Aprovado:
+                    if (!await governance.RevokeActiveSuspensionsAsync(seller.Id, reason ?? "Loja liberada pela administração.", ct))
+                    {
+                        seller.Status = SellerStatus.Aprovado;
+                        seller.SuspensionReason = null;
+                        seller.SuspendedAt = null;
+                        seller.SuspendedUntil = null;
+                        seller.ExcludedAt = null;
+                    }
+                    break;
+            }
+        }
         await db.SaveChangesAsync(ct);
         await catalogCache.InvalidateAsync(ct);
         return await GetSellerAsync(id, ct);
@@ -465,22 +522,35 @@ public sealed class AdminService(
             .AddIf(request.Stock is < 0, "stock", "Estoque não pode ser negativo.")
             .AddIf(request.Name is { } n && n.Trim().Length < 5, "name", "Nome com pelo menos 5 caracteres.")
             .ThrowIfAny();
+        if (request.PriceAmount is { } price) product.PriceAmount = price;
+        if (request.Stock is { } stock) product.Stock = stock;
+        if (request.Name is not null) { product.Name = request.Name.Trim(); product.SearchText = Slug.Normalize($"{product.Name} {product.Seller.Name}"); }
         if (request.Status is { } status && status != product.Status)
         {
             if (status == ProductStatus.Ativo)
             {
                 if (product.HsCode is null) throw AppException.Validation("status", "O produto não tem NCM; peça ao vendedor para completar antes de publicar.");
-                product.ApprovedName = request.Name?.Trim() ?? product.Name;
-                product.ApprovedPriceAmount = request.PriceAmount ?? product.PriceAmount;
+                if (Domain.Compliance.Ncm.ProhibitionReason(product.HsCode) is { } prohibited) throw AppException.Validation("status", $"Oferta vedada: {prohibited}");
+                if (!product.HasDeclarationData)
+                    throw AppException.Validation("status", "Faltam dados da descrição da declaração (natureza, marca, material, quantidade ou origem).");
+                product.ApprovedName = product.Name;
+                product.ApprovedPriceAmount = product.PriceAmount;
+                product.ApprovedFingerprint = product.ListingFingerprint();
                 product.ModerationReason = null;
                 product.ModerationNote = null;
+                governance.LogAction(EnforcementActionKind.AnuncioLiberado, "Publicado pela administração.", "Anúncio publicado.", product.SellerId, product.Id);
+                product.Status = status;
             }
-            product.Status = status;
+            else if (status == ProductStatus.Bloqueado)
+            {
+                // Remoção de anúncio é medida da Política (8.1 a): comunicada ao vendedor com o motivo (8.5).
+                await governance.ApplyMeasureAsync(product.SellerId,
+                    new SellerMeasureInput(SellerMeasureType.RemocaoAnuncio, "Anúncio removido pela administração.", null, product.Id, null),
+                    automatic: false, ct, save: false);
+            }
+            else product.Status = status;
             product.ModeratedAt = Now;
         }
-        if (request.PriceAmount is { } price) product.PriceAmount = price;
-        if (request.Stock is { } stock) product.Stock = stock;
-        if (request.Name is not null) { product.Name = request.Name.Trim(); product.SearchText = Slug.Normalize($"{product.Name} {product.Seller.Name}"); }
         product.UpdatedAt = Now;
         Audit("admin.product.update", product.Slug, request.Status?.ToString());
         await db.SaveChangesAsync(ct);
@@ -698,6 +768,7 @@ public sealed class AdminService(
         category.IconKey = input.IconKey!.Trim();
         category.ImageUrl = string.IsNullOrWhiteSpace(input.ImageUrl) ? null : input.ImageUrl.Trim();
         category.SortOrder = input.SortOrder;
+        if (input.Active is { } active) category.IsActive = active;
         Audit(id is null ? "admin.category.create" : "admin.category.update", slug);
         await db.SaveChangesAsync(ct);
         var count = await db.Products.CountAsync(p => p.CategoryId == category.Id && p.Status == ProductStatus.Ativo, ct);
@@ -720,11 +791,16 @@ public sealed class AdminService(
         return parsed.Count == parts.Length && parsed.Keys.All(k => Ufs.Contains(k.ToUpperInvariant()));
     }
 
-    private static PlatformSettingsDto ToDto(PlatformSettings s) =>
+    /// <summary>Com o ADE configurado a operação no PRC começou e a etiqueta da plataforma não pode ser desligada (9.5).</summary>
+    private bool PlatformLabelLocked => !string.IsNullOrWhiteSpace(platform.Current.AdeNumber);
+
+    private PlatformSettingsDto ToDto(PlatformSettings s) =>
         new(s.ImportTaxMode, s.ImportTaxBasisPoints, s.IcmsBasisPoints, s.PlatformFeeBasisPoints, s.PaymentFeeBasisPoints, s.FreeShippingThresholdAmount,
             s.QuoteLockMinutes, s.PixExpirationMinutes, s.BoletoDueDays, s.PayoutHoldDays, s.AutoCompleteDays, s.TermsVersion, s.PrivacyPolicyVersion, s.UpdatedAt,
             s.IcmsStateOverrides, s.IbsStateBasisPoints, s.IbsMunicipalBasisPoints, s.CbsBasisPoints, s.InsuranceBasisPoints, s.OtherExpensesAmount,
-            s.SellerStrikeLimit, s.StrikeWindowDays, s.PriceFloorPercent, s.ProtectedBrands, s.RequirePlatformLabel);
+            s.SellerStrikeLimit, s.StrikeWindowDays, s.PriceFloorPercent, s.ProtectedBrands, s.RequirePlatformLabel || PlatformLabelLocked,
+            s.SellerPolicyVersion, s.SellerPolicyApprovedAt, s.ComplianceProgramApprovedAt, s.ProgramOwnerName, s.ProgramOwnerEmail,
+            s.AbruptIncreaseFactor, s.AbruptIncreaseMinShipments, s.ConcentrationThreshold, s.AuditSamplePercent, PlatformLabelLocked);
 
     public async Task<PlatformSettingsDto> GetSettingsAsync(CancellationToken ct) =>
         ToDto(await db.PlatformSettings.AsNoTracking().FirstAsync(s => s.Id == 1, ct));
@@ -752,8 +828,20 @@ public sealed class AdminService(
             .AddIf(input.PriceFloorPercent is < 0 or > 100, "priceFloorPercent", "Entre 0% e 100%.")
             .AddIf((input.ProtectedBrands ?? "").Length > 2000, "protectedBrands", "Lista muito longa (máximo 2.000 caracteres).")
             .AddIf(!ValidIcmsOverrides(input.IcmsStateOverrides), "icmsStateOverrides", "Use UF=pontos-base separados por ponto e vírgula, ex.: SP=2000; RJ=2000.")
+            .AddIf(PlatformLabelLocked && !input.RequirePlatformLabel, "requirePlatformLabel",
+                "Com o ADE configurado a operação no Remessa Conforme começou: nenhuma remessa sai fora do fluxo do programa (item 9.5).")
+            .AddIf(string.IsNullOrWhiteSpace(input.SellerPolicyVersion) || input.SellerPolicyVersion.Trim().Length > 32, "sellerPolicyVersion", "Informe a versão da Política (até 32 caracteres).")
+            .AddIf(input.ProgramOwnerName is { Length: > 160 }, "programOwnerName", "Nome muito longo.")
+            .AddIf(!string.IsNullOrWhiteSpace(input.ProgramOwnerEmail) && !Documents.IsValidEmail(input.ProgramOwnerEmail), "programOwnerEmail", "E-mail inválido.")
+            .AddIf(input.SellerPolicyApprovedAt > Now.AddDays(1) || input.ComplianceProgramApprovedAt > Now.AddDays(1), "sellerPolicyApprovedAt", "A data de aprovação não pode estar no futuro.")
+            .AddIf(input.AbruptIncreaseFactor is < 2 or > 20, "abruptIncreaseFactor", "Entre 2 e 20 vezes a média semanal.")
+            .AddIf(input.AbruptIncreaseMinShipments is < 1 or > 10_000, "abruptIncreaseMinShipments", "Entre 1 e 10.000 remessas.")
+            .AddIf(input.ConcentrationThreshold is < 2 or > 1000, "concentrationThreshold", "Entre 2 e 1.000 remessas.")
+            .AddIf(input.AuditSamplePercent is < 1 or > 100, "auditSamplePercent", "Entre 1% e 100%.")
             .ThrowIfAny();
         var s = await db.PlatformSettings.FirstAsync(x => x.Id == 1, ct);
+        var newPolicyVersion = input.SellerPolicyVersion.Trim();
+        var policyChanged = !string.Equals(s.SellerPolicyVersion, newPolicyVersion, StringComparison.Ordinal);
         s.ImportTaxMode = input.ImportTaxMode;
         s.ImportTaxBasisPoints = input.ImportTaxBasisPoints;
         s.IcmsBasisPoints = input.IcmsBasisPoints;
@@ -777,9 +865,20 @@ public sealed class AdminService(
         s.StrikeWindowDays = input.StrikeWindowDays;
         s.PriceFloorPercent = input.PriceFloorPercent;
         s.ProtectedBrands = (input.ProtectedBrands ?? "").Trim();
-        s.RequirePlatformLabel = input.RequirePlatformLabel;
+        s.RequirePlatformLabel = input.RequirePlatformLabel || PlatformLabelLocked;
+        s.SellerPolicyVersion = newPolicyVersion;
+        s.SellerPolicyApprovedAt = input.SellerPolicyApprovedAt;
+        s.ComplianceProgramApprovedAt = input.ComplianceProgramApprovedAt;
+        s.ProgramOwnerName = input.ProgramOwnerName?.Trim() ?? string.Empty;
+        s.ProgramOwnerEmail = input.ProgramOwnerEmail?.Trim().ToLowerInvariant() ?? string.Empty;
+        s.AbruptIncreaseFactor = input.AbruptIncreaseFactor;
+        s.AbruptIncreaseMinShipments = input.AbruptIncreaseMinShipments;
+        s.ConcentrationThreshold = input.ConcentrationThreshold;
+        s.AuditSamplePercent = input.AuditSamplePercent;
         s.UpdatedAt = Now;
-        Audit("admin.settings.update", "platform_settings");
+        // Política 10.3: as lojas são avisadas da nova versão e aceitam de novo pelo painel.
+        if (policyChanged) await governance.NotifyPolicyChangeAsync(newPolicyVersion, ct);
+        Audit("admin.settings.update", "platform_settings", policyChanged ? $"politica:{newPolicyVersion}" : null);
         await db.SaveChangesAsync(ct);
         await catalogCache.InvalidateAsync(ct);
         return ToDto(s);

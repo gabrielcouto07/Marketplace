@@ -46,6 +46,14 @@ export { AdminCoupons, AdminRates } from "./admin-catalog";
 export { AdminSettings } from "./admin-settings";
 export { AdminAudit } from "./admin-audit";
 export { AdminCompliance, AdminIntegrations, AdminReports, AdminShipments } from "./admin-compliance";
+export {
+  AdminAudits,
+  AdminEnforcementActions,
+  AdminMonitoring,
+  AdminProgramNotices,
+  AdminReceita,
+  AdminTrainings,
+} from "./admin-program";
 
 export function AdminPanelShell({ children }: { children: ReactNode }) {
   const t = useTranslations("admin");

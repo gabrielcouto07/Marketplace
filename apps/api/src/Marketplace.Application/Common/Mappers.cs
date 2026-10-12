@@ -53,7 +53,10 @@ public static class Mappers
             p.OriginCity,
             new DayRange(p.HandlingDaysMin, p.HandlingDaysMax),
             p.WarrantyMonths,
-            questionCount);
+            questionCount,
+            p.OriginCountry,
+            p.Unbranded ? null : p.Brand,
+            p.Model);
     }
 
     public static ReviewDto ToDto(this Review r) =>

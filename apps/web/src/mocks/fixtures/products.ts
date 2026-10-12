@@ -33,6 +33,22 @@ interface Template {
   warranty: number | null;
   /** NCM de 8 dígitos (declaração de importação). */
   ncm: string;
+  /** Descrição da declaração (Programa 7.4 e 7.6): natureza, material, unidades e país de fabricação. */
+  nature: string;
+  material: string;
+  qty: number;
+  origin: string;
+}
+
+/** Descrição da declaração dos produtos fixos (sem marca, como no seed da API). */
+export interface ProductDeclaration {
+  nature: string;
+  brand: string | null;
+  unbranded: boolean;
+  model: string | null;
+  material: string;
+  packageQuantity: number;
+  originCountry: string;
 }
 
 const templates = templatesJson as unknown as Record<string, Template[]>;
@@ -241,6 +257,8 @@ function buildQuestions(productKey: string, rnd: () => number): QuestionDto[] {
 
 /** NCM de cada produto fixo (id → código). O painel do vendedor pode trocar; ver `productNcm` em catalog-state. */
 export const PRODUCT_NCM: Record<string, string> = {};
+/** Declaração de cada produto fixo (id → dados). O painel do vendedor pode trocar; ver `productDeclaration`. */
+export const PRODUCT_DECLARATION: Record<string, ProductDeclaration> = {};
 
 function buildAll(): ProductRecord[] {
   const records: ProductRecord[] = [];
@@ -306,9 +324,21 @@ function buildAll(): ProductRecord[] {
         handlingDays: { min: 1, max: 3 },
         warrantyMonths: t.warranty,
         questionCount: questions.length,
+        originCountry: t.origin,
+        brand: null,
+        model: null,
       };
       records.push({ detail, reviews, reviewSummary: summary, questions });
       PRODUCT_NCM[detail.id] = t.ncm;
+      PRODUCT_DECLARATION[detail.id] = {
+        nature: t.nature,
+        brand: null,
+        unbranded: true,
+        model: null,
+        material: t.material,
+        packageQuantity: t.qty,
+        originCountry: t.origin,
+      };
     });
   }
   return records;
@@ -337,6 +367,9 @@ export function toSummary(p: ProductDetailDto): ProductSummaryDto {
     handlingDays: _hd,
     warrantyMonths: _wm,
     questionCount: _qc,
+    originCountry: _oco,
+    brand: _b,
+    model: _m,
     ...summary
   } = p;
   return summary;

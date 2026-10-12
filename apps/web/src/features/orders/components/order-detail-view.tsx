@@ -17,6 +17,7 @@ import { toast } from "sonner";
 
 import { PageContainer } from "@/components/layout/store-shell";
 import { OrderStatusBadge, OrderTimeline } from "@/components/shared/order-status";
+import { ReceiptDownloadButton } from "@/components/shared/receipt-download";
 import { ErrorState } from "@/components/shared/states";
 import { TaxBreakdown } from "@/components/shared/tax-breakdown";
 import { DeliveryWindow, ImportTaxLine } from "@/components/shared/trust-badge";
@@ -363,6 +364,9 @@ function OrderDetail({ order }: { order: OrderDto }) {
             >
               {t("payNow")}
             </Button>
+          ) : null}
+          {order.payment.status === "Aprovado" || order.payment.status === "Estornado" ? (
+            <ReceiptDownloadButton path={`/orders/${order.id}/receipt`} orderNumber={order.number} className="self-start" />
           ) : null}
         </Section>
 

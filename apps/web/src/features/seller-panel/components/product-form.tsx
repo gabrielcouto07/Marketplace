@@ -29,6 +29,7 @@ import {
   type ProductFormValues,
 } from "@/lib/validation/schemas";
 
+import { DeclarationSection } from "./declaration-section";
 import { GalleryUpload } from "./image-upload";
 import { ModerationNotice, NcmField } from "./ncm-field";
 
@@ -59,6 +60,13 @@ const EMPTY: ProductFormValues = {
   images: [],
   status: "Ativo",
   hsCode: "",
+  nature: "",
+  brand: "",
+  unbranded: false,
+  model: "",
+  material: "",
+  packageQuantity: 1,
+  originCountry: "",
 };
 
 function toFormValues(p: SellerProductDto): ProductFormValues {
@@ -81,6 +89,13 @@ function toFormValues(p: SellerProductDto): ProductFormValues {
     images: p.images.map((i) => ({ url: i.url, alt: i.alt, storageKey: i.storageKey })),
     status: p.status === "Rascunho" ? "Rascunho" : "Ativo",
     hsCode: p.hsCode ?? "",
+    nature: p.nature ?? "",
+    brand: p.brand ?? "",
+    unbranded: p.unbranded ?? false,
+    model: p.model ?? "",
+    material: p.material ?? "",
+    packageQuantity: p.packageQuantity ?? 1,
+    originCountry: p.originCountry ?? "",
   };
 }
 
@@ -220,6 +235,13 @@ export function ProductForm({
           ? { lengthCm: values.lengthCm, widthCm: values.widthCm, heightCm: values.heightCm }
           : null,
       hsCode: onlyDigits(values.hsCode ?? "") || null,
+      nature: values.nature || null,
+      brand: values.unbranded ? null : values.brand || null,
+      unbranded: values.unbranded,
+      model: values.model || null,
+      material: values.material || null,
+      packageQuantity: values.packageQuantity,
+      originCountry: values.originCountry || null,
       attributes: values.attributes.filter((a) => a.name && a.value),
       images: values.images.map((i) => ({
         url: i.url,
@@ -343,6 +365,8 @@ export function ProductForm({
           />
         </FormField>
       </section>
+
+      <DeclarationSection control={control} register={register} errors={errors} describedBy={describedBy} />
 
       <section className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-xs sm:p-6">
         <h2 className="text-title-3 text-foreground">{t("productPricing")}</h2>

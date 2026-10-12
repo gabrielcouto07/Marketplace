@@ -2,6 +2,7 @@ import { adminHandlers } from "./admin";
 import { authHandlers } from "./auth";
 import { catalogHandlers } from "./catalog";
 import { checkoutHandlers } from "./checkout";
+import { governanceHandlers } from "./governance";
 import { orderHandlers } from "./orders";
 import { remessaHandlers } from "./remessa";
 import { sellerPanelHandlers } from "./seller-panel";
@@ -20,6 +21,7 @@ export const handlers = [
   ...orderHandlers,
   ...authHandlers,
   ...remessaHandlers,
+  ...governanceHandlers,
   ...sellerPanelHandlers,
   ...adminHandlers,
 ];

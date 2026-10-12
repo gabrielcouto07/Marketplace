@@ -25,7 +25,7 @@ import { storeSchema, type StoreFormOutput, type StoreFormValues } from "@/lib/v
 
 import { useSellerCities } from "../api";
 import { SingleImageUpload } from "./image-upload";
-import { VerificationSection } from "./verification-section";
+import { PayoutSection, VerificationSection } from "./verification-section";
 
 /** `+595 61 500 123` → `+595 61 500 123` (mantém só dígitos, espaços e o "+" inicial). */
 function normalizePhoneInput(value: string): string {
@@ -64,16 +64,29 @@ const EMPTY: StoreFormValues = {
   categoryIds: [],
   originPostalCode: "",
   phone: "",
+  legalName: "",
+  email: "",
   legalAddress: "",
+  payoutMethod: "ContaBancaria",
+  payoutInstitution: "",
+  payoutAccount: "",
+  payoutOnFile: false,
+  payoutHolder: "",
   responsibleName: "",
   responsibleDocumentType: "CedulaPy",
   responsibleDocument: "",
   documentOnFile: false,
   identityDocumentUrl: null,
   rucCertificateUrl: null,
+  taxComplianceCertificateUrl: null,
+  articlesOfIncorporationUrl: null,
 };
 
-/** Dados da loja: nome, logo, banner, RUC, cidade de envio, bio, categorias e política de troca. */
+/**
+ * Dados da loja: vitrine (nome, logo, banner, bio, categorias e política de troca) e os dados de admissão da Política
+ * de Vendedores (3.1 e 3.2): denominação social, endereço, telefone e e-mail, RUC, meio de recebimento, representante
+ * legal e documentos.
+ */
 export function StoreForm({
   defaultValues,
   onSubmit,
@@ -116,13 +129,21 @@ export function StoreForm({
       exchangePolicy: values.exchangePolicy || null,
       categoryIds: values.categoryIds,
       originPostalCode: values.originPostalCode ? onlyDigits(values.originPostalCode) : null,
-      phone: values.phone ? normalizePhone(values.phone) : null,
+      phone: normalizePhone(values.phone),
+      legalName: values.legalName,
+      email: values.email,
       legalAddress: values.legalAddress,
+      payoutMethod: values.payoutMethod,
+      payoutInstitution: values.payoutInstitution || null,
+      payoutAccount: values.payoutAccount || null,
+      payoutHolder: values.payoutHolder,
       responsibleName: values.responsibleName,
       responsibleDocumentType: values.responsibleDocumentType,
       responsibleDocument: values.responsibleDocument || null,
       identityDocumentUrl: values.identityDocumentUrl,
       rucCertificateUrl: values.rucCertificateUrl,
+      taxComplianceCertificateUrl: values.taxComplianceCertificateUrl,
+      articlesOfIncorporationUrl: values.articlesOfIncorporationUrl,
     }),
   );
 
@@ -209,6 +230,17 @@ export function StoreForm({
           <h2 className="text-title-3 text-foreground">{t("storeLegal")}</h2>
           <p className="text-body-sm text-foreground-secondary">{t("settingsStoreHint")}</p>
         </div>
+
+        <FormField id="store-legal-name" label={t("legalName")} hint={t("legalNameHint")} error={errors.legalName?.message}>
+          <Input
+            id="store-legal-name"
+            autoComplete="organization"
+            placeholder={t("legalNamePlaceholder")}
+            aria-invalid={Boolean(errors.legalName) || undefined}
+            aria-describedby={describedBy("store-legal-name", Boolean(errors.legalName), true)}
+            {...register("legalName")}
+          />
+        </FormField>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <FormField
@@ -301,10 +333,21 @@ export function StoreForm({
             />
           </FormField>
 
+          <FormField id="store-email" label={t("storeEmail")} error={errors.email?.message} hint={t("storeEmailHint")}>
+            <Input
+              id="store-email"
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              aria-invalid={Boolean(errors.email) || undefined}
+              aria-describedby={describedBy("store-email", Boolean(errors.email), true)}
+              {...register("email")}
+            />
+          </FormField>
+
           <FormField
             id="store-phone"
             label={t("storePhone")}
-            optional
             error={errors.phone?.message}
             hint={t("storePhoneHint")}
           >
@@ -332,6 +375,8 @@ export function StoreForm({
           </FormField>
         </div>
       </section>
+
+      <PayoutSection control={control} register={register} errors={errors} verification={verification ?? null} describedBy={describedBy} />
 
       <VerificationSection
         control={control}

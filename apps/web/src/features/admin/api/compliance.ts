@@ -4,25 +4,54 @@ import type {
   AdminProductListItemDto,
   AdminSellerDetailDto,
   AdminShipmentListItemDto,
+  AuditCompleteRequest,
+  AuditPlanRequest,
+  AuditPlanResultDto,
   ComplianceDashboardDto,
+  DocumentUploadRequest,
   ComplianceIndicator,
   ComplianceOccurrenceDto,
   ComplianceOccurrenceInput,
+  ComplianceProgramDto,
+  ComplianceTrainingInput,
+  ContestationRequest,
+  EnforcementActionDto,
+  EnforcementActionListQuery,
   IntegrationStatusDto,
+  MonitoringAlertDto,
+  MonitoringAlertListQuery,
+  MonitoringAlertResolveRequest,
+  MonitoringRunResultDto,
   OccurrenceStatus,
   OccurrenceStatusRequest,
   PagedResult,
+  PresignedUploadDto,
   ProductModerationRequest,
   ProductReportDto,
   ProductReportResolveRequest,
   ProductReportStatus,
+  RevokeMeasureRequest,
+  RfInteractionCompleteRequest,
+  RfInteractionDto,
+  RfInteractionInput,
+  RfInteractionListQuery,
+  SellerAuditDto,
+  SellerInfractionInput,
+  SellerInfractionResultDto,
+  SellerMeasureDto,
+  SellerMeasureInput,
+  SellerNoticeCreateRequest,
+  SellerNoticeDto,
+  SellerNoticeListQuery,
+  SellerNoticeResolveRequest,
   SellerVerificationRequest,
   ShipmentDto,
   ShipmentStatus,
+  TrainingOverviewDto,
 } from "@marketplace/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { api } from "@/lib/api/http";
+import { api, uploadFile } from "@/lib/api/http";
 
 export interface OccurrenceListQuery {
   indicator?: ComplianceIndicator;
@@ -65,7 +94,49 @@ export const complianceAdminApi = {
     api.get<PagedResult<AdminShipmentListItemDto>>("/admin/shipments", { query: { ...q } }),
   retryShipment: (id: string) => api.post<ShipmentDto>(`/admin/shipments/${id}/retry`),
   integrations: () => api.get<IntegrationStatusDto[]>("/admin/integrations"),
+
+  // ----- Programa de Conformidade e Política de Vendedores -----
+  presignDocument: (body: DocumentUploadRequest) => api.post<PresignedUploadDto>("/admin/documents/uploads", body),
+  program: () => api.get<ComplianceProgramDto>("/admin/compliance/program"),
+  runMonitor: () => api.post<MonitoringRunResultDto>("/admin/compliance/monitor/run"),
+  alerts: (q: MonitoringAlertListQuery) =>
+    api.get<PagedResult<MonitoringAlertDto>>("/admin/compliance/alerts", { query: { ...q } }),
+  resolveAlert: (id: string, body: MonitoringAlertResolveRequest) =>
+    api.post<MonitoringAlertDto>(`/admin/compliance/alerts/${id}/resolve`, body),
+  rfInteractions: (q: RfInteractionListQuery) =>
+    api.get<PagedResult<RfInteractionDto>>("/admin/compliance/rf", { query: { ...q } }),
+  createRfInteraction: (body: RfInteractionInput) => api.post<RfInteractionDto>("/admin/compliance/rf", body),
+  completeRfInteraction: (id: string, body: RfInteractionCompleteRequest) =>
+    api.post<RfInteractionDto>(`/admin/compliance/rf/${id}/complete`, body),
+  contest: (body: ContestationRequest) => api.post<RfInteractionDto>("/admin/compliance/contestations", body),
+  trainings: () => api.get<TrainingOverviewDto>("/admin/compliance/trainings"),
+  registerTraining: (body: ComplianceTrainingInput) => api.post<TrainingOverviewDto>("/admin/compliance/trainings", body),
+  actions: (q: EnforcementActionListQuery) =>
+    api.get<PagedResult<EnforcementActionDto>>("/admin/compliance/actions", { query: { ...q } }),
+  audits: (year?: number) => api.get<SellerAuditDto[]>("/admin/compliance/audits", { query: { year } }),
+  planAudits: (body: AuditPlanRequest) => api.post<AuditPlanResultDto>("/admin/compliance/audits/plan", body),
+  completeAudit: (id: string, body: AuditCompleteRequest) =>
+    api.post<SellerAuditDto>(`/admin/compliance/audits/${id}/complete`, body),
+  notices: (q: SellerNoticeListQuery) =>
+    api.get<PagedResult<SellerNoticeDto>>("/admin/compliance/notices", { query: { ...q } }),
+  resolveNotice: (id: string, body: SellerNoticeResolveRequest) =>
+    api.post<SellerNoticeDto>(`/admin/notices/${id}/resolve`, body),
+  createNotice: (sellerId: string, body: SellerNoticeCreateRequest) =>
+    api.post<SellerNoticeDto>(`/admin/sellers/${sellerId}/notices`, body),
+  registerInfraction: (sellerId: string, body: SellerInfractionInput) =>
+    api.post<SellerInfractionResultDto>(`/admin/sellers/${sellerId}/infractions`, body),
+  applyMeasure: (sellerId: string, body: SellerMeasureInput) =>
+    api.post<SellerMeasureDto>(`/admin/sellers/${sellerId}/measures`, body),
+  revokeMeasure: (sellerId: string, measureId: string, body: RevokeMeasureRequest) =>
+    api.post<SellerMeasureDto>(`/admin/sellers/${sellerId}/measures/${measureId}/revoke`, body),
 };
+
+/** Anexo do admin (resposta à Receita, evidência de contestação): documento privado, guardado pela chave. */
+export async function uploadAdminDocument(file: File): Promise<PresignedUploadDto> {
+  const presigned = await complianceAdminApi.presignDocument({ fileName: file.name, contentType: file.type, sizeBytes: file.size });
+  await uploadFile(presigned.uploadUrl, file, presigned.headers);
+  return presigned;
+}
 
 const STALE = 30_000;
 
@@ -83,6 +154,27 @@ export const useShipments = (q: ShipmentListQuery) =>
 
 export const useIntegrations = () =>
   useQuery({ queryKey: ["admin", "integrations"], queryFn: complianceAdminApi.integrations, staleTime: STALE });
+
+export const useComplianceProgram = () =>
+  useQuery({ queryKey: ["admin", "program", "overview"], queryFn: complianceAdminApi.program, staleTime: STALE });
+
+export const useMonitoringAlerts = (q: MonitoringAlertListQuery) =>
+  useQuery({ queryKey: ["admin", "program", "alerts", q], queryFn: () => complianceAdminApi.alerts(q), staleTime: STALE });
+
+export const useRfInteractions = (q: RfInteractionListQuery) =>
+  useQuery({ queryKey: ["admin", "program", "rf", q], queryFn: () => complianceAdminApi.rfInteractions(q), staleTime: STALE });
+
+export const useTrainings = () =>
+  useQuery({ queryKey: ["admin", "program", "trainings"], queryFn: complianceAdminApi.trainings, staleTime: STALE });
+
+export const useEnforcementActions = (q: EnforcementActionListQuery) =>
+  useQuery({ queryKey: ["admin", "program", "actions", q], queryFn: () => complianceAdminApi.actions(q), staleTime: STALE });
+
+export const useSellerAudits = (year?: number) =>
+  useQuery({ queryKey: ["admin", "program", "audits", year ?? null], queryFn: () => complianceAdminApi.audits(year), staleTime: STALE });
+
+export const useSellerNotices = (q: SellerNoticeListQuery) =>
+  useQuery({ queryKey: ["admin", "program", "notices", q], queryFn: () => complianceAdminApi.notices(q), staleTime: STALE });
 
 function useInvalidate() {
   const client = useQueryClient();
@@ -118,5 +210,58 @@ export function useComplianceMutations() {
       onSuccess: afterCatalog,
     }),
     retryShipment: useMutation({ mutationFn: complianceAdminApi.retryShipment, onSuccess: () => invalidate("shipments") }),
+  };
+}
+
+/** Ações do Programa: invalidam o painel, as listas do Programa e a loja afetada. */
+export function useProgramMutations() {
+  const invalidate = useInvalidate();
+  const client = useQueryClient();
+  const afterSeller = () => {
+    invalidate("program", "sellers", "compliance", "products", "shipments");
+    void client.invalidateQueries({ queryKey: ["products"] });
+  };
+  const afterProgram = () => invalidate("program", "compliance", "settings");
+  return {
+    runMonitor: useMutation({ mutationFn: complianceAdminApi.runMonitor, onSuccess: afterSeller }),
+    resolveAlert: useMutation({
+      mutationFn: ({ id, body }: { id: string; body: MonitoringAlertResolveRequest }) => complianceAdminApi.resolveAlert(id, body),
+      onSuccess: afterSeller,
+    }),
+    createRfInteraction: useMutation({ mutationFn: complianceAdminApi.createRfInteraction, onSuccess: afterProgram }),
+    completeRfInteraction: useMutation({
+      mutationFn: ({ id, body }: { id: string; body: RfInteractionCompleteRequest }) => complianceAdminApi.completeRfInteraction(id, body),
+      onSuccess: afterProgram,
+    }),
+    contest: useMutation({ mutationFn: complianceAdminApi.contest, onSuccess: afterProgram }),
+    registerTraining: useMutation({ mutationFn: complianceAdminApi.registerTraining, onSuccess: afterProgram }),
+    planAudits: useMutation({ mutationFn: complianceAdminApi.planAudits, onSuccess: afterSeller }),
+    completeAudit: useMutation({
+      mutationFn: ({ id, body }: { id: string; body: AuditCompleteRequest }) => complianceAdminApi.completeAudit(id, body),
+      onSuccess: afterSeller,
+    }),
+    resolveNotice: useMutation({
+      mutationFn: ({ id, body }: { id: string; body: SellerNoticeResolveRequest }) => complianceAdminApi.resolveNotice(id, body),
+      onSuccess: afterSeller,
+    }),
+    createNotice: useMutation({
+      mutationFn: ({ sellerId, body }: { sellerId: string; body: SellerNoticeCreateRequest }) =>
+        complianceAdminApi.createNotice(sellerId, body),
+      onSuccess: afterSeller,
+    }),
+    registerInfraction: useMutation({
+      mutationFn: ({ sellerId, body }: { sellerId: string; body: SellerInfractionInput }) =>
+        complianceAdminApi.registerInfraction(sellerId, body),
+      onSuccess: afterSeller,
+    }),
+    applyMeasure: useMutation({
+      mutationFn: ({ sellerId, body }: { sellerId: string; body: SellerMeasureInput }) => complianceAdminApi.applyMeasure(sellerId, body),
+      onSuccess: afterSeller,
+    }),
+    revokeMeasure: useMutation({
+      mutationFn: ({ sellerId, measureId, body }: { sellerId: string; measureId: string; body: RevokeMeasureRequest }) =>
+        complianceAdminApi.revokeMeasure(sellerId, measureId, body),
+      onSuccess: afterSeller,
+    }),
   };
 }

@@ -10,6 +10,7 @@ import {
   Banknote,
   HelpCircle,
   LayoutDashboard,
+  Mail,
   Package,
   Pencil,
   Plus,
@@ -25,6 +26,7 @@ import { toast } from "sonner";
 
 import { PanelShell, PanelTitle, SkeletonNotice } from "@/components/layout/panel-shell";
 import { OrderStatusBadge } from "@/components/shared/order-status";
+import { ReceiptDownloadButton } from "@/components/shared/receipt-download";
 import { EmptyState, ErrorState, SectionHeader } from "@/components/shared/states";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -45,7 +47,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Link } from "@/i18n/navigation";
+import { Link, usePathname } from "@/i18n/navigation";
 import { isApiError } from "@/lib/api/errors";
 import { BLUR_DATA_URL, isDirectImage } from "@/lib/images";
 import { formatMoney } from "@/lib/money";
@@ -63,13 +65,15 @@ import { useDebouncedValue } from "@/hooks/use-debounce";
 import {
   useArchiveProduct,
   usePrepareOrder,
+  useSellerCompliance,
   useSellerDashboard,
   useSellerOrders,
   useSellerProducts,
   useSellerProfile,
   useUpdateSellerProfile,
 } from "../api";
-import { SellerGate } from "./seller-gate";
+import { DataConfirmationCard, SellerComplianceBanners } from "./seller-compliance";
+import { SELLER_REGISTER_PATH, SellerGate } from "./seller-gate";
 import { moderationKey } from "../moderation";
 import { OrderShipmentActions } from "./order-shipment-actions";
 import { ShipOrderSheet } from "./ship-order-sheet";
@@ -83,18 +87,26 @@ const brl = (amount: number) => formatMoney({ amount, currency: "BRL" });
 
 export function SellerPanelShell({ children }: { children: ReactNode }) {
   const t = useTranslations("sellerPanel");
+  const pathname = usePathname();
   const profile = useSellerProfile();
+  const hasStore = Boolean(profile.data) && pathname !== SELLER_REGISTER_PATH;
+  const compliance = useSellerCompliance(hasStore);
   const items = [
     { href: "/vendedor", label: t("dashboard"), icon: LayoutDashboard },
     { href: "/vendedor/produtos", label: t("products"), icon: Package },
     { href: "/vendedor/pedidos", label: t("orders"), icon: ShoppingBag },
     { href: "/vendedor/perguntas", label: t("questions"), icon: HelpCircle },
+    // Comunicações da plataforma com prazo de resposta (Política de Vendedores 6.2 e 8.6).
+    { href: "/vendedor/comunicacoes", label: t("notices"), icon: Mail, badge: compliance.data?.openNotices },
     { href: "/vendedor/repasses", label: t("payouts"), icon: Banknote },
     { href: "/vendedor/configuracoes", label: t("settings"), icon: Settings },
   ];
   return (
     <PanelShell title={t("title")} subtitle={profile.data?.name ?? t("subtitle")} items={items}>
-      <SellerGate>{children}</SellerGate>
+      <SellerGate>
+        {hasStore ? <SellerComplianceBanners /> : null}
+        {children}
+      </SellerGate>
     </PanelShell>
   );
 }
@@ -253,12 +265,18 @@ function OrdersTable({
             </TableCell>
             {withActions ? (
               <TableCell className="text-right">
-                <OrderShipmentActions
-                  order={o}
-                  onPrepare={onPrepare}
-                  onShip={onShip}
-                  preparing={preparingId === o.id}
-                />
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <OrderShipmentActions
+                    order={o}
+                    onPrepare={onPrepare}
+                    onShip={onShip}
+                    preparing={preparingId === o.id}
+                  />
+                  {o.payment.status === "Aprovado" ? (
+                    // Comprovante do pedido (Programa 10.3), também para os registros da loja (Política 4.7).
+                    <ReceiptDownloadButton path={`/seller/orders/${o.id}/receipt`} orderNumber={o.number} variant="ghost" size="xs" />
+                  ) : null}
+                </div>
               </TableCell>
             ) : null}
           </TableRow>
@@ -599,6 +617,7 @@ export function SellerSettings() {
           <Store data-icon="inline-start" strokeWidth={1.75} /> {t("viewStore")}
         </Button>
       </div>
+      <DataConfirmationCard className="mb-6" />
       <StoreForm
         key={p.id}
         rucEditable={false}
@@ -613,13 +632,22 @@ export function SellerSettings() {
           categoryIds: p.categories.map((c) => c.id),
           originPostalCode: p.originPostalCode ?? "",
           phone: p.phone ?? "",
+          legalName: p.legalName ?? "",
+          email: p.email ?? "",
           legalAddress: p.verification?.legalAddress ?? "",
+          payoutMethod: p.verification?.payoutMethod ?? "ContaBancaria",
+          payoutInstitution: p.verification?.payoutInstitution ?? "",
+          payoutAccount: "",
+          payoutOnFile: Boolean(p.verification?.payoutAccountMasked),
+          payoutHolder: p.verification?.payoutHolder ?? "",
           responsibleName: p.verification?.responsibleName ?? "",
           responsibleDocumentType: p.verification?.responsibleDocumentType ?? "CedulaPy",
           responsibleDocument: "",
           documentOnFile: Boolean(p.verification?.responsibleDocumentMasked),
           identityDocumentUrl: p.verification?.identityDocumentUrl ?? null,
           rucCertificateUrl: p.verification?.rucCertificateUrl ?? null,
+          taxComplianceCertificateUrl: p.verification?.taxComplianceCertificateUrl ?? null,
+          articlesOfIncorporationUrl: p.verification?.articlesOfIncorporationUrl ?? null,
         }}
         verification={p.verification ?? null}
         submitLabel={tc("save")}

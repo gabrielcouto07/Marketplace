@@ -250,6 +250,10 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("image_url");
 
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_active");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(120)
@@ -348,6 +352,26 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(60)")
                         .HasColumnName("code");
 
+                    b.Property<string>("ContestationEvidence")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("contestation_evidence");
+
+                    b.Property<string>("ContestationGrounds")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("contestation_grounds");
+
+                    b.Property<string>("ContestationReason")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("contestation_reason");
+
+                    b.Property<DateTime?>("ContestedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("contested_at");
+
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasMaxLength(1000)
@@ -384,6 +408,10 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("RegisteredByUserId")
                         .HasColumnType("uuid")
                         .HasColumnName("registered_by_user_id");
+
+                    b.Property<Guid?>("RfInteractionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("rf_interaction_id");
 
                     b.Property<Guid?>("SellerId")
                         .HasColumnType("uuid")
@@ -427,6 +455,70 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_compliance_occurrences_source_external_id");
 
                     b.ToTable("compliance_occurrences");
+                });
+
+            modelBuilder.Entity("Marketplace.Domain.Entities.ComplianceTraining", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<bool>("Initial")
+                        .HasColumnType("boolean")
+                        .HasColumnName("initial");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("notes");
+
+                    b.Property<string>("PersonEmail")
+                        .HasMaxLength(254)
+                        .HasColumnType("character varying(254)")
+                        .HasColumnName("person_email");
+
+                    b.Property<string>("PersonName")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("person_name");
+
+                    b.Property<Guid?>("RegisteredByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("registered_by_user_id");
+
+                    b.Property<string>("Role")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("role");
+
+                    b.Property<string>("Topic")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("topic");
+
+                    b.Property<DateTime>("TrainedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("trained_at");
+
+                    b.Property<Guid?>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_compliance_trainings");
+
+                    b.HasIndex("TrainedAt")
+                        .HasDatabaseName("ix_compliance_trainings_trained_at");
+
+                    b.ToTable("compliance_trainings");
                 });
 
             modelBuilder.Entity("Marketplace.Domain.Entities.Consent", b =>
@@ -524,6 +616,81 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
                     b.ToTable("coupons");
                 });
 
+            modelBuilder.Entity("Marketplace.Domain.Entities.EnforcementAction", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<Guid?>("ActorUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("actor_user_id");
+
+                    b.Property<Guid?>("AlertId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("alert_id");
+
+                    b.Property<bool>("Automatic")
+                        .HasColumnType("boolean")
+                        .HasColumnName("automatic");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("kind");
+
+                    b.Property<Guid?>("MeasureId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("measure_id");
+
+                    b.Property<Guid?>("NoticeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("notice_id");
+
+                    b.Property<DateTime>("OccurredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("occurred_at");
+
+                    b.Property<Guid?>("ProductId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("product_id");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("reason");
+
+                    b.Property<Guid?>("ReportId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("report_id");
+
+                    b.Property<string>("Result")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("result");
+
+                    b.Property<Guid?>("SellerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("seller_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_enforcement_actions");
+
+                    b.HasIndex("OccurredAt")
+                        .HasDatabaseName("ix_enforcement_actions_occurred_at");
+
+                    b.HasIndex("SellerId")
+                        .HasDatabaseName("ix_enforcement_actions_seller_id");
+
+                    b.ToTable("enforcement_actions");
+                });
+
             modelBuilder.Entity("Marketplace.Domain.Entities.ExchangeRate", b =>
                 {
                     b.Property<Guid>("Id")
@@ -599,6 +766,105 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
                     b.ToTable("favorites");
                 });
 
+            modelBuilder.Entity("Marketplace.Domain.Entities.MonitoringAlert", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Attribution")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("attribution");
+
+                    b.Property<Guid?>("BuyerUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("buyer_user_id");
+
+                    b.Property<string>("DedupKey")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("dedup_key");
+
+                    b.Property<string>("DetailsJson")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("details_json");
+
+                    b.Property<DateTime>("DetectedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("detected_at");
+
+                    b.Property<bool>("HoldsShipments")
+                        .HasColumnType("boolean")
+                        .HasColumnName("holds_shipments");
+
+                    b.Property<Guid?>("InfractionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("infraction_id");
+
+                    b.Property<string>("OrderIds")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("order_ids");
+
+                    b.Property<string>("ResolutionNote")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("resolution_note");
+
+                    b.Property<DateTime?>("ResolvedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("resolved_at");
+
+                    b.Property<Guid?>("ResolvedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("resolved_by_user_id");
+
+                    b.Property<Guid?>("SellerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("seller_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("status");
+
+                    b.Property<string>("Summary")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("summary");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("type");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_at");
+
+                    b.HasKey("Id")
+                        .HasName("pk_monitoring_alerts");
+
+                    b.HasIndex("DedupKey")
+                        .HasDatabaseName("ix_monitoring_alerts_dedup_key");
+
+                    b.HasIndex("SellerId")
+                        .HasDatabaseName("ix_monitoring_alerts_seller_id");
+
+                    b.HasIndex("Status", "DetectedAt")
+                        .HasDatabaseName("ix_monitoring_alerts_status_detected_at");
+
+                    b.ToTable("monitoring_alerts");
+                });
+
             modelBuilder.Entity("Marketplace.Domain.Entities.Order", b =>
                 {
                     b.Property<Guid>("Id")
@@ -653,6 +919,15 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
                         .HasMaxLength(512)
                         .HasColumnType("character varying(512)")
                         .HasColumnName("recipient_document");
+
+                    b.Property<string>("RecipientVerificationSource")
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasColumnName("recipient_verification_source");
+
+                    b.Property<DateTime?>("RecipientVerifiedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("recipient_verified_at");
 
                     b.Property<Guid>("SellerId")
                         .HasColumnType("uuid")
@@ -735,6 +1010,60 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
                     b.ToTable("orders");
                 });
 
+            modelBuilder.Entity("Marketplace.Domain.Entities.OrderDocument", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<byte[]>("Content")
+                        .IsRequired()
+                        .HasColumnType("bytea")
+                        .HasColumnName("content");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("content_type");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("file_name");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("kind");
+
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("order_id");
+
+                    b.Property<string>("Sha256")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("sha256");
+
+                    b.HasKey("Id")
+                        .HasName("pk_order_documents");
+
+                    b.HasIndex("OrderId", "Kind")
+                        .IsUnique()
+                        .HasDatabaseName("ix_order_documents_order_id_kind");
+
+                    b.ToTable("order_documents");
+                });
+
             modelBuilder.Entity("Marketplace.Domain.Entities.OrderEvent", b =>
                 {
                     b.Property<long>("Id")
@@ -786,6 +1115,16 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<string>("DeclarationDescription")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)")
+                        .HasColumnName("declaration_description");
+
+                    b.Property<string>("HsCode")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("hs_code");
+
                     b.Property<long>("LineTotalAmount")
                         .HasColumnType("bigint")
                         .HasColumnName("line_total_amount");
@@ -798,6 +1137,11 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("OrderId")
                         .HasColumnType("uuid")
                         .HasColumnName("order_id");
+
+                    b.Property<string>("OriginCountry")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("origin_country");
 
                     b.Property<Guid>("ProductId")
                         .HasColumnType("uuid")
@@ -1093,6 +1437,18 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("id");
 
+                    b.Property<int>("AbruptIncreaseFactor")
+                        .HasColumnType("integer")
+                        .HasColumnName("abrupt_increase_factor");
+
+                    b.Property<int>("AbruptIncreaseMinShipments")
+                        .HasColumnType("integer")
+                        .HasColumnName("abrupt_increase_min_shipments");
+
+                    b.Property<int>("AuditSamplePercent")
+                        .HasColumnType("integer")
+                        .HasColumnName("audit_sample_percent");
+
                     b.Property<int>("AutoCompleteDays")
                         .HasColumnType("integer")
                         .HasColumnName("auto_complete_days");
@@ -1104,6 +1460,14 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
                     b.Property<int>("CbsBasisPoints")
                         .HasColumnType("integer")
                         .HasColumnName("cbs_basis_points");
+
+                    b.Property<DateTime?>("ComplianceProgramApprovedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("compliance_program_approved_at");
+
+                    b.Property<int>("ConcentrationThreshold")
+                        .HasColumnType("integer")
+                        .HasColumnName("concentration_threshold");
 
                     b.Property<long>("FreeShippingThresholdAmount")
                         .HasColumnType("bigint")
@@ -1170,6 +1534,18 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
                         .HasColumnType("text")
                         .HasColumnName("privacy_policy_version");
 
+                    b.Property<string>("ProgramOwnerEmail")
+                        .IsRequired()
+                        .HasMaxLength(254)
+                        .HasColumnType("character varying(254)")
+                        .HasColumnName("program_owner_email");
+
+                    b.Property<string>("ProgramOwnerName")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("program_owner_name");
+
                     b.Property<string>("ProtectedBrands")
                         .IsRequired()
                         .HasMaxLength(2000)
@@ -1183,6 +1559,16 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
                     b.Property<bool>("RequirePlatformLabel")
                         .HasColumnType("boolean")
                         .HasColumnName("require_platform_label");
+
+                    b.Property<DateTime?>("SellerPolicyApprovedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("seller_policy_approved_at");
+
+                    b.Property<string>("SellerPolicyVersion")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("seller_policy_version");
 
                     b.Property<int>("SellerStrikeLimit")
                         .HasColumnType("integer")
@@ -1214,6 +1600,11 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<string>("ApprovedFingerprint")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("approved_fingerprint");
+
                     b.Property<string>("ApprovedName")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
@@ -1227,6 +1618,11 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("attributes");
+
+                    b.Property<string>("Brand")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("brand");
 
                     b.Property<Guid>("CategoryId")
                         .HasColumnType("uuid")
@@ -1270,6 +1666,16 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("length_cm");
 
+                    b.Property<string>("Material")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("material");
+
+                    b.Property<string>("Model")
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)")
+                        .HasColumnName("model");
+
                     b.Property<DateTime?>("ModeratedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("moderated_at");
@@ -1290,10 +1696,24 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("name");
 
+                    b.Property<string>("Nature")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("nature");
+
                     b.Property<string>("OriginCity")
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("origin_city");
+
+                    b.Property<string>("OriginCountry")
+                        .HasMaxLength(2)
+                        .HasColumnType("character varying(2)")
+                        .HasColumnName("origin_country");
+
+                    b.Property<int>("PackageQuantity")
+                        .HasColumnType("integer")
+                        .HasColumnName("package_quantity");
 
                     b.Property<long>("PriceAmount")
                         .HasColumnType("bigint")
@@ -1306,6 +1726,10 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
                     b.Property<int>("ReviewCount")
                         .HasColumnType("integer")
                         .HasColumnName("review_count");
+
+                    b.Property<DateTime?>("ScreenedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("screened_at");
 
                     b.Property<string>("SearchText")
                         .IsRequired()
@@ -1336,6 +1760,10 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
                     b.Property<int>("Stock")
                         .HasColumnType("integer")
                         .HasColumnName("stock");
+
+                    b.Property<bool>("Unbranded")
+                        .HasColumnType("boolean")
+                        .HasColumnName("unbranded");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1423,15 +1851,35 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("id");
 
+                    b.Property<string>("Channel")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasColumnName("channel");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at");
 
                     b.Property<string>("Details")
                         .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
                         .HasColumnName("details");
+
+                    b.Property<DateTime>("DueAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("due_at");
+
+                    b.Property<string>("EvidenceUrls")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("evidence_urls");
+
+                    b.Property<bool>("IsRightsHolder")
+                        .HasColumnType("boolean")
+                        .HasColumnName("is_rights_holder");
 
                     b.Property<Guid?>("OccurrenceId")
                         .HasColumnType("uuid")
@@ -1441,11 +1889,30 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("product_id");
 
+                    b.Property<string>("Protocol")
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasColumnName("protocol");
+
                     b.Property<string>("Reason")
                         .IsRequired()
                         .HasMaxLength(24)
                         .HasColumnType("character varying(24)")
                         .HasColumnName("reason");
+
+                    b.Property<string>("ReporterEmail")
+                        .HasMaxLength(254)
+                        .HasColumnType("character varying(254)")
+                        .HasColumnName("reporter_email");
+
+                    b.Property<string>("ReporterName")
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("reporter_name");
+
+                    b.Property<DateTime?>("ReporterNotifiedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("reporter_notified_at");
 
                     b.Property<Guid?>("ReporterUserId")
                         .HasColumnType("uuid")
@@ -1464,6 +1931,11 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("resolved_by_user_id");
 
+                    b.Property<string>("RightsHolderName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("rights_holder_name");
+
                     b.Property<Guid>("SellerId")
                         .HasColumnType("uuid")
                         .HasColumnName("seller_id");
@@ -1479,6 +1951,10 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
 
                     b.HasIndex("ProductId")
                         .HasDatabaseName("ix_product_reports_product_id");
+
+                    b.HasIndex("Protocol")
+                        .IsUnique()
+                        .HasDatabaseName("ix_product_reports_protocol");
 
                     b.HasIndex("Status", "CreatedAt")
                         .HasDatabaseName("ix_product_reports_status_created_at");
@@ -1755,12 +2231,136 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
                     b.ToTable("reviews");
                 });
 
+            modelBuilder.Entity("Marketplace.Domain.Entities.RfInteraction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<string>("Attachments")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("attachments");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at");
+
+                    b.Property<Guid?>("CompletedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("completed_by_user_id");
+
+                    b.Property<string>("ContestationReason")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("contestation_reason");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("description");
+
+                    b.Property<DateTime?>("DueAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("due_at");
+
+                    b.Property<string>("Indicator")
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasColumnName("indicator");
+
+                    b.Property<int?>("Month")
+                        .HasColumnType("integer")
+                        .HasColumnName("month");
+
+                    b.Property<string>("OccurrenceIds")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("occurrence_ids");
+
+                    b.Property<int?>("OfficialCounterfeitPermyriad")
+                        .HasColumnType("integer")
+                        .HasColumnName("official_counterfeit_permyriad");
+
+                    b.Property<int?>("OfficialDeclarationQualityPermyriad")
+                        .HasColumnType("integer")
+                        .HasColumnName("official_declaration_quality_permyriad");
+
+                    b.Property<int?>("OfficialUndervaluationPermyriad")
+                        .HasColumnType("integer")
+                        .HasColumnName("official_undervaluation_permyriad");
+
+                    b.Property<DateTime>("OpenedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("opened_at");
+
+                    b.Property<string>("Reference")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("reference");
+
+                    b.Property<string>("Response")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("response");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("status");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("title");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasColumnName("type");
+
+                    b.Property<int?>("Year")
+                        .HasColumnType("integer")
+                        .HasColumnName("year");
+
+                    b.HasKey("Id")
+                        .HasName("pk_rf_interactions");
+
+                    b.HasIndex("Status", "DueAt")
+                        .HasDatabaseName("ix_rf_interactions_status_due_at");
+
+                    b.HasIndex("Type", "Status")
+                        .HasDatabaseName("ix_rf_interactions_type_status");
+
+                    b.ToTable("rf_interactions");
+                });
+
             modelBuilder.Entity("Marketplace.Domain.Entities.Seller", b =>
                 {
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid")
                         .HasColumnName("id");
+
+                    b.Property<string>("ArticlesOfIncorporationUrl")
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)")
+                        .HasColumnName("articles_of_incorporation_url");
 
                     b.Property<int>("AvgResponseTimeHours")
                         .HasColumnType("integer")
@@ -1781,15 +2381,28 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(2)")
                         .HasColumnName("country");
 
+                    b.Property<DateTime?>("DataConfirmedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("data_confirmed_at");
+
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("description");
 
+                    b.Property<string>("Email")
+                        .HasMaxLength(254)
+                        .HasColumnType("character varying(254)")
+                        .HasColumnName("email");
+
                     b.Property<string>("ExchangePolicy")
                         .IsRequired()
                         .HasColumnType("text")
                         .HasColumnName("exchange_policy");
+
+                    b.Property<DateTime?>("ExcludedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("excluded_at");
 
                     b.Property<string>("IdentityDocumentUrl")
                         .HasMaxLength(1024)
@@ -1804,6 +2417,11 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
                         .HasMaxLength(300)
                         .HasColumnType("character varying(300)")
                         .HasColumnName("legal_address");
+
+                    b.Property<string>("LegalName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("legal_name");
 
                     b.Property<string>("LogoUrl")
                         .HasColumnType("text")
@@ -1832,10 +2450,39 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("owner_user_id");
 
+                    b.Property<string>("PayoutAccount")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("payout_account");
+
+                    b.Property<string>("PayoutHolder")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("payout_holder");
+
+                    b.Property<string>("PayoutInstitution")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)")
+                        .HasColumnName("payout_institution");
+
+                    b.Property<string>("PayoutMethod")
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasColumnName("payout_method");
+
                     b.Property<string>("Phone")
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)")
                         .HasColumnName("phone");
+
+                    b.Property<DateTime?>("PolicyAcceptedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("policy_accepted_at");
+
+                    b.Property<string>("PolicyVersionAccepted")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("policy_version_accepted");
 
                     b.Property<int>("PositiveRatingPercent")
                         .HasColumnType("integer")
@@ -1899,10 +2546,25 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("suspended_at");
 
+                    b.Property<DateTime?>("SuspendedUntil")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("suspended_until");
+
                     b.Property<string>("SuspensionReason")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
                         .HasColumnName("suspension_reason");
+
+                    b.Property<string>("TaxComplianceCertificateUrl")
+                        .HasMaxLength(1024)
+                        .HasColumnType("character varying(1024)")
+                        .HasColumnName("tax_compliance_certificate_url");
+
+                    b.Property<string>("VerificationChecklist")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("verification_checklist");
 
                     b.Property<DateTime?>("VerifiedAt")
                         .HasColumnType("timestamp with time zone")
@@ -1926,6 +2588,72 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
                     b.ToTable("sellers");
                 });
 
+            modelBuilder.Entity("Marketplace.Domain.Entities.SellerAudit", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("completed_at");
+
+                    b.Property<Guid?>("CompletedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("completed_by_user_id");
+
+                    b.Property<string>("Findings")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("findings");
+
+                    b.Property<Guid?>("NoticeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("notice_id");
+
+                    b.Property<string>("Outcome")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("outcome");
+
+                    b.Property<DateTime>("PlannedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("planned_at");
+
+                    b.Property<Guid?>("PlannedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("planned_by_user_id");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("reason");
+
+                    b.Property<Guid>("SellerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("seller_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("status");
+
+                    b.Property<int>("Year")
+                        .HasColumnType("integer")
+                        .HasColumnName("year");
+
+                    b.HasKey("Id")
+                        .HasName("pk_seller_audits");
+
+                    b.HasIndex("SellerId", "Year")
+                        .HasDatabaseName("ix_seller_audits_seller_id_year");
+
+                    b.ToTable("seller_audits");
+                });
+
             modelBuilder.Entity("Marketplace.Domain.Entities.SellerCategory", b =>
                 {
                     b.Property<Guid>("SellerId")
@@ -1943,6 +2671,341 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
                         .HasDatabaseName("ix_seller_categories_category_id");
 
                     b.ToTable("seller_categories");
+                });
+
+            modelBuilder.Entity("Marketplace.Domain.Entities.SellerInfraction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("AlertId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("alert_id");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasColumnName("code");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("description");
+
+                    b.Property<bool>("Intentional")
+                        .HasColumnType("boolean")
+                        .HasColumnName("intentional");
+
+                    b.Property<DateTime>("OccurredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("occurred_at");
+
+                    b.Property<Guid?>("OccurrenceId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("occurrence_id");
+
+                    b.Property<Guid?>("OrderId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("order_id");
+
+                    b.Property<Guid?>("ProductId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("product_id");
+
+                    b.Property<bool>("Recidivist")
+                        .HasColumnType("boolean")
+                        .HasColumnName("recidivist");
+
+                    b.Property<DateTime>("RegisteredAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("registered_at");
+
+                    b.Property<Guid?>("RegisteredByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("registered_by_user_id");
+
+                    b.Property<Guid?>("ReportId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("report_id");
+
+                    b.Property<Guid>("SellerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("seller_id");
+
+                    b.Property<string>("Severity")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("severity");
+
+                    b.HasKey("Id")
+                        .HasName("pk_seller_infractions");
+
+                    b.HasIndex("SellerId", "OccurredAt")
+                        .HasDatabaseName("ix_seller_infractions_seller_id_occurred_at");
+
+                    b.ToTable("seller_infractions");
+                });
+
+            modelBuilder.Entity("Marketplace.Domain.Entities.SellerMeasure", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("AppliedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("applied_at");
+
+                    b.Property<Guid?>("AppliedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("applied_by_user_id");
+
+                    b.Property<bool>("Automatic")
+                        .HasColumnType("boolean")
+                        .HasColumnName("automatic");
+
+                    b.Property<DateTime?>("EndsAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("ends_at");
+
+                    b.Property<Guid?>("InfractionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("infraction_id");
+
+                    b.Property<Guid?>("NoticeId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("notice_id");
+
+                    b.Property<Guid?>("ProductId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("product_id");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("reason");
+
+                    b.Property<string>("RevocationReason")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("revocation_reason");
+
+                    b.Property<DateTime?>("RevokedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("revoked_at");
+
+                    b.Property<Guid?>("RevokedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("revoked_by_user_id");
+
+                    b.Property<Guid>("SellerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("seller_id");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasColumnName("type");
+
+                    b.HasKey("Id")
+                        .HasName("pk_seller_measures");
+
+                    b.HasIndex("SellerId", "AppliedAt")
+                        .HasDatabaseName("ix_seller_measures_seller_id_applied_at");
+
+                    b.ToTable("seller_measures");
+                });
+
+            modelBuilder.Entity("Marketplace.Domain.Entities.SellerNotice", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<Guid?>("AuditId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("audit_id");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at");
+
+                    b.Property<Guid?>("CreatedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("created_by_user_id");
+
+                    b.Property<string>("DocumentKind")
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasColumnName("document_kind");
+
+                    b.Property<DateTime?>("DueAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("due_at");
+
+                    b.Property<DateTime?>("EmailedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("emailed_at");
+
+                    b.Property<Guid?>("InfractionId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("infraction_id");
+
+                    b.Property<Guid?>("MeasureId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("measure_id");
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("message");
+
+                    b.Property<Guid?>("OrderId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("order_id");
+
+                    b.Property<Guid?>("ProductId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("product_id");
+
+                    b.Property<DateTime?>("ReadAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("read_at");
+
+                    b.Property<string>("Resolution")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("resolution");
+
+                    b.Property<DateTime?>("ResolvedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("resolved_at");
+
+                    b.Property<Guid?>("ResolvedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("resolved_by_user_id");
+
+                    b.Property<DateTime?>("RespondedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("responded_at");
+
+                    b.Property<Guid?>("RespondedByUserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("responded_by_user_id");
+
+                    b.Property<string>("ResponseFiles")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("response_files");
+
+                    b.Property<string>("ResponseText")
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("response_text");
+
+                    b.Property<Guid>("SellerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("seller_id");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("status");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("title");
+
+                    b.Property<string>("Type")
+                        .IsRequired()
+                        .HasMaxLength(24)
+                        .HasColumnType("character varying(24)")
+                        .HasColumnName("type");
+
+                    b.HasKey("Id")
+                        .HasName("pk_seller_notices");
+
+                    b.HasIndex("SellerId", "Status")
+                        .HasDatabaseName("ix_seller_notices_seller_id_status");
+
+                    b.HasIndex("Status", "DueAt")
+                        .HasDatabaseName("ix_seller_notices_status_due_at");
+
+                    b.ToTable("seller_notices");
+                });
+
+            modelBuilder.Entity("Marketplace.Domain.Entities.SellerPolicyAcceptance", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("AcceptedAt")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("accepted_at");
+
+                    b.Property<string>("IpAddress")
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("ip_address");
+
+                    b.Property<string>("PolicyVersion")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("policy_version");
+
+                    b.Property<string>("RepresentativeDocument")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("representative_document");
+
+                    b.Property<string>("RepresentativeDocumentType")
+                        .HasMaxLength(16)
+                        .HasColumnType("character varying(16)")
+                        .HasColumnName("representative_document_type");
+
+                    b.Property<string>("RepresentativeName")
+                        .IsRequired()
+                        .HasMaxLength(160)
+                        .HasColumnType("character varying(160)")
+                        .HasColumnName("representative_name");
+
+                    b.Property<Guid>("SellerId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("seller_id");
+
+                    b.Property<string>("UserAgent")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)")
+                        .HasColumnName("user_agent");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("user_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_seller_policy_acceptances");
+
+                    b.HasIndex("SellerId", "AcceptedAt")
+                        .HasDatabaseName("ix_seller_policy_acceptances_seller_id_accepted_at");
+
+                    b.ToTable("seller_policy_acceptances");
                 });
 
             modelBuilder.Entity("Marketplace.Domain.Entities.Shipment", b =>
@@ -1968,6 +3031,11 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
                         .HasMaxLength(80)
                         .HasColumnType("character varying(80)")
                         .HasColumnName("carrier");
+
+                    b.Property<string>("ChecksJson")
+                        .IsRequired()
+                        .HasColumnType("text")
+                        .HasColumnName("checks_json");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone")

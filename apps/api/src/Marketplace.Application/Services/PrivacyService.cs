@@ -93,8 +93,9 @@ public sealed class PrivacyService(
     }
 
     /// <summary>
-    /// Eliminação: anonimiza dados pessoais e revoga sessões. Pedidos e pagamentos são mantidos pelo prazo legal
-    /// (obrigações fiscais), mas sem vínculo identificável.
+    /// Eliminação: anonimiza a conta e revoga sessões. Os registros dos pedidos (destinatário, endereço, CPF da declaração e
+    /// do pagador) ficam pelo prazo legal de 5 anos contados da data do pedido (Programa de Conformidade 10.4; LGPD art. 16,
+    /// I) e são apagados depois por <see cref="PurgeExpiredRecordsAsync"/>.
     /// </summary>
     public async Task DeleteAccountAsync(DeleteAccountRequest request, CancellationToken ct)
     {
@@ -148,10 +149,38 @@ public sealed class PrivacyService(
         var reviews = await db.Reviews.Where(r => r.UserId == user.Id).ToListAsync(ct);
         foreach (var r in reviews) r.AuthorName = "Cliente";
 
-        var orderList = await db.Orders.Where(o => o.UserId == user.Id).ToListAsync(ct);
-        foreach (var o in orderList)
+        // Registros fora do prazo de guarda (5 anos) já podem sair; os demais ficam até vencer.
+        await ScrubOrdersAsync(user.Id, now, ct);
+    }
+
+    /// <summary>Data a partir da qual o registro de um pedido pode ser apagado (Programa 10.4).</summary>
+    public static DateTime RetentionEnds(DateTime orderCreatedAt) => orderCreatedAt.AddYears(Domain.Compliance.ProgramDeadlines.RecordRetentionYears);
+
+    private async Task<int> ScrubOrdersAsync(Guid userId, DateTime now, CancellationToken ct)
+    {
+        var cutoff = now.AddYears(-Domain.Compliance.ProgramDeadlines.RecordRetentionYears);
+        var orderList = await db.Orders.Where(o => o.UserId == userId && o.CreatedAt < cutoff).ToListAsync(ct);
+        var scrubbed = 0;
+        foreach (var o in orderList.Where(o => o.ShippingAddress.RecipientName != "Destinatário removido"))
+        {
             o.ShippingAddress = o.ShippingAddress with { RecipientName = "Destinatário removido", Phone = null, Complement = null, Street = "—", Number = "—" };
-        var payments = await db.Payments.Where(p => p.UserId == user.Id).ToListAsync(ct);
+            o.RecipientDocument = null;
+            scrubbed++;
+        }
+        var purchases = orderList.Select(o => o.PaymentId).Distinct().ToList();
+        var payments = await db.Payments.Where(p => purchases.Contains(p.Id) && p.PayerDocument != null).ToListAsync(ct);
         foreach (var p in payments) p.PayerDocument = null;
+        return scrubbed;
+    }
+
+    /// <summary>Contas encerradas: apaga os dados pessoais dos pedidos que já cumpriram os 5 anos de guarda. Salva.</summary>
+    public async Task<int> PurgeExpiredRecordsAsync(CancellationToken ct)
+    {
+        var now = Now;
+        var users = await db.Users.Where(u => u.AnonymizedAt != null).Select(u => u.Id).ToListAsync(ct);
+        var total = 0;
+        foreach (var userId in users) total += await ScrubOrdersAsync(userId, now, ct);
+        if (total > 0) await db.SaveChangesAsync(ct);
+        return total;
     }
 }

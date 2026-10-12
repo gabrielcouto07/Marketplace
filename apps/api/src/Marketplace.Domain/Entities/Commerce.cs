@@ -94,6 +94,13 @@ public class Order
 
     /// <summary>CPF do destinatário no momento da compra (somente dígitos; cifrado em repouso) — vai para a DIR.</summary>
     public string? RecipientDocument { get; set; }
+    /// <summary>
+    /// Quando o CPF do destinatário foi conferido com a base da Receita (número e nome do titular) antes de concluir a
+    /// venda (Programa 7.2); nulo em pedidos anteriores à regra.
+    /// </summary>
+    public DateTime? RecipientVerifiedAt { get; set; }
+    /// <summary>Onde foi conferido: "serpro" ou "sandbox" (sem a Consulta CPF, só o dígito verificador).</summary>
+    public string? RecipientVerificationSource { get; set; }
 
     public long SubtotalAmount { get; set; }
     public long ShippingAmount { get; set; }
@@ -155,6 +162,11 @@ public class OrderItem
     public int Quantity { get; set; }
     public long UnitPriceAmount { get; set; }
     public long LineTotalAmount { get; set; }
+
+    // ----- Dados da declaração no momento da venda (Programa 7.5: nada diverso do produto vendido vai aos Correios) -----
+    public string? HsCode { get; set; }
+    public string? OriginCountry { get; set; }
+    public string? DeclarationDescription { get; set; }
 }
 
 /// <summary>Linha do tempo do pedido (uma por transição de status).</summary>
@@ -295,6 +307,29 @@ public class PlatformSettings
     /// <summary>Custo do meio de pagamento repassado no ledger.</summary>
     public int PaymentFeeBasisPoints { get; set; } = 349;
     public long FreeShippingThresholdAmount { get; set; } = 30000;
+
+    // ----- Programa de Conformidade e Política de Vendedores -----
+    /// <summary>Versão da Política de Vendedores publicada nesta entrega (texto em /politica-de-vendedores).</summary>
+    public const string InitialSellerPolicyVersion = "2026-10-09";
+
+    /// <summary>Versão vigente da Política de Vendedores: mudar a versão pede novo aceite e avisa as lojas (10.3).</summary>
+    public string SellerPolicyVersion { get; set; } = InitialSellerPolicyVersion;
+    /// <summary>Data de aprovação da Política pela Diretoria ou sócio administrador (10.1). Nula = a definir.</summary>
+    public DateTime? SellerPolicyApprovedAt { get; set; }
+    /// <summary>Data de aprovação do Programa de Conformidade (14.1). Nula = a definir.</summary>
+    public DateTime? ComplianceProgramApprovedAt { get; set; }
+    /// <summary>Responsável pelo Programa (3.1): só nome e e-mail de contato; documentos pessoais ficam fora do sistema.</summary>
+    public string ProgramOwnerName { get; set; } = string.Empty;
+    public string ProgramOwnerEmail { get; set; } = string.Empty;
+    /// <summary>Aumento abrupto: remessas da loja nos últimos 7 dias ≥ este fator × a média semanal anterior (7.3 a).</summary>
+    public int AbruptIncreaseFactor { get; set; } = 3;
+    /// <summary>Mínimo de remessas na semana para considerar o aumento abrupto (evita alarme em lojas pequenas).</summary>
+    public int AbruptIncreaseMinShipments { get; set; } = 20;
+    /// <summary>Remessas da mesma loja para o mesmo destinatário (CPF ou endereço) em 30 dias que acendem o alerta (7.3 b).</summary>
+    public int ConcentrationThreshold { get; set; } = 5;
+    /// <summary>Amostra dos vendedores sem infração na auditoria anual (7.4), em %.</summary>
+    public int AuditSamplePercent { get; set; } = 10;
+
     public int QuoteLockMinutes { get; set; } = 15;
     public int PixExpirationMinutes { get; set; } = 30;
     public int BoletoDueDays { get; set; } = 3;
@@ -356,6 +391,11 @@ public class Shipment
     public string? LabelUrl { get; set; }
     /// <summary>Dados enviados ao operador, com documentos mascarados (auditoria).</summary>
     public string RequestJson { get; set; } = "{}";
+    /// <summary>
+    /// Conferências feitas antes de enviar ao operador (Programa 6.3, 7.1 a 7.6): valor declarado = valor cobrado,
+    /// remetente, CPF do destinatário, NCM, origem e regime. Lista JSON de { check, ok, detail }.
+    /// </summary>
+    public string ChecksJson { get; set; } = "[]";
     public string? LastError { get; set; }
     public int Attempts { get; set; }
     public DateTime CreatedAt { get; set; }
@@ -428,21 +468,50 @@ public class ComplianceOccurrence
     public Guid? RegisteredByUserId { get; set; }
     public string? StatusReason { get; set; }
     public DateTime? StatusChangedAt { get; set; }
+
+    // ----- Contestação (Programa 11.6 e 11.7) -----
+    public ContestationReason? ContestationReason { get; set; }
+    /// <summary>Fundamentação da contestação.</summary>
+    public string? ContestationGrounds { get; set; }
+    /// <summary>Evidências documentais ou sistêmicas (links ou chaves de documentos).</summary>
+    public List<string> ContestationEvidence { get; set; } = [];
+    public DateTime? ContestedAt { get; set; }
+    /// <summary>Registro da contestação no relacionamento com a Receita.</summary>
+    public Guid? RfInteractionId { get; set; }
 }
 
-/// <summary>Denúncia de produto feita por um usuário (falsificação, preço suspeito, descrição errada…).</summary>
+/// <summary>
+/// Denúncia de oferta de produto contrafeito, de origem ilícita, proibido ou que infrinja propriedade intelectual. Chega
+/// pela página do produto ou pelo canal público, aberto a qualquer pessoa (Política 6.4), e é decidida em até 2 dias
+/// úteis (6.5).
+/// </summary>
 public class ProductReport
 {
     public Guid Id { get; set; }
+    /// <summary>Protocolo entregue a quem denunciou, ex.: DEN-2026-000123.</summary>
+    public string? Protocol { get; set; }
+    public ReportChannel Channel { get; set; } = ReportChannel.PaginaDoProduto;
     public Guid ProductId { get; set; }
     public Guid SellerId { get; set; }
     public Guid? ReporterUserId { get; set; }
+    /// <summary>Contato de quem denunciou sem conta (opcional): recebe a decisão.</summary>
+    public string? ReporterName { get; set; }
+    public string? ReporterEmail { get; set; }
+    /// <summary>Quem denuncia é o titular do direito (ou o representa).</summary>
+    public bool IsRightsHolder { get; set; }
+    public string? RightsHolderName { get; set; }
+    /// <summary>Links de evidência enviados com a denúncia.</summary>
+    public List<string> EvidenceUrls { get; set; } = [];
     public ProductReportReason Reason { get; set; }
     public string Details { get; set; } = string.Empty;
     public ProductReportStatus Status { get; set; } = ProductReportStatus.Aberta;
     public DateTime CreatedAt { get; set; }
+    /// <summary>Prazo da decisão: 2 dias úteis contados do recebimento.</summary>
+    public DateTime DueAt { get; set; }
     public DateTime? ResolvedAt { get; set; }
     public Guid? ResolvedByUserId { get; set; }
     public string? ResolutionNote { get; set; }
     public Guid? OccurrenceId { get; set; }
+    /// <summary>Quando quem denunciou (com e-mail) recebeu a decisão.</summary>
+    public DateTime? ReporterNotifiedAt { get; set; }
 }

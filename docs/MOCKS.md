@@ -9,19 +9,23 @@ Ativação: `NEXT_PUBLIC_API_MOCKING=true` (`.env.local`). Com `false`, o app fa
 | Worker do navegador | `src/mocks/browser.ts` + `public/mockServiceWorker.js` | `setupWorker(...handlers)`; iniciado por `MockProvider` **antes** de renderizar os filhos (evita a primeira query escapar). `onUnhandledRequest: "bypass"`.                                                                 |
 | Servidor Node       | `src/mocks/server.ts` + `src/instrumentation.ts`       | `setupServer` no runtime Node do Next para interceptar `fetch` de servidor (metadata/sitemap). Não intercepta requests **de entrada** (`curl /api/...` no dev retorna 404 do Next — esperado).                              |
 | Handlers            | `src/mocks/handlers/*.ts`                              | um arquivo por domínio (`catalog`, `sellers`, `shipping`, `checkout`, `orders`, `auth`, `seller-panel`, `admin`, `remessa`), agregados em `handlers/index.ts`; guardas de sessão e auditoria em `handlers/guards.ts`. Rotas usam o prefixo `*/api` para casar `/api/...` (browser) e `http://host/api/...` (Node).     |
-| "Banco"             | `src/mocks/db.ts`                                      | estado mutável (usuário, endereços, pedidos, pagamentos, perguntas, tokens). No browser é espelhado em `localStorage["mktpy.mockdb.v3"]` (v3: tributos discriminados, remessas, ocorrências, denúncias e documentos das lojas; bancos antigos são descartados) para sobreviver a reloads; pedidos seed são sempre reinjetados. `resetDb()` limpa. |
+| "Banco"             | `src/mocks/db.ts`                                      | estado mutável (usuário, endereços, pedidos, pagamentos, perguntas, tokens). No browser é espelhado em `localStorage["mktpy.mockdb.v4"]` (v4: Programa de Conformidade e Política de Vendedores — categoria Games, dados de admissão, comunicações, infrações, medidas e registros; bancos antigos são descartados) para sobreviver a reloads; pedidos seed são sempre reinjetados. `resetDb()` limpa. |
 | Fixtures            | `src/mocks/fixtures/*.ts`                              | dados determinísticos (PRNG `mulberry32` + `guid(key)`), iguais no servidor e no cliente                                                                                                                                    |
 
 ## Fixtures
 
-- **Categorias (8)**: eletrônicos, perfumes, informática, celulares, bebidas, casa, esportes, moda (`base.ts`).
+- **Categorias (8)**: eletrônicos, perfumes, informática, celulares, games, casa, esportes, moda (`base.ts`). Bebidas
+  saiu: bebidas alcoólicas são oferta vedada (Anexo I, f, da Política de Vendedores).
 - **Lojas (8)** com reputação 3–5, RUC válido, cidade (Ciudad del Este, Asunción, Salto del Guairá, Pedro Juan
-  Caballero), métricas e política de troca (`base.ts`).
+  Caballero), métricas e política de troca (`base.ts`); cadastro completo da Política (denominação social, e-mail,
+  telefone, conta, representante, quatro documentos de exemplo em `/images/kyc/*.svg`), conferido e com a Política aceita
+  (`seedSellerKyc` em `remessa.ts`).
 - **Produtos (64)**: 8 templates por categoria em `product-templates.json` (nomes genéricos, sem marcas), preço base
   em centavos, `compareAt`, atributos, variações (Cor/Tamanho/Armazenamento/Volume…), garantia. `products.ts` gera
   slug (`slugify(nome)-<cat3><n>`), imagens `/images/products/<cat>-<n>-<1..3>.webp`, variantes (produto cartesiano,
   +18% por degrau da 1ª opção quando ela é "tamanho/capacidade"), estoque (alguns esgotados), avaliações (3–6) com
   distribuição, perguntas (1–4), `isNew` (< 30 dias), `isOffer` (≥ 15% off), `freeShipping` (≥ R$ 300 e sorteio).
+  Cada template traz a declaração (`nature`, `material`, `qty`, `origin`): os produtos fixos saem "sem marca".
 - **Câmbio**: BRL→PYG 1389/100, PYG→BRL 72/1000, USD→BRL 540/100.
 - **Contas demo** (senha `123456` para todas):
   - `demo@mktpy.com` — comprador (CPF `529.982.247-25`, 2 endereços SP/PR com o CPF de quem recebe (`529.982.247-25` e `390.533.447-05`), 11 pedidos em todos os status);
@@ -77,14 +81,18 @@ Mesmas regras e mensagens da API (detalhes em [`REMESSA_CONFORME.md`](REMESSA_CO
 
 | Arquivo | O que faz |
 | --- | --- |
-| `fixtures/remessa.ts` | calculadora de tributos (II 20%/60% − US$ 20, ICMS por dentro e por UF, IBS, CBS, seguro, despesas), soma das remessas, recorte da tabela NCM com validação (capítulos proibidos, categoria), faixas dos indicadores, código S10, marcas protegidas e KYC padrão das lojas fixas |
-| `fixtures/compliance.ts` | seed igual ao da API: loja *Eletro Ponte Import* aguardando verificação, duas ocorrências, duas denúncias abertas e a *Miniatura decant* em análise por preço |
+| `fixtures/remessa.ts` | calculadora de tributos (II 20%/60% − US$ 20, ICMS por dentro e por UF, IBS, CBS, seguro, despesas), soma das remessas, recorte da tabela NCM com validação (Anexo I e categoria), termos do Anexo I, faixas dos indicadores, código S10, marcas protegidas e o cadastro padrão das lojas fixas |
+| `fixtures/compliance.ts` | seed igual ao da API: loja *Eletro Ponte Import* com cadastro completo aguardando a conferência, duas ocorrências, duas denúncias abertas (com protocolo; uma pelo canal público), a *Miniatura decant* em análise por preço, um pedido de documentos aberto para a TecnoCentro CDE, um alerta de monitoramento, a consulta mensal registrada e o registro de ações |
+| `governance.ts` | regras do Programa e da Política: comunicações com prazo de 10 dias, infrações e reincidência, medidas graduadas, situação da loja, monitoramento (fracionamento, suspensões vencidas, correção cadastral), painel do Programa, capacitação, auditoria anual, comprovante em PDF e dossiê |
+| `handlers/governance.ts` | `GET /policies/seller`, `POST /reports`, documentos privados (`/seller/documents/uploads`, `/admin/documents/uploads`, `PUT/GET /documents/*`), `/seller/compliance`, `/seller/profile/confirm`, `/seller/policy/accept`, `/seller/notices*`, comprovantes (`/orders/:id/receipt`, `/seller/orders/:id/receipt`, `/admin/orders/:id/receipt`) e todas as rotas `/admin/compliance/*`, `/admin/notices/:id/resolve` e `/admin/sellers/:id/{notices,infractions,measures,dossier}` |
 | `fixtures/orders.ts` | pedidos seed com `totals.taxes`, rastreio S10 (`LB…PY`) e remessa postada (declaração, DIR, situação aduaneira e repasse confirmado) |
 | `handlers/remessa.ts` | `GET /taxes/estimate`, `GET /ncm`, `GET /ncm/:code`, `POST /products/:id/reports`, `POST/GET /seller/orders/:id/shipment` (+ `/label` em PDF), `/admin/compliance*`, `/admin/reports*`, `/admin/shipments*` e `/admin/integrations` |
-| `pdf.ts` | etiqueta 10×15 cm com Code 128 (`buildShipmentLabelPdf`), no mesmo layout da API |
+| `pdf.ts` | etiqueta 10×15 cm com Code 128 e "PROGRAMA REMESSA CONFORME" em negrito (`buildShipmentLabelPdf`), no mesmo layout da API, e o comprovante do pedido (`buildTextPdf`) |
 
-O checkout recusa endereço sem CPF de quem recebe; o cadastro e o perfil da loja exigem endereço de origem, responsável,
-documento e as imagens do documento e da constância do RUC (`/images/kyc/*.svg` nos dados de demonstração).
+O checkout recusa endereço sem CPF de quem recebe; o cadastro e o perfil da loja exigem denominação social, e-mail,
+telefone, endereço de origem, meio de recebimento, representante legal e os quatro documentos da Política (atos
+constitutivos, Constancia de RUC, Certificado de Cumplimiento Tributario e documento com foto). No mock a consulta do CPF
+na Receita é simulada (só o dígito verificador), como em demonstração.
 
 ## Latência, erros e gatilhos de teste
 

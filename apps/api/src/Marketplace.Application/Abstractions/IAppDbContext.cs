@@ -46,6 +46,18 @@ public interface IAppDbContext
     DbSet<ComplianceOccurrence> ComplianceOccurrences { get; }
     DbSet<ProductReport> ProductReports { get; }
 
+    // Programa de Conformidade e Política de Vendedores
+    DbSet<SellerPolicyAcceptance> SellerPolicyAcceptances { get; }
+    DbSet<SellerNotice> SellerNotices { get; }
+    DbSet<SellerInfraction> SellerInfractions { get; }
+    DbSet<SellerMeasure> SellerMeasures { get; }
+    DbSet<MonitoringAlert> MonitoringAlerts { get; }
+    DbSet<RfInteraction> RfInteractions { get; }
+    DbSet<ComplianceTraining> ComplianceTrainings { get; }
+    DbSet<EnforcementAction> EnforcementActions { get; }
+    DbSet<OrderDocument> OrderDocuments { get; }
+    DbSet<SellerAudit> SellerAudits { get; }
+
     DatabaseFacade Database { get; }
     ChangeTracker ChangeTracker { get; }
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);

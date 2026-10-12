@@ -11,7 +11,7 @@ using Microsoft.Extensions.DependencyInjection;
 namespace Marketplace.Tests.Integration;
 
 /// <summary>API completa com SQLite temporário, seed demo, gateway fake e CEP sem rede.</summary>
-public sealed class ApiFactory : WebApplicationFactory<Program>
+public class ApiFactory : WebApplicationFactory<Program>
 {
     private readonly string _dbPath = Path.Combine(Path.GetTempPath(), $"mktpy-test-{Guid.NewGuid():N}.db");
     private readonly string _keysPath = Path.Combine(Path.GetTempPath(), $"mktpy-keys-{Guid.NewGuid():N}");
@@ -34,8 +34,12 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
         {
             services.RemoveAll<IPostalCodeLookup>();
             services.AddSingleton<IPostalCodeLookup, FakePostalCodeLookup>();
+            ConfigureFakes(services);
         });
     }
+
+    /// <summary>Troca integrações por fakes num cenário específico (ex.: Consulta CPF obrigatória).</summary>
+    protected virtual void ConfigureFakes(IServiceCollection services) { }
 
     protected override void Dispose(bool disposing)
     {

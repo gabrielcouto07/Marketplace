@@ -10,22 +10,37 @@ import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
 /**
- * Valores discriminados da remessa, como pede o critério ii da Portaria Coana 130/2023 (art. 8º): produto, frete e
- * seguro, descontos, despesas, II, ICMS, IBS, CBS, total e taxa de câmbio.
- * - `full`: a conta inteira (resumo do checkout e detalhe do pedido);
- * - `taxes`: só os tributos e a nota de câmbio (página de produto e carrinho, antes do frete). Aqui o valor é prévia:
- *   fica definitivo no fechamento do pedido, quando entra o frete de cada loja.
+ * Valores discriminados da remessa, como pedem o critério ii da Portaria Coana 130/2023 (art. 8º) e o item 4.2 do
+ * Programa de Conformidade: produto, frete e seguro, descontos, despesas, II, ICMS, IBS, CBS, total e taxa de câmbio.
+ * - `full`: a conta inteira (página de produto, resumo do checkout e detalhe do pedido);
+ * - `taxes`: só os tributos e a nota de câmbio. Antes do fechamento o valor é prévia: fica definitivo no pedido,
+ *   quando entra o frete de cada loja.
  */
 export function TaxBreakdown({
   taxes,
   mode = "full",
   withoutFreight,
+  freightIncluded,
+  freightPending,
+  showTotal,
+  listingDiscount,
   className,
 }: {
   taxes: ImportTaxBreakdownDto;
   mode?: "full" | "taxes";
   /** Conta sem o frete (exemplos, antes do checkout): a linha de frete diz que ele entra no fechamento. */
   withoutFreight?: boolean;
+  /** Frete já incluído no preço do produto (frete grátis): a página diz isso expressamente (Programa 4.2 b). */
+  freightIncluded?: boolean;
+  /** Frete ainda não cotado (página de produto sem CEP): a linha pede o CEP. */
+  freightPending?: boolean;
+  /** Linha "Total a pagar" (produto + frete + seguro + despesas − desconto + tributos), Programa 4.2 i. */
+  showTotal?: boolean;
+  /**
+   * Promoção do próprio anúncio ("de R$ X por R$ Y"), já embutida no preço: a linha de produto mostra o preço "de" e a
+   * de descontos mostra a diferença (Programa 4.2 a e c). O valor aduaneiro e os tributos não mudam.
+   */
+  listingDiscount?: Money;
   className?: string;
 }) {
   const t = useTranslations("taxes");
@@ -36,7 +51,20 @@ export function TaxBreakdown({
     format.number(bp / 10_000, { style: "percent", maximumFractionDigits: 2 });
   const zero = (m: Money) => m.amount === 0;
   const estimate = !taxes.isFinal;
-  const preview = !estimate && (mode === "taxes" || Boolean(withoutFreight));
+  const preview = !estimate && (mode === "taxes" || Boolean(withoutFreight) || Boolean(freightPending));
+  const freightValue = freightIncluded
+    ? t("freightIncluded")
+    : freightPending
+      ? t("freightPending")
+      : withoutFreight
+        ? t("freightAtCheckout")
+        : zero(taxes.freight)
+          ? t("free")
+          : formatMoney(taxes.freight);
+
+  const listing = listingDiscount && listingDiscount.amount > 0 ? listingDiscount.amount : 0;
+  const products: Money = { ...taxes.products, amount: taxes.products.amount + listing };
+  const discount: Money = { ...taxes.discount, amount: taxes.discount.amount + listing };
 
   const dutyLabel =
     taxes.importDutyBasisPoints === 0
@@ -49,17 +77,23 @@ export function TaxBreakdown({
     <div className={cn("flex flex-col gap-3", className)}>
       {mode === "full" ? (
         <dl className="flex flex-col gap-2">
-          <Row label={t("products")} value={formatMoney(taxes.products)} />
+          {/* Na ordem do item 4.2: produto, frete e seguro, descontos (sempre, mesmo zerados) e demais despesas. */}
+          <Row label={t("products")} value={formatMoney(products)} />
           <Row
             label={t("freight")}
-            value={withoutFreight ? t("freightAtCheckout") : zero(taxes.freight) ? t("free") : formatMoney(taxes.freight)}
-            muted={withoutFreight}
+            value={freightValue}
+            muted={Boolean(withoutFreight) || Boolean(freightPending)}
+            valueClassName={freightIncluded ? "text-success" : undefined}
           />
           <Row label={t("insurance")} value={formatMoney(taxes.insurance)} muted={zero(taxes.insurance)} />
+          <Row
+            label={t("discount")}
+            hint={listing > 0 ? t("listingDiscountHint") : undefined}
+            value={zero(discount) ? formatMoney(discount) : `− ${formatMoney(discount)}`}
+            muted={zero(discount)}
+            valueClassName={zero(discount) ? undefined : "text-success"}
+          />
           <Row label={t("otherExpenses")} value={formatMoney(taxes.otherExpenses)} muted={zero(taxes.otherExpenses)} />
-          {taxes.discount.amount > 0 ? (
-            <Row label={t("discount")} value={`− ${formatMoney(taxes.discount)}`} valueClassName="text-success" />
-          ) : null}
           <Row
             label={t("customsValue")}
             hint={
@@ -104,6 +138,16 @@ export function TaxBreakdown({
         </dl>
       </div>
 
+      {showTotal ? (
+        <dl>
+          <Row
+            label={freightPending || withoutFreight ? t("totalToPayWithoutFreight") : t("totalToPay")}
+            value={formatMoney(taxes.total)}
+            strong
+          />
+        </dl>
+      ) : null}
+
       <ul className="flex flex-col gap-1 text-caption text-foreground-secondary">
         <li>
           {estimate
@@ -112,7 +156,14 @@ export function TaxBreakdown({
               ? t("notePreview")
               : t("noteFinal")}
         </li>
-        {taxes.usdRate ? <li className="tabular-nums">{t("noteRate", { rate: taxes.usdRate.displayRate })}</li> : null}
+        {taxes.usdRate ? (
+          <li className="tabular-nums">
+            {t("noteRateAt", {
+              rate: taxes.usdRate.displayRate,
+              date: format.dateTime(new Date(taxes.usdRate.quotedAt), { dateStyle: "short" }),
+            })}
+          </li>
+        ) : null}
         {!estimate && taxes.importDutyBasisPoints !== 0 ? (
           <li>{taxes.importDutyDeduction.amount > 0 ? t("noteHighTier") : t("noteLowTier")}</li>
         ) : null}
@@ -167,7 +218,10 @@ export function TaxBreakdownSkeleton() {
   );
 }
 
-/** Aviso de produto importado e tributado (critério ii): aparece na página de produto e no carrinho. */
+/**
+ * Aviso de produto importado e tributado (Programa 4.1): o produto vem do exterior e será importado, e a compra é
+ * objeto de declaração de importação, sujeita à tributação federal e estadual. Página de produto e carrinho.
+ */
 export function ImportedProductNotice({ className }: { className?: string }) {
   const t = useTranslations("taxes");
   return (

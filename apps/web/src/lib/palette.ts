@@ -12,7 +12,7 @@ const CATEGORY_HUES: Record<string, number> = {
   perfumes: 350,
   informatica: 220,
   celulares: 295,
-  bebidas: 50,
+  games: 275,
   casa: 175,
   esportes: 145,
   moda: 25,

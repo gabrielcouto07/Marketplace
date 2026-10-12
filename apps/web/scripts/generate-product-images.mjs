@@ -48,7 +48,9 @@ const sellers = [
   ["casa-nova-import", "Casa Nova Import", 160],
   ["megastore-paraguay", "MegaStore Paraguay", 262],
   ["nippon-center", "Nippon Center", 200],
+  // Loja retirada (bebidas alcoólicas são oferta vedada); o monograma fica para pedidos antigos.
   ["bebidas-del-puente", "Bebidas del Puente", 30],
+  ["game-center-cde", "Game Center CDE", 280],
   ["sport-house-py", "Sport House PY", 100],
   ["moda-guarani", "Moda Guaraní", 355],
 ];

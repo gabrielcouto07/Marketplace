@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { PanelTitle } from "@/components/layout/panel-shell";
 import { FormField } from "@/components/shared/form-field";
 import { OrderStatusBadge, OrderTimeline } from "@/components/shared/order-status";
+import { ReceiptDownloadButton } from "@/components/shared/receipt-download";
 import { EmptyState, ErrorState } from "@/components/shared/states";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -187,6 +188,10 @@ function OrderDetail({ id, onClose }: { id: string | null; onClose: () => void }
             <OrderStatusBadge status={o.status} />
             <PaymentStatusBadge status={d.payment.status} />
             {d.payout ? <PayoutStatusBadge status={d.payout.status} /> : null}
+            {d.payment.status === "Aprovado" || d.payment.status === "Estornado" ? (
+              // Comprovante guardado com o pedido por 5 anos (Programa 10.3 e 10.4).
+              <ReceiptDownloadButton path={`/admin/orders/${o.id}/receipt`} orderNumber={o.number} variant="ghost" className="ml-auto" />
+            ) : null}
           </div>
 
           <SheetSection title={t("sheetSummary")}>

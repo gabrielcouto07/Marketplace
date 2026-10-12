@@ -163,6 +163,9 @@ public static class SeedDemo
                 Quantity = 1,
                 UnitPriceAmount = p.PriceAmount,
                 LineTotalAmount = p.PriceAmount,
+                HsCode = p.HsCode,
+                OriginCountry = p.OriginCountry,
+                DeclarationDescription = p.DeclarationDescription(),
             }).ToList();
 
             var options = quoteShipping(seller, address.PostalCode, items.Count, seedProducts.All(p => p.FreeShipping));
@@ -196,6 +199,8 @@ public static class SeedDemo
                 TrackingCode = tracking,
                 Carrier = shipped ? option.Carrier : null,
                 RecipientDocument = address.RecipientDocument,
+                RecipientVerifiedAt = createdAt,
+                RecipientVerificationSource = "seed",
                 EstimatedDeliveryMin = createdAt.AddDays(option.EstimatedDaysMin + 2),
                 EstimatedDeliveryMax = createdAt.AddDays(option.EstimatedDaysMax + 4),
                 SubtotalAmount = subtotal,
@@ -334,15 +339,16 @@ public static class SeedDemo
         {
             new()
             {
-                Id = Guid("report:seed:1"), ProductId = P("Óculos de sol").Id, SellerId = P("Óculos de sol").SellerId, ReporterUserId = DemoUserId,
+                Id = Guid("report:seed:1"), Protocol = "DEN-2026-000001", ProductId = P("Óculos de sol").Id, SellerId = P("Óculos de sol").SellerId, ReporterUserId = DemoUserId,
                 Reason = ProductReportReason.Falsificado, Details = "A armação veio sem a gravação da marca e a lente não é polarizada como anunciado.",
-                CreatedAt = DaysAgo(2, 10),
+                CreatedAt = DaysAgo(2, 10), DueAt = Domain.Compliance.ProgramDeadlines.AddBusinessDays(DaysAgo(2, 10), Domain.Compliance.ProgramDeadlines.ReportDecisionBusinessDays),
             },
             new()
             {
-                Id = Guid("report:seed:2"), ProductId = P("Perfume oriental").Id, SellerId = P("Perfume oriental").SellerId, ReporterUserId = DemoUserId,
+                Id = Guid("report:seed:2"), Protocol = "DEN-2026-000002", Channel = ReportChannel.CanalPublico, ProductId = P("Perfume oriental").Id,
+                SellerId = P("Perfume oriental").SellerId, ReporterName = "Rafaela Moura", ReporterEmail = "rafaela.moura@example.com",
                 Reason = ProductReportReason.PrecoSuspeito, Details = "Preço muito abaixo do que se encontra em outras lojas para o mesmo frasco.",
-                CreatedAt = DaysAgo(1, 16),
+                CreatedAt = DaysAgo(1, 16), DueAt = Domain.Compliance.ProgramDeadlines.AddBusinessDays(DaysAgo(1, 16), Domain.Compliance.ProgramDeadlines.ReportDecisionBusinessDays),
             },
         };
         var review = P("Miniatura decant");
@@ -359,6 +365,11 @@ public static class SeedDemo
             LegalAddress = "Av. San Blas 455, Km 4", ResponsibleName = "Fabián Ramírez", ResponsibleDocumentType = SellerDocumentType.CedulaPy,
             ResponsibleDocument = "4512398", IdentityDocumentUrl = "/images/kyc/documento-responsavel.svg", RucCertificateUrl = "/images/kyc/constancia-ruc.svg",
             OriginPostalCode = "7000", Phone = "+595 61 512 300",
+            // Cadastro completo (Política 3.1 e 3.2) e Política aceita: aguarda só a conferência da equipe (3.3).
+            LegalName = "Eletro Ponte Import S.R.L.", Email = "contato@eletroponte.com.py", PayoutMethod = SellerPayoutMethod.CarteiraDigital,
+            PayoutInstitution = "Tigo Money", PayoutAccount = "0981512300", PayoutHolder = "Eletro Ponte Import S.R.L.",
+            TaxComplianceCertificateUrl = "/images/kyc/certificado-cumplimiento.svg", ArticlesOfIncorporationUrl = "/images/kyc/atos-constitutivos.svg",
+            DataConfirmedAt = DaysAgo(1), PolicyVersionAccepted = PlatformSettings.InitialSellerPolicyVersion, PolicyAcceptedAt = DaysAgo(1),
             Categories = [new SellerCategory { SellerId = Guid("seller:eletro-ponte"), CategoryId = pendingCategory.Id }],
         };
         return new DemoCompliance(occurrences, reports, pending);

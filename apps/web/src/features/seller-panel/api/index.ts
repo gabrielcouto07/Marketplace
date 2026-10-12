@@ -1,11 +1,17 @@
 "use client";
 
 import type {
+  DocumentUploadRequest,
   OrderDto,
   OrderListQuery,
   PagedResult,
   PresignedUploadDto,
+  SellerComplianceStatusDto,
   SellerDashboardDto,
+  SellerNoticeDto,
+  SellerNoticeResponseRequest,
+  SellerNoticeStatus,
+  SellerPolicyAcceptRequest,
   SellerProductDto,
   SellerProductInput,
   SellerProductListItemDto,
@@ -50,6 +56,17 @@ export const sellerPanelApi = {
   shipment: (id: string) => api.get<ShipmentDto>(`/seller/orders/${id}/shipment`),
   shippingPolicy: () => api.get<SellerShippingPolicyDto>("/seller/shipping-policy"),
   presignUpload: (body: UploadRequest) => api.post<PresignedUploadDto>("/seller/uploads", body),
+  /** Documentos privados (cadastro e respostas): ficam fora do bucket público e só abrem por link assinado. */
+  presignDocument: (body: DocumentUploadRequest) => api.post<PresignedUploadDto>("/seller/documents/uploads", body),
+  compliance: () => api.get<SellerComplianceStatusDto>("/seller/compliance"),
+  /** Confirmação anual de que os dados da loja continuam corretos (Política 4.3). */
+  confirmData: () => api.post<SellerProfileDto>("/seller/profile/confirm"),
+  acceptPolicy: (body: SellerPolicyAcceptRequest) => api.post<SellerProfileDto>("/seller/policy/accept", body),
+  notices: (query: { status?: SellerNoticeStatus; page?: number; pageSize?: number }) =>
+    api.get<PagedResult<SellerNoticeDto>>("/seller/notices", { query: { ...query } }),
+  notice: (id: string) => api.get<SellerNoticeDto>(`/seller/notices/${id}`),
+  respondNotice: (id: string, body: SellerNoticeResponseRequest) =>
+    api.post<SellerNoticeDto>(`/seller/notices/${id}/respond`, body),
 };
 
 /** 403 SELLER_REQUIRED = usuário logado que ainda não cadastrou a loja. */
@@ -98,6 +115,61 @@ export function useUpdateSellerProfile() {
       client.setQueryData(queryKeys.sellerPanel.profile, profile);
       void client.invalidateQueries({ queryKey: queryKeys.sellers.all });
     },
+  });
+}
+
+/** Situação da loja: aceite da Política, confirmação anual, comunicações abertas e medidas em vigor. */
+export function useSellerCompliance(enabled = true) {
+  const token = useAuthStore((s) => s.accessToken);
+  return useQuery({
+    queryKey: queryKeys.sellerPanel.compliance,
+    queryFn: sellerPanelApi.compliance,
+    enabled: enabled && Boolean(token),
+    staleTime: 60 * 1000,
+    retry: (count, error) => !isSellerRequiredError(error) && count < 2,
+  });
+}
+
+function useAfterCompliance() {
+  const client = useQueryClient();
+  return (profile?: SellerProfileDto) => {
+    if (profile) client.setQueryData(queryKeys.sellerPanel.profile, profile);
+    void client.invalidateQueries({ queryKey: queryKeys.sellerPanel.compliance });
+    void client.invalidateQueries({ queryKey: ["seller", "notices"] });
+  };
+}
+
+export function useConfirmSellerData() {
+  const after = useAfterCompliance();
+  return useMutation({ mutationFn: sellerPanelApi.confirmData, onSuccess: after });
+}
+
+export function useAcceptSellerPolicy() {
+  const after = useAfterCompliance();
+  return useMutation({ mutationFn: sellerPanelApi.acceptPolicy, onSuccess: after });
+}
+
+export function useSellerNotices(query: { status?: SellerNoticeStatus; page?: number }) {
+  return useQuery({
+    queryKey: queryKeys.sellerPanel.notices(query),
+    queryFn: () => sellerPanelApi.notices(query),
+    staleTime: 30 * 1000,
+  });
+}
+
+export function useSellerNotice(id: string | undefined) {
+  return useQuery({
+    queryKey: queryKeys.sellerPanel.notice(id ?? ""),
+    queryFn: () => sellerPanelApi.notice(id!),
+    enabled: Boolean(id),
+  });
+}
+
+export function useRespondNotice(id: string) {
+  const after = useAfterCompliance();
+  return useMutation({
+    mutationFn: (body: SellerNoticeResponseRequest) => sellerPanelApi.respondNotice(id, body),
+    onSuccess: () => after(),
   });
 }
 
@@ -201,6 +273,17 @@ export function useShipOrder() {
 /** Upload em duas etapas: a API assina a URL e o navegador envia o arquivo direto (R2 ou disco local). */
 export async function uploadImage(file: File): Promise<PresignedUploadDto> {
   const presigned = await sellerPanelApi.presignUpload({
+    fileName: file.name,
+    contentType: file.type,
+    sizeBytes: file.size,
+  });
+  await uploadFile(presigned.uploadUrl, file, presigned.headers);
+  return presigned;
+}
+
+/** Documento privado (PDF ou imagem): devolve a chave a gravar e um link assinado para pré-visualizar. */
+export async function uploadDocument(file: File): Promise<PresignedUploadDto> {
+  const presigned = await sellerPanelApi.presignDocument({
     fileName: file.name,
     contentType: file.type,
     sizeBytes: file.size,

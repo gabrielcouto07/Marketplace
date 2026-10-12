@@ -2,6 +2,7 @@
   "eletronicos": [
     {
       "name": "Smart TV 55\" 4K UHD com HDR e sistema inteligente", "ncm": "85287200",
+      "nature": "Televisor smart TV LED", "material": "Plástico, vidro e componentes eletrônicos", "qty": 1, "origin": "CN",
       "price": 249900,
       "compareAt": 319900,
       "attrs": [
@@ -16,6 +17,7 @@
     },
     {
       "name": "Fone de ouvido Bluetooth com cancelamento ativo de ruído", "ncm": "85183000",
+      "nature": "Fone de ouvido Bluetooth com cancelamento de ruído", "material": "Plástico, metal e espuma", "qty": 1, "origin": "CN",
       "price": 89900,
       "compareAt": 129900,
       "attrs": [
@@ -30,6 +32,7 @@
     },
     {
       "name": "Caixa de som portátil à prova d'água 40 W", "ncm": "85182200",
+      "nature": "Caixa de som portátil Bluetooth", "material": "Plástico e borracha", "qty": 1, "origin": "CN",
       "price": 45900,
       "compareAt": null,
       "attrs": [
@@ -44,6 +47,7 @@
     },
     {
       "name": "Caixa de som inteligente com assistente de voz", "ncm": "85176299",
+      "nature": "Caixa de som inteligente Wi-Fi", "material": "Plástico e tecido", "qty": 1, "origin": "CN",
       "price": 39900,
       "compareAt": 49900,
       "attrs": [
@@ -58,6 +62,7 @@
     },
     {
       "name": "Câmera DSLR 24 MP com lente 18-55 mm", "ncm": "85258929",
+      "nature": "Câmera fotográfica digital DSLR com lente 18-55 mm", "material": "Plástico, metal e vidro óptico", "qty": 1, "origin": "JP",
       "price": 349900,
       "compareAt": 419900,
       "attrs": [
@@ -70,6 +75,7 @@
     },
     {
       "name": "Câmera instantânea com impressão de fotos", "ncm": "90064000",
+      "nature": "Câmera fotográfica instantânea", "material": "Plástico", "qty": 1, "origin": "CN",
       "price": 59900,
       "compareAt": 74900,
       "attrs": [
@@ -84,6 +90,7 @@
     },
     {
       "name": "Smartwatch com GPS e monitor cardíaco", "ncm": "85176299",
+      "nature": "Relógio inteligente (smartwatch) com GPS", "material": "Alumínio, vidro e silicone", "qty": 1, "origin": "CN",
       "price": 69900,
       "compareAt": 99900,
       "attrs": [
@@ -98,6 +105,7 @@
     },
     {
       "name": "Fone intra-auricular TWS com estojo de carga", "ncm": "85183000",
+      "nature": "Fone de ouvido sem fio intra-auricular com estojo de carga", "material": "Plástico", "qty": 1, "origin": "CN",
       "price": 19900,
       "compareAt": 29900,
       "attrs": [
@@ -114,6 +122,7 @@
   "perfumes": [
     {
       "name": "Eau de Parfum feminino floral amadeirado 100 ml", "ncm": "33030010",
+      "nature": "Perfume eau de parfum feminino 100 ml", "material": "Solução alcoólica perfumada em frasco de vidro", "qty": 1, "origin": "FR",
       "price": 32900,
       "compareAt": 49900,
       "attrs": [
@@ -128,6 +137,7 @@
     },
     {
       "name": "Eau de Toilette masculino cítrico aromático 100 ml", "ncm": "33030020",
+      "nature": "Perfume eau de toilette masculino 100 ml", "material": "Solução alcoólica perfumada em frasco de vidro", "qty": 1, "origin": "FR",
       "price": 27900,
       "compareAt": 39900,
       "attrs": [
@@ -142,6 +152,7 @@
     },
     {
       "name": "Perfume oriental especiado unissex 75 ml", "ncm": "33030010",
+      "nature": "Perfume parfum unissex 75 ml", "material": "Solução alcoólica perfumada em frasco de vidro", "qty": 1, "origin": "AE",
       "price": 41900,
       "compareAt": null,
       "attrs": [
@@ -154,6 +165,7 @@
     },
     {
       "name": "Kit perfume + loção corporal + gel de banho", "ncm": "33079000",
+      "nature": "Kit com perfume 100 ml, loção corporal 75 ml e gel de banho", "material": "Frascos de vidro e de plástico", "qty": 3, "origin": "ES",
       "price": 36900,
       "compareAt": 52900,
       "attrs": [
@@ -166,6 +178,7 @@
     },
     {
       "name": "Perfume infantil colônia suave 200 ml", "ncm": "33030020",
+      "nature": "Colônia infantil sem álcool 200 ml", "material": "Solução aquosa perfumada em frasco plástico", "qty": 1, "origin": "ES",
       "price": 9900,
       "compareAt": 14900,
       "attrs": [
@@ -178,6 +191,7 @@
     },
     {
       "name": "Body splash frutal 236 ml", "ncm": "33030020",
+      "nature": "Body splash (colônia corporal) 236 ml", "material": "Solução alcoólica perfumada em frasco plástico", "qty": 1, "origin": "US",
       "price": 7900,
       "compareAt": 11900,
       "attrs": [
@@ -192,6 +206,7 @@
     },
     {
       "name": "Eau de Parfum masculino amadeirado intenso 125 ml", "ncm": "33030010",
+      "nature": "Perfume eau de parfum masculino 125 ml", "material": "Solução alcoólica perfumada em frasco de vidro", "qty": 1, "origin": "FR",
       "price": 45900,
       "compareAt": 62900,
       "attrs": [
@@ -204,6 +219,7 @@
     },
     {
       "name": "Miniatura decant 10 ml fragrância nicho", "ncm": "33030010",
+      "nature": "Perfume extrait em frasco decant 10 ml", "material": "Solução alcoólica perfumada em frasco de vidro", "qty": 1, "origin": "FR",
       "price": 5900,
       "compareAt": null,
       "attrs": [
@@ -218,6 +234,7 @@
   "informatica": [
     {
       "name": "Notebook 15.6\" Core i5 16 GB RAM SSD 512 GB", "ncm": "84713019",
+      "nature": "Notebook (computador portátil) 15,6 polegadas", "material": "Alumínio, plástico e componentes eletrônicos", "qty": 1, "origin": "CN",
       "price": 329900,
       "compareAt": 419900,
       "attrs": [
@@ -232,6 +249,7 @@
     },
     {
       "name": "Monitor gamer 27\" 165 Hz IPS 1 ms", "ncm": "85285200",
+      "nature": "Monitor de vídeo LED 27 polegadas", "material": "Plástico e componentes eletrônicos", "qty": 1, "origin": "CN",
       "price": 129900,
       "compareAt": 159900,
       "attrs": [
@@ -244,6 +262,7 @@
     },
     {
       "name": "Kit memória RAM DDR5 32 GB (2 x 16 GB) 6000 MHz", "ncm": "84733042",
+      "nature": "Módulo de memória RAM DDR5 16 GB", "material": "Placa de circuito impresso com chips de memória", "qty": 2, "origin": "TW",
       "price": 69900,
       "compareAt": 79900,
       "attrs": [
@@ -258,6 +277,7 @@
     },
     {
       "name": "Teclado mecânico sem fio switch tátil RGB", "ncm": "84716052",
+      "nature": "Teclado mecânico sem fio", "material": "Plástico ABS e alumínio", "qty": 1, "origin": "CN",
       "price": 34900,
       "compareAt": null,
       "attrs": [
@@ -272,6 +292,7 @@
     },
     {
       "name": "Mouse gamer sem fio 26.000 DPI 60 g", "ncm": "84716053",
+      "nature": "Mouse sem fio", "material": "Plástico", "qty": 1, "origin": "CN",
       "price": 24900,
       "compareAt": 32900,
       "attrs": [
@@ -286,6 +307,7 @@
     },
     {
       "name": "Placa de vídeo 8 GB GDDR6 ray tracing", "ncm": "84733049",
+      "nature": "Placa de vídeo (GPU) 8 GB", "material": "Placa de circuito impresso, alumínio e plástico", "qty": 1, "origin": "TW",
       "price": 199900,
       "compareAt": 249900,
       "attrs": [
@@ -298,6 +320,7 @@
     },
     {
       "name": "Roteador Wi-Fi 6 mesh dual band AX3000", "ncm": "85176241",
+      "nature": "Roteador Wi-Fi 6 mesh", "material": "Plástico e componentes eletrônicos", "qty": 1, "origin": "CN",
       "price": 44900,
       "compareAt": 59900,
       "attrs": [
@@ -312,6 +335,7 @@
     },
     {
       "name": "Óculos de realidade virtual 128 GB standalone", "ncm": "85285900",
+      "nature": "Óculos de realidade virtual", "material": "Plástico, lentes ópticas e espuma", "qty": 1, "origin": "CN",
       "price": 249900,
       "compareAt": 289900,
       "attrs": [
@@ -328,6 +352,7 @@
   "celulares": [
     {
       "name": "Smartphone 6.7\" 256 GB 5G câmera tripla 50 MP", "ncm": "85171300",
+      "nature": "Telefone celular (smartphone) 6,7 polegadas 256 GB", "material": "Alumínio, vidro e componentes eletrônicos", "qty": 1, "origin": "CN",
       "price": 279900,
       "compareAt": 349900,
       "attrs": [
@@ -343,6 +368,7 @@
     },
     {
       "name": "Smartphone 6.1\" 128 GB dual chip 4G", "ncm": "85171300",
+      "nature": "Telefone celular (smartphone) 6,1 polegadas 128 GB", "material": "Plástico, vidro e componentes eletrônicos", "qty": 1, "origin": "CN",
       "price": 99900,
       "compareAt": 129900,
       "attrs": [
@@ -357,6 +383,7 @@
     },
     {
       "name": "Smartphone premium 6.8\" 512 GB titânio", "ncm": "85171300",
+      "nature": "Telefone celular (smartphone) 6,8 polegadas 512 GB", "material": "Titânio, vidro e componentes eletrônicos", "qty": 1, "origin": "VN",
       "price": 599900,
       "compareAt": 749900,
       "attrs": [
@@ -371,6 +398,7 @@
     },
     {
       "name": "Capa protetora antichoque transparente", "ncm": "39269090",
+      "nature": "Capa protetora para telefone celular", "material": "TPU e policarbonato", "qty": 1, "origin": "CN",
       "price": 3900,
       "compareAt": 6900,
       "attrs": [
@@ -383,6 +411,7 @@
     },
     {
       "name": "Carregador magnético sem fio 15 W com cabo USB-C", "ncm": "85044010",
+      "nature": "Carregador sem fio por indução 15 W", "material": "Plástico e alumínio", "qty": 1, "origin": "CN",
       "price": 9900,
       "compareAt": 14900,
       "attrs": [
@@ -395,6 +424,7 @@
     },
     {
       "name": "Smartphone 6.5\" 128 GB bateria 6000 mAh", "ncm": "85171300",
+      "nature": "Telefone celular (smartphone) 6,5 polegadas 128 GB", "material": "Plástico, vidro e componentes eletrônicos", "qty": 1, "origin": "CN",
       "price": 89900,
       "compareAt": 109900,
       "attrs": [
@@ -409,6 +439,7 @@
     },
     {
       "name": "Tablet 11\" 128 GB Wi-Fi com caneta", "ncm": "84713012",
+      "nature": "Tablet 11 polegadas 128 GB com caneta", "material": "Alumínio, vidro e componentes eletrônicos", "qty": 1, "origin": "CN",
       "price": 189900,
       "compareAt": 239900,
       "attrs": [
@@ -423,6 +454,7 @@
     },
     {
       "name": "Película de vidro 9H com aplicador", "ncm": "70071900",
+      "nature": "Película protetora de tela para telefone celular", "material": "Vidro temperado", "qty": 2, "origin": "CN",
       "price": 2900,
       "compareAt": null,
       "attrs": [
@@ -434,111 +466,122 @@
       "warranty": null
     }
   ],
-  "bebidas": [
+  "games": [
     {
-      "name": "Whisky escocês blended 12 anos 1 L", "ncm": "22083020",
-      "price": 18900,
-      "compareAt": 24900,
+      "name": "Console de videogame 1 TB com controle sem fio", "ncm": "95045000",
+      "nature": "Console de videogame", "material": "Plástico e componentes eletrônicos", "qty": 1, "origin": "CN",
+      "price": 349900,
+      "compareAt": 429900,
       "attrs": [
-        ["Origem", "Escócia"],
-        ["Idade", "12 anos"],
-        ["Volume", "1 L"]
+        ["Armazenamento", "SSD 1 TB"],
+        ["Resolução", "Até 4K a 120 fps"],
+        ["Inclui", "1 controle sem fio"]
       ],
       "variants": null,
-      "warranty": null
+      "warranty": 12
     },
     {
-      "name": "Vodka premium destilada 5x 1 L", "ncm": "22086000",
-      "price": 9900,
-      "compareAt": 13900,
+      "name": "Controle sem fio com vibração háptica e bateria recarregável", "ncm": "95045000",
+      "nature": "Controle sem fio para videogame (joystick)", "material": "Plástico ABS", "qty": 1, "origin": "CN",
+      "price": 44900,
+      "compareAt": 54900,
       "attrs": [
-        ["Origem", "França"],
-        ["Teor", "40%"],
-        ["Volume", "1 L"]
-      ],
-      "variants": null,
-      "warranty": null
-    },
-    {
-      "name": "Gin london dry artesanal 750 ml", "ncm": "22085000",
-      "price": 12900,
-      "compareAt": null,
-      "attrs": [
-        ["Origem", "Inglaterra"],
-        ["Botânicos", "10"],
-        ["Volume", "750 ml"]
-      ],
-      "variants": null,
-      "warranty": null
-    },
-    {
-      "name": "Vinho tinto malbec reserva 750 ml", "ncm": "22042100",
-      "price": 6900,
-      "compareAt": 9900,
-      "attrs": [
-        ["Origem", "Mendoza, Argentina"],
-        ["Uva", "Malbec"],
-        ["Safra", "2021"]
+        ["Conexão", "Bluetooth e USB-C"],
+        ["Bateria", "Até 12 h"],
+        ["Compatibilidade", "Console e PC"]
       ],
       "variants": {
-        "Quantidade": ["1 garrafa", "Caixa 6"]
+        "Cor": ["Branco", "Preto", "Lilás"]
       },
-      "warranty": null
+      "warranty": 6
     },
     {
-      "name": "Espumante brut rosé 750 ml", "ncm": "22041090",
-      "price": 5900,
+      "name": "Headset gamer com som surround 7.1 e microfone removível", "ncm": "85183000",
+      "nature": "Fone de ouvido (headset) com microfone", "material": "Plástico, metal e espuma", "qty": 1, "origin": "CN",
+      "price": 29900,
+      "compareAt": 39900,
+      "attrs": [
+        ["Drivers", "50 mm"],
+        ["Conexão", "USB e P2"],
+        ["Microfone", "Removível com redução de ruído"]
+      ],
+      "variants": {
+        "Cor": ["Preto", "Branco"]
+      },
+      "warranty": 12
+    },
+    {
+      "name": "Console portátil 7\" 512 GB com tela Full HD 120 Hz", "ncm": "95045000",
+      "nature": "Console de videogame portátil", "material": "Plástico e componentes eletrônicos", "qty": 1, "origin": "CN",
+      "price": 389900,
       "compareAt": null,
       "attrs": [
-        ["Método", "Charmat"],
-        ["Tipo", "Brut rosé"],
-        ["Volume", "750 ml"]
+        ["Tela", "7\" IPS 120 Hz"],
+        ["Armazenamento", "512 GB"],
+        ["Bateria", "40 Wh"]
       ],
       "variants": null,
-      "warranty": null
+      "warranty": 12
     },
     {
-      "name": "Licor de creme irlandês 750 ml", "ncm": "22087000",
+      "name": "Volante com pedais e câmbio para simulador de corrida", "ncm": "95045000",
+      "nature": "Volante para videogame com pedais", "material": "Plástico, aço e couro sintético", "qty": 1, "origin": "CN",
+      "price": 189900,
+      "compareAt": 229900,
+      "attrs": [
+        ["Rotação", "900°"],
+        ["Force feedback", "Sim"],
+        ["Pedais", "Embreagem, freio e acelerador"]
+      ],
+      "variants": null,
+      "warranty": 12
+    },
+    {
+      "name": "Cadeira gamer reclinável com apoio lombar", "ncm": "94013900",
+      "nature": "Cadeira giratória de altura ajustável (cadeira gamer)", "material": "Aço, espuma e couro sintético", "qty": 1, "origin": "CN",
+      "price": 99900,
+      "compareAt": 129900,
+      "attrs": [
+        ["Reclinação", "Até 155°"],
+        ["Peso máx.", "150 kg"],
+        ["Revestimento", "Couro sintético"]
+      ],
+      "variants": {
+        "Cor": ["Preto", "Preto e vermelho", "Preto e azul"]
+      },
+      "warranty": 12
+    },
+    {
+      "name": "Microfone condensador USB para streaming com braço articulado", "ncm": "85181090",
+      "nature": "Microfone condensador USB", "material": "Metal e plástico", "qty": 1, "origin": "CN",
+      "price": 34900,
+      "compareAt": 44900,
+      "attrs": [
+        ["Padrão polar", "Cardioide"],
+        ["Conexão", "USB-C"],
+        ["Inclui", "Braço articulado e pop filter"]
+      ],
+      "variants": null,
+      "warranty": 12
+    },
+    {
+      "name": "Fita de LED RGB 5 m com controle e sincronia com música", "ncm": "94054200",
+      "nature": "Fita de LED RGB", "material": "PVC flexível e diodos emissores de luz", "qty": 1, "origin": "CN",
       "price": 8900,
-      "compareAt": 11900,
+      "compareAt": 12900,
       "attrs": [
-        ["Origem", "Irlanda"],
-        ["Teor", "17%"],
-        ["Volume", "750 ml"]
+        ["Comprimento", "5 m"],
+        ["Cores", "RGB, 16 milhões"],
+        ["Controle", "App e controle remoto"]
       ],
       "variants": null,
-      "warranty": null
-    },
-    {
-      "name": "Tequila reposado 100% agave 750 ml", "ncm": "22089000",
-      "price": 15900,
-      "compareAt": 19900,
-      "attrs": [
-        ["Origem", "Jalisco, México"],
-        ["Tipo", "Reposado"],
-        ["Volume", "750 ml"]
-      ],
-      "variants": null,
-      "warranty": null
-    },
-    {
-      "name": "Energético lata 250 ml caixa com 24", "ncm": "22029900",
-      "price": 11900,
-      "compareAt": 14900,
-      "attrs": [
-        ["Unidades", "24"],
-        ["Volume", "250 ml"],
-        ["Sabor", "Tradicional"]
-      ],
-      "variants": {
-        "Sabor": ["Tradicional", "Tropical", "Zero açúcar"]
-      },
-      "warranty": null
+      "warranty": 6
     }
   ],
   "casa": [
     {
       "name": "Robô aspirador com mapeamento e mop 4000 Pa", "ncm": "85081100",
+      "nature": "Aspirador de pó robô", "material": "Plástico e componentes eletrônicos", "qty": 1, "origin": "CN",
       "price": 149900,
       "compareAt": 199900,
       "attrs": [
@@ -551,6 +594,7 @@
     },
     {
       "name": "Fritadeira elétrica sem óleo 6 L digital", "ncm": "85166000",
+      "nature": "Fritadeira elétrica sem óleo (air fryer) 6 L", "material": "Plástico e aço com revestimento antiaderente", "qty": 1, "origin": "CN",
       "price": 39900,
       "compareAt": 54900,
       "attrs": [
@@ -565,6 +609,7 @@
     },
     {
       "name": "Cafeteira espresso automática com moedor", "ncm": "85167100",
+      "nature": "Máquina de café espresso automática", "material": "Aço inoxidável e plástico", "qty": 1, "origin": "CN",
       "price": 219900,
       "compareAt": 279900,
       "attrs": [
@@ -577,6 +622,7 @@
     },
     {
       "name": "Jogo de panelas antiaderente 10 peças", "ncm": "76151000",
+      "nature": "Jogo de panelas de alumínio antiaderente", "material": "Alumínio com revestimento cerâmico", "qty": 10, "origin": "CN",
       "price": 29900,
       "compareAt": 39900,
       "attrs": [
@@ -589,6 +635,7 @@
     },
     {
       "name": "Aspirador de pó vertical sem fio 2 em 1", "ncm": "85081100",
+      "nature": "Aspirador de pó vertical sem fio", "material": "Plástico e componentes eletrônicos", "qty": 1, "origin": "CN",
       "price": 79900,
       "compareAt": 99900,
       "attrs": [
@@ -601,6 +648,7 @@
     },
     {
       "name": "Luminária de mesa articulada com lâmpada inteligente Wi-Fi", "ncm": "94052100",
+      "nature": "Luminária de mesa articulada com lâmpada LED", "material": "Metal e plástico", "qty": 1, "origin": "CN",
       "price": 14900,
       "compareAt": null,
       "attrs": [
@@ -615,6 +663,7 @@
     },
     {
       "name": "Liquidificador de alta potência 1400 W", "ncm": "85094010",
+      "nature": "Liquidificador elétrico 1400 W", "material": "Plástico tritan e aço inoxidável", "qty": 1, "origin": "CN",
       "price": 24900,
       "compareAt": 32900,
       "attrs": [
@@ -627,6 +676,7 @@
     },
     {
       "name": "Jogo de cama 400 fios 4 peças", "ncm": "63023100",
+      "nature": "Jogo de lençóis de cama", "material": "Algodão egípcio", "qty": 4, "origin": "IN",
       "price": 19900,
       "compareAt": null,
       "attrs": [
@@ -644,6 +694,7 @@
   "esportes": [
     {
       "name": "Bicicleta ergométrica magnética dobrável", "ncm": "95069100",
+      "nature": "Bicicleta ergométrica magnética dobrável", "material": "Aço e plástico", "qty": 1, "origin": "CN",
       "price": 89900,
       "compareAt": 119900,
       "attrs": [
@@ -656,6 +707,7 @@
     },
     {
       "name": "Tênis de corrida com placa de carbono", "ncm": "64041100",
+      "nature": "Calçado esportivo (tênis de corrida), par", "material": "Têxtil sintético, espuma EVA e fibra de carbono", "qty": 1, "origin": "VN",
       "price": 79900,
       "compareAt": 99900,
       "attrs": [
@@ -671,6 +723,7 @@
     },
     {
       "name": "Kit halteres ajustáveis 2 x 24 kg", "ncm": "95069100",
+      "nature": "Haltere ajustável 24 kg", "material": "Aço e plástico", "qty": 2, "origin": "CN",
       "price": 119900,
       "compareAt": 149900,
       "attrs": [
@@ -683,6 +736,7 @@
     },
     {
       "name": "Relógio GPS multiesporte com mapas", "ncm": "85176299",
+      "nature": "Relógio esportivo com GPS (smartwatch)", "material": "Polímero reforçado, vidro e silicone", "qty": 1, "origin": "TW",
       "price": 199900,
       "compareAt": 259900,
       "attrs": [
@@ -695,6 +749,7 @@
     },
     {
       "name": "Mochila de hidratação trail 12 L", "ncm": "42029200",
+      "nature": "Mochila de hidratação com reservatório de 2 L", "material": "Nylon e TPU", "qty": 1, "origin": "CN",
       "price": 24900,
       "compareAt": null,
       "attrs": [
@@ -707,6 +762,7 @@
     },
     {
       "name": "Barraca de camping 4 pessoas impermeável", "ncm": "63062200",
+      "nature": "Barraca de camping para 4 pessoas", "material": "Poliéster e fibra de vidro", "qty": 1, "origin": "CN",
       "price": 34900,
       "compareAt": 44900,
       "attrs": [
@@ -719,6 +775,7 @@
     },
     {
       "name": "Prancha de stand up paddle inflável 10'6", "ncm": "95062900",
+      "nature": "Prancha inflável de stand up paddle", "material": "PVC drop-stitch", "qty": 1, "origin": "CN",
       "price": 129900,
       "compareAt": 169900,
       "attrs": [
@@ -731,6 +788,7 @@
     },
     {
       "name": "Bola de futebol oficial termocolada", "ncm": "95066200",
+      "nature": "Bola de futebol de campo", "material": "Poliuretano termocolado", "qty": 1, "origin": "PK",
       "price": 12900,
       "compareAt": 16900,
       "attrs": [
@@ -745,6 +803,7 @@
   "moda": [
     {
       "name": "Óculos de sol polarizado armação acetato", "ncm": "90041000",
+      "nature": "Óculos de sol polarizados", "material": "Acetato e lentes de policarbonato", "qty": 1, "origin": "CN",
       "price": 39900,
       "compareAt": 59900,
       "attrs": [
@@ -759,6 +818,7 @@
     },
     {
       "name": "Relógio analógico aço inoxidável 42 mm", "ncm": "91021110",
+      "nature": "Relógio de pulso analógico de quartzo", "material": "Aço inoxidável e vidro mineral", "qty": 1, "origin": "CN",
       "price": 49900,
       "compareAt": 69900,
       "attrs": [
@@ -773,6 +833,7 @@
     },
     {
       "name": "Bolsa transversal couro legítimo", "ncm": "42022100",
+      "nature": "Bolsa transversal", "material": "Couro bovino", "qty": 1, "origin": "PY",
       "price": 29900,
       "compareAt": null,
       "attrs": [
@@ -787,6 +848,7 @@
     },
     {
       "name": "Jaqueta corta-vento impermeável unissex", "ncm": "62014000",
+      "nature": "Jaqueta corta-vento impermeável", "material": "Nylon ripstop", "qty": 1, "origin": "CN",
       "price": 24900,
       "compareAt": 34900,
       "attrs": [
@@ -802,6 +864,7 @@
     },
     {
       "name": "Tênis casual couro branco", "ncm": "64039990",
+      "nature": "Calçado casual (tênis), par", "material": "Couro bovino e borracha", "qty": 1, "origin": "PY",
       "price": 34900,
       "compareAt": 44900,
       "attrs": [
@@ -816,6 +879,7 @@
     },
     {
       "name": "Carteira slim RFID couro", "ncm": "42023100",
+      "nature": "Carteira", "material": "Couro bovino", "qty": 1, "origin": "PY",
       "price": 8900,
       "compareAt": 12900,
       "attrs": [
@@ -830,6 +894,7 @@
     },
     {
       "name": "Cinto de couro reversível com fivela automática", "ncm": "42033000",
+      "nature": "Cinto", "material": "Couro bovino e metal", "qty": 1, "origin": "PY",
       "price": 6900,
       "compareAt": null,
       "attrs": [
@@ -842,6 +907,7 @@
     },
     {
       "name": "Boné aba curva algodão bordado", "ncm": "65050090",
+      "nature": "Boné", "material": "Algodão", "qty": 1, "origin": "CN",
       "price": 4900,
       "compareAt": 7900,
       "attrs": [

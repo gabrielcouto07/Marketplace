@@ -101,7 +101,10 @@ public sealed record AdminSellerListItemDto(
     Money Gross30d,
     int OpenDisputes,
     bool Verified = false,
-    int Occurrences = 0);
+    int Occurrences = 0,
+    /// <summary>Infrações nos últimos 12 meses (reincidência, Política 8.3).</summary>
+    int Infractions12Months = 0,
+    bool AdmissionComplete = false);
 
 public sealed record AdminSellerDetailDto(
     AdminSellerListItemDto Summary,
@@ -114,7 +117,11 @@ public sealed record AdminSellerDetailDto(
     IReadOnlyList<AdminOrderListItemDto> RecentOrders,
     IReadOnlyList<PayoutDto> RecentPayouts,
     SellerVerificationDto? Verification = null,
-    IReadOnlyList<ComplianceOccurrenceDto>? Occurrences = null);
+    IReadOnlyList<ComplianceOccurrenceDto>? Occurrences = null,
+    SellerGovernanceDto? Governance = null,
+    string? LegalName = null,
+    string? Email = null,
+    string? Phone = null);
 
 public sealed record AdminSellerUpdateRequest(
     string? Name,
@@ -123,8 +130,10 @@ public sealed record AdminSellerUpdateRequest(
     SellerStatus? Status,
     int? ReputationLevel,
     bool? IsOfficialStore,
-    /// <summary>Obrigatório ao suspender (fica no histórico e aparece para o vendedor).</summary>
-    string? SuspensionReason = null);
+    /// <summary>Obrigatório ao suspender ou excluir (fica no histórico e aparece para o vendedor).</summary>
+    string? SuspensionReason = null,
+    /// <summary>Suspensão temporária com fim (dias); nulo = até a revisão da equipe.</summary>
+    int? SuspensionDays = null);
 
 // Produtos
 public sealed record AdminProductListItemDto(
@@ -204,7 +213,7 @@ public sealed record ExchangeRateInput(CurrencyCode From, CurrencyCode To, long?
 // Banners e categorias
 public sealed record BannerInput(string? Title, string? Subtitle, string? ImageUrl, string? Href, BannerTone Tone, int SortOrder, bool Active);
 
-public sealed record CategoryInput(string? Name, string? Slug, string? IconKey, string? ImageUrl, int SortOrder);
+public sealed record CategoryInput(string? Name, string? Slug, string? IconKey, string? ImageUrl, int SortOrder, bool? Active = null);
 
 // Configurações
 public sealed record PlatformSettingsDto(
@@ -232,7 +241,19 @@ public sealed record PlatformSettingsDto(
     int StrikeWindowDays = 365,
     int PriceFloorPercent = 40,
     string ProtectedBrands = "",
-    bool RequirePlatformLabel = true);
+    bool RequirePlatformLabel = true,
+    // Programa de Conformidade e Política de Vendedores
+    string SellerPolicyVersion = "",
+    DateTime? SellerPolicyApprovedAt = null,
+    DateTime? ComplianceProgramApprovedAt = null,
+    string ProgramOwnerName = "",
+    string ProgramOwnerEmail = "",
+    int AbruptIncreaseFactor = 3,
+    int AbruptIncreaseMinShipments = 20,
+    int ConcentrationThreshold = 5,
+    int AuditSamplePercent = 10,
+    /// <summary>Somente leitura: com o ADE configurado a etiqueta da plataforma não pode ser desligada (Programa 9.5).</summary>
+    bool PlatformLabelLocked = false);
 
 // Auditoria
 public sealed record AdminAuditLogDto(long Id, Guid? UserId, string? UserEmail, string Action, string? Target, DateTime OccurredAt, string? IpAddress);

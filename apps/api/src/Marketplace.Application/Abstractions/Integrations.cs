@@ -65,6 +65,8 @@ public interface ICatalogCache
 public static class DownloadTokenPurposes
 {
     public const string Boleto = "boleto";
+    /// <summary>Documento do armazenamento privado (cadastro de vendedor, respostas, evidências).</summary>
+    public const string Document = "document";
 }
 
 /// <summary>Token assinado e com validade para links que abrem sem sessão (ex.: PDF do boleto).</summary>
@@ -72,4 +74,20 @@ public interface IDownloadTokenService
 {
     string Issue(string purpose, string subject, TimeSpan lifetime);
     bool Validate(string purpose, string subject, string? token);
+}
+
+// ----- Documentos privados -----
+
+/// <summary>Arquivo do armazenamento privado.</summary>
+public sealed record StoredDocument(Stream Content, string ContentType, string FileName);
+
+/// <summary>
+/// Documentos que não podem ficar em URL pública (Política de Vendedores 9.4): documento do representante, constância do
+/// RUC, certificado tributário, atos constitutivos, respostas e evidências. Ficam no volume da API e abrem só por link
+/// assinado e temporário (<see cref="Common.DocumentLinks"/>).
+/// </summary>
+public interface IDocumentStorage
+{
+    Task<PresignedUpload> CreateUploadAsync(string fileName, string contentType, long sizeBytes, CancellationToken ct);
+    Task<StoredDocument?> OpenAsync(string key, CancellationToken ct);
 }

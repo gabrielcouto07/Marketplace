@@ -83,6 +83,12 @@ public sealed class ShippingService(
                 errors.Add("items", $"O produto \"{product.Name}\" não pertence a esta loja.");
                 continue;
             }
+            // Política 3.3 e 8.1: loja pendente de verificação, suspensa ou excluída não vende (nem pelo carrinho antigo).
+            if (product.Seller.Status != SellerStatus.Aprovado)
+            {
+                errors.Add("items", $"A loja de \"{product.Name}\" não está vendendo no momento. Remova o produto do carrinho.");
+                continue;
+            }
             ProductVariant? variant = null;
             if (item.VariantId is { } vid)
             {

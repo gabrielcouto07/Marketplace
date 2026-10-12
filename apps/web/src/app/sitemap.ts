@@ -13,7 +13,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "perfumes",
     "informatica",
     "celulares",
-    "bebidas",
+    "games",
     "casa",
     "esportes",
     "moda",
@@ -25,6 +25,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { url: `${base}/categorias`, lastModified: now, changeFrequency: "weekly", priority: 0.7 },
     { url: `${base}/lojas`, lastModified: now, changeFrequency: "weekly", priority: 0.7 },
     { url: `${base}/instalar`, lastModified: now, changeFrequency: "monthly", priority: 0.3 },
+    { url: `${base}/remessa-conforme`, lastModified: now, changeFrequency: "monthly", priority: 0.4 },
+    // Política de Vendedores disponível na plataforma (item 2.4) e o canal público de denúncias (6.4).
+    { url: `${base}/politica-de-vendedores`, lastModified: now, changeFrequency: "monthly", priority: 0.4 },
+    { url: `${base}/denuncia`, lastModified: now, changeFrequency: "yearly", priority: 0.3 },
     ...categories.map((slug) => ({
       url: `${base}/categoria/${slug}`,
       lastModified: now,

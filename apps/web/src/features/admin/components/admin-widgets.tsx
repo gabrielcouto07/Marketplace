@@ -1,6 +1,7 @@
 "use client";
 
 import type {
+  ContestationReason,
   PaymentStatus,
   PayoutStatus,
   ProductStatus,
@@ -27,6 +28,9 @@ import { formatMoney } from "@/lib/money";
 import { cn } from "@/lib/utils";
 
 export const brl = (amount: number) => formatMoney({ amount, currency: "BRL" });
+
+/** Únicos fundamentos aceitos para contestar um indicador (Programa de Conformidade 11.6). */
+export const CONTESTATION_REASONS: ContestationReason[] = ["ErroMaterial", "InconsistenciaSistemica", "ImpropriedadeMetodologia"];
 
 /** Mostra a mensagem da API (ou genérica) em toast. */
 export function useAdminErrorToast() {
@@ -154,6 +158,7 @@ const SELLER_BADGE: Record<SellerStatus, "success" | "warning" | "danger"> = {
   Aprovado: "success",
   Pendente: "warning",
   Suspenso: "danger",
+  Excluido: "danger",
 };
 const PAYMENT_BADGE: Record<PaymentStatus, "warning" | "success" | "danger" | "neutral"> = {
   Pendente: "warning",

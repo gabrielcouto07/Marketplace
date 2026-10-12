@@ -1,13 +1,15 @@
-import type {
-  ComplianceBand,
-  ImportTaxBreakdownDto,
-  Money,
-  NcmLookupDto,
-  PlatformSettingsDto,
-  SellerDocumentType,
-  SellerDto,
-  TaxRemittanceDto,
-  UsdRateDto,
+import {
+  SELLER_VERIFICATION_ITEMS,
+  type ComplianceBand,
+  type ImportTaxBreakdownDto,
+  type Money,
+  type NcmLookupDto,
+  type PlatformSettingsDto,
+  type SellerDocumentType,
+  type SellerDto,
+  type SellerPayoutMethod,
+  type TaxRemittanceDto,
+  type UsdRateDto,
 } from "@marketplace/contracts";
 
 import { getRate } from "./base";
@@ -40,6 +42,9 @@ export type TaxSettings = Pick<
   | "otherExpensesAmount"
 >;
 
+/** Versão inicial da Política de Admissão e de Monitoramento de Vendedores (PlatformSettings.InitialSellerPolicyVersion). */
+export const INITIAL_SELLER_POLICY_VERSION = "2026-10-09";
+
 export const REMESSA_SETTINGS_DEFAULTS = {
   importTaxMode: "RemessaConforme",
   importTaxBasisPoints: 6000,
@@ -55,6 +60,17 @@ export const REMESSA_SETTINGS_DEFAULTS = {
   priceFloorPercent: 40,
   protectedBrands: DEFAULT_PROTECTED_BRANDS,
   requirePlatformLabel: true,
+  // Programa de Conformidade e Política de Vendedores (versão inicial igual à da API).
+  sellerPolicyVersion: INITIAL_SELLER_POLICY_VERSION,
+  sellerPolicyApprovedAt: null,
+  complianceProgramApprovedAt: null,
+  programOwnerName: "",
+  programOwnerEmail: "",
+  abruptIncreaseFactor: 3,
+  abruptIncreaseMinShipments: 20,
+  concentrationThreshold: 5,
+  auditSamplePercent: 10,
+  platformLabelLocked: false,
 } as const satisfies Partial<PlatformSettingsDto>;
 
 // ---------------------------------------------------------------------------
@@ -299,19 +315,191 @@ export const NCM_TABLE: Record<string, string> = {
   "90064000": "Câmeras fotográficas de revelação e cópia instantâneas",
   "91021110": "Relógios de pulso elétricos, com mostrador analógico e caixa de metal comum",
   "93040000": "Outras armas",
+  "94013900": "Outros assentos giratórios de altura ajustável",
+  "94054200": "Outros luminárias e aparelhos de iluminação, elétricos, para LED",
+  "95045000": "Consoles e máquinas de jogos de vídeo, exceto os da subposição 9504.30",
+  "85181090": "Outros microfones e seus suportes",
   "94052100": "Luminárias elétricas de mesa, de escritório ou de cabeceira, para LED",
   "95062900": "Outros artigos e equipamentos para esportes aquáticos",
   "95066200": "Bolas infláveis",
   "95069100": "Artigos e equipamentos para cultura física, ginástica ou atletismo",
 };
 
-/** Capítulos proibidos em remessa nesta plataforma, com o motivo. */
-const PROHIBITED_CHAPTERS: Record<string, string> = {
-  "24": "Tabaco e cigarros não podem ser importados por remessa.",
-  "30": "Medicamentos dependem de autorização da Anvisa e não são vendidos aqui.",
-  "36": "Pólvoras, explosivos e fogos de artifício são proibidos em remessa.",
-  "93": "Armas e munições são proibidas em remessa.",
-};
+// ---------------------------------------------------------------------------
+// Anexo I da Política de Vendedores: produtos de oferta vedada (espelha ProhibitedGoods da API)
+// ---------------------------------------------------------------------------
+
+export type RestrictionLevel = "Bloqueio" | "Analise";
+export interface RestrictionHit {
+  level: RestrictionLevel;
+  annexItem: string;
+  reason: string;
+  term?: string;
+}
+
+export const ANNEX_ITEMS: Array<{ letter: string; title: string }> = [
+  { letter: "a", title: "armas de fogo, suas peças, munições, explosivos e agentes de guerra química" },
+  { letter: "b", title: "brinquedos, réplicas e simulacros de armas de fogo que com elas se possam confundir" },
+  { letter: "c", title: "substâncias entorpecentes ou drogas afins" },
+  { letter: "d", title: "cigarro eletrônico" },
+  { letter: "e", title: "cigarros, fumo e produtos de tabacaria" },
+  { letter: "f", title: "bebidas alcoólicas" },
+  {
+    letter: "g",
+    title:
+      "produtos cuja importação dependa de autorização de órgão de controle sanitário, metrológico, de segurança pública ou ambiental, sem essa autorização",
+  },
+  { letter: "h", title: "animais e vegetais da vida silvestre, espécies ameaçadas de extinção e seus derivados, e animal morto" },
+  { letter: "i", title: "bens usados ou recondicionados" },
+  { letter: "j", title: "diamantes" },
+  { letter: "k", title: "dinheiro em espécie" },
+  { letter: "l", title: "substâncias perecíveis, como alimentos de origem animal e frutas" },
+  {
+    letter: "m",
+    title: "resíduos e rejeitos sólidos perigosos, poluentes orgânicos persistentes e produtos que destroem a camada de ozônio",
+  },
+  { letter: "n", title: "mercadorias atentatórias à moral, aos bons costumes, à saúde ou à ordem pública" },
+  { letter: "o", title: "produtos contrafeitos ou que infrinjam direito de propriedade intelectual" },
+  { letter: "p", title: "bens cujo transporte seja proibido pelos Correios" },
+];
+
+/** Prefixos de NCM sem exceção possível: o anúncio não é publicado. */
+const BLOCKED_NCM: Array<[prefix: string, item: string, reason: string]> = [
+  ["93", "a", "Armas, munições e suas partes não podem ser vendidas."],
+  ["3601", "a", "Pólvoras não podem ser vendidas."],
+  ["3602", "a", "Explosivos não podem ser vendidos."],
+  ["3603", "a", "Estopins, detonadores e cápsulas fulminantes não podem ser vendidos."],
+  ["12113", "c", "Folha de coca não pode ser vendida."],
+  ["12114", "c", "Palha de papoula não pode ser vendida."],
+  ["130211", "c", "Ópio não pode ser vendido."],
+  ["293911", "c", "Alcaloides do ópio não podem ser vendidos."],
+  ["293971", "c", "Cocaína e derivados não podem ser vendidos."],
+  ["854340", "d", "Cigarros eletrônicos e vaporizadores não podem ser vendidos."],
+  ["24", "e", "Cigarros, fumo e produtos com nicotina não podem ser vendidos."],
+  ["9614", "e", "Cachimbos, narguilés e piteiras (tabacaria) não podem ser vendidos."],
+  ["2203", "f", "Bebidas alcoólicas não podem ser vendidas (cerveja)."],
+  ["2204", "f", "Bebidas alcoólicas não podem ser vendidas (vinho)."],
+  ["2205", "f", "Bebidas alcoólicas não podem ser vendidas (vermute)."],
+  ["2206", "f", "Bebidas alcoólicas não podem ser vendidas (fermentados)."],
+  ["2207", "f", "Álcool etílico não pode ser vendido."],
+  ["2208", "f", "Bebidas alcoólicas não podem ser vendidas (destilados e licores)."],
+  ["30", "g", "Medicamentos dependem de autorização da Anvisa e não são vendidos aqui."],
+  ["3808", "g", "Agrotóxicos e saneantes dependem de registro (Anvisa, Mapa, Ibama) e não são vendidos aqui."],
+  ["1209", "g", "Sementes para semeadura dependem de autorização fitossanitária e não são vendidas aqui."],
+  ["01", "h", "Animais vivos não podem ser vendidos."],
+  ["06", "h", "Plantas vivas não podem ser vendidas."],
+  ["0507", "h", "Marfim, carapaças de tartaruga e chifres não podem ser vendidos."],
+  ["0508", "h", "Corais e conchas não podem ser vendidos."],
+  ["9705", "h", "Peças de coleção de interesse zoológico, botânico ou arqueológico não podem ser vendidas."],
+  ["6309", "i", "Artigos têxteis usados não podem ser vendidos."],
+  ["4012", "i", "Pneus usados ou recauchutados não podem ser vendidos."],
+  ["7102", "j", "Diamantes não podem ser vendidos."],
+  ["4907", "k", "Papel-moeda, cheques e títulos não podem ser vendidos."],
+  ["7118", "k", "Moedas não podem ser vendidas."],
+  ["02", "l", "Carnes são perecíveis e não podem ser vendidas."],
+  ["03", "l", "Peixes e frutos do mar são perecíveis e não podem ser vendidos."],
+  ["04", "l", "Laticínios, ovos e mel são perecíveis e não podem ser vendidos."],
+  ["07", "l", "Hortaliças são perecíveis e não podem ser vendidas."],
+  ["08", "l", "Frutas são perecíveis e não podem ser vendidas."],
+  ["16", "l", "Preparações de carne e de pescado são perecíveis e não podem ser vendidas."],
+  ["2524", "m", "Amianto não pode ser vendido."],
+  ["29037", "m", "Gases que destroem a camada de ozônio (HCFC) não podem ser vendidos."],
+  ["3825", "m", "Resíduos químicos não podem ser vendidos."],
+  ["8549", "m", "Sucata e resíduos elétricos e eletrônicos não podem ser vendidos."],
+  ["2711", "p", "Gases inflamáveis não podem ser enviados pelos Correios."],
+  ["2844", "p", "Material radioativo não pode ser enviado pelos Correios."],
+  ["2845", "p", "Isótopos não podem ser enviados pelos Correios."],
+  ["3604", "p", "Fogos de artifício não podem ser enviados pelos Correios."],
+  ["3605", "p", "Fósforos não podem ser enviados pelos Correios."],
+  ["3606", "p", "Combustíveis para isqueiro e artigos inflamáveis não podem ser enviados pelos Correios."],
+  ["3813", "p", "Cargas de extintores não podem ser enviadas pelos Correios."],
+  ["842410", "p", "Extintores pressurizados não podem ser enviados pelos Correios."],
+  ["9613", "p", "Isqueiros não podem ser enviados pelos Correios."],
+];
+
+/** Prefixos de NCM que pedem conferência da equipe antes da vitrine. */
+const REVIEW_NCM: Array<[prefix: string, item: string, reason: string]> = [
+  ["9503", "b", "Brinquedo: a equipe confere se não é réplica ou simulacro de arma de fogo."],
+  ["2106", "g", "Preparação alimentícia ou suplemento: a equipe confere se depende de registro na Anvisa."],
+  ["2936", "g", "Vitaminas: a equipe confere se dependem de registro na Anvisa."],
+  ["9018", "g", "Aparelho médico: a equipe confere o registro na Anvisa."],
+  ["9019", "g", "Aparelho de terapia: a equipe confere o registro na Anvisa."],
+  ["9021", "g", "Artigo ortopédico: a equipe confere o registro na Anvisa."],
+  ["9022", "g", "Aparelho de raios X: a equipe confere as autorizações."],
+  ["4301", "h", "Peles: a equipe confere se não são de animal silvestre."],
+  ["4302", "h", "Peles: a equipe confere se não são de animal silvestre."],
+  ["4303", "h", "Artigos de peles: a equipe confere se não são de animal silvestre."],
+  ["7113", "j", "Joia: a equipe confere se não tem diamantes."],
+  ["2710", "p", "Óleos e combustíveis: a equipe confere as restrições de transporte dos Correios."],
+  ["8506", "p", "Pilhas avulsas: a equipe confere as restrições dos Correios para baterias de lítio."],
+  ["8507", "p", "Baterias avulsas: a equipe confere as restrições dos Correios para baterias de lítio."],
+];
+
+/** Termos no anúncio: [termo já normalizado, item, só no título/natureza/material]. */
+const ANNEX_TERMS: Array<[phrase: string, item: string, titleOnly?: boolean]> = [
+  ["arma de fogo", "a"], ["revolver", "a", true], ["fuzil", "a"], ["municao", "a"], ["municoes", "a"], ["polvora", "a"],
+  ["explosivo", "a"], ["explosivos", "a"], ["granada", "a", true],
+  ["airsoft", "b"], ["simulacro", "b"], ["arma de brinquedo", "b"], ["replica de arma", "b"], ["arma de pressao", "b"],
+  ["arma de chumbinho", "b"],
+  ["maconha", "c"], ["cannabis", "c"], ["thc", "c", true], ["cbd", "c", true], ["cocaina", "c"], ["anabolizante", "c"],
+  ["esteroide", "c"], ["sibutramina", "c"],
+  ["vape", "d"], ["vaper", "d"], ["pod descartavel", "d"], ["cigarro eletronico", "d"], ["e cig", "d"],
+  ["essencia para pod", "d"], ["juice para vape", "d"],
+  ["cigarro", "e", true], ["cigarros", "e", true], ["tabaco", "e"], ["fumo", "e", true], ["charuto", "e"], ["narguile", "e"],
+  ["tabacaria", "e"], ["piteira", "e"],
+  ["whisky", "f"], ["whiskey", "f"], ["uisque", "f"], ["vodka", "f"], ["vodca", "f"], ["tequila", "f"], ["cachaca", "f"],
+  ["conhaque", "f"], ["aguardente", "f"], ["bebida alcoolica", "f"], ["gin", "f", true], ["rum", "f", true],
+  ["licor", "f", true], ["vinho", "f", true], ["espumante", "f", true], ["champagne", "f", true], ["cerveja", "f", true],
+  ["sake", "f", true],
+  ["medicamento", "g", true], ["remedio", "g", true], ["antibiotico", "g"], ["agrotoxico", "g"], ["pesticida", "g"],
+  ["marfim", "h"], ["casco de tartaruga", "h"], ["animal empalhado", "h"], ["taxidermia", "h"], ["especie ameacada", "h"],
+  ["pele de onca", "h"],
+  ["usado", "i", true], ["usada", "i", true], ["usados", "i", true], ["seminovo", "i"], ["seminova", "i"], ["semi novo", "i"],
+  ["recondicionado", "i"], ["recondicionada", "i"], ["refurbished", "i"], ["remanufaturado", "i"], ["open box", "i"],
+  ["segunda mao", "i"], ["de vitrine", "i"], ["mostruario", "i"],
+  ["diamante", "j"], ["diamantes", "j"],
+  ["papel moeda", "k"], ["cedulas", "k", true], ["moedas antigas", "k"], ["dinheiro em especie", "k"],
+  ["carne", "l", true], ["queijo", "l", true], ["salame", "l", true], ["presunto", "l", true], ["fruta fresca", "l"],
+  ["frutas frescas", "l"], ["frutos do mar", "l"], ["pescado", "l", true],
+  ["sucata", "m"], ["residuo", "m", true], ["residuos", "m", true], ["amianto", "m"], ["gas refrigerante", "m"],
+  ["pornografico", "n"], ["pornografia", "n"], ["conteudo adulto", "n"], ["nazista", "n"], ["suastica", "n"],
+  ["replica", "o"], ["primeira linha", "o"], ["aaa", "o", true], ["contratipo", "o"], ["inspirado no", "o"],
+  ["inspirado em", "o"], ["inspirada no", "o"], ["similar ao original", "o"], ["tipo original", "o"], ["copia", "o", true],
+  ["falsificado", "o"], ["fake", "o", true], ["pirata", "o", true],
+  ["aerossol", "p"], ["aerosol", "p"], ["inflamavel", "p"], ["isqueiro", "p"], ["fogos de artificio", "p"],
+  ["power bank", "p"], ["powerbank", "p"], ["bateria externa", "p"], ["bateria de litio avulsa", "p"],
+];
+
+const annexTitle = (letter: string) => ANNEX_ITEMS.find((a) => a.letter === letter)?.title ?? letter;
+
+/** Primeira restrição do NCM: bloqueio antes de análise. */
+export function checkNcmRestriction(code: string | null | undefined): RestrictionHit | null {
+  const ncm = (code ?? "").replace(/\D/g, "");
+  if (!ncm) return null;
+  for (const [prefix, item, reason] of BLOCKED_NCM)
+    if (ncm.startsWith(prefix))
+      return { level: "Bloqueio", annexItem: item, reason: `${reason} (Anexo I, ${item}, da Política de Vendedores)` };
+  for (const [prefix, item, reason] of REVIEW_NCM)
+    if (ncm.startsWith(prefix)) return { level: "Analise", annexItem: item, reason: `${reason} (Anexo I, ${item})` };
+  return null;
+}
+
+/** Termos de oferta vedada: `title` = nome, natureza e material; `body` = descrição (só termos inequívocos). */
+export function checkTextRestriction(title: string, body: string | null | undefined): RestrictionHit | null {
+  const t = ` ${fold(title)} `;
+  const b = ` ${fold(body ?? "")} `;
+  for (const [phrase, item, titleOnly] of ANNEX_TERMS) {
+    const hit = t.includes(` ${phrase} `) || (!titleOnly && b.includes(` ${phrase} `));
+    if (!hit) continue;
+    return {
+      level: "Analise",
+      annexItem: item,
+      term: phrase,
+      reason: `O anúncio cita "${phrase}", que indica produto de oferta vedada (${annexTitle(item)} — Anexo I, ${item}). A equipe confere antes de publicar.`,
+    };
+  }
+  return null;
+}
 
 /** Capítulos aceitos por categoria (slug). Categoria fora do mapa aceita qualquer capítulo permitido. */
 const CATEGORY_CHAPTERS: Record<string, string[]> = {
@@ -319,7 +507,7 @@ const CATEGORY_CHAPTERS: Record<string, string[]> = {
   perfumes: ["33", "34"],
   informatica: ["84", "85", "90"],
   celulares: ["84", "85", "39", "40", "42", "70", "90"],
-  bebidas: ["20", "21", "22"],
+  games: ["84", "85", "94", "95"],
   casa: ["39", "44", "63", "69", "70", "73", "76", "82", "84", "85", "94"],
   esportes: ["42", "61", "62", "63", "64", "65", "85", "87", "89", "90", "91", "95"],
   moda: ["42", "43", "61", "62", "63", "64", "65", "71", "90", "91"],
@@ -361,7 +549,8 @@ export function validateNcm(
       : { code: null };
   if (!isWellFormedNcm(code)) return { error: "O NCM tem 8 dígitos, ex.: 8517.13.00." };
   const chapter = code.slice(0, 2);
-  if (PROHIBITED_CHAPTERS[chapter]) return { error: PROHIBITED_CHAPTERS[chapter] };
+  const restriction = checkNcmRestriction(code);
+  if (restriction?.level === "Bloqueio") return { error: restriction.reason };
   const chapters = CATEGORY_CHAPTERS[categorySlug];
   if (chapters && !chapters.includes(chapter))
     return {
@@ -410,12 +599,13 @@ export function bandOf(permyriad: number): ComplianceBand {
   return "Exclusao";
 }
 
+/** Medidas da Receita por faixa (Programa de Conformidade 11.3). */
 export const BAND_CONSEQUENCE: Record<ComplianceBand, string> = {
-  Ouro: "Monitoramento ordinário.",
-  Prata: "Comunicação para aprimorar controles internos.",
-  Bronze: "Monitoramento reforçado e plano de ação em 30 dias.",
-  Advertencia: "Advertência e plano de ação em 30 dias.",
-  Exclusao: "Procedimento de exclusão do programa, com contraditório.",
+  Ouro: "Manutenção da certificação sem restrições e monitoramento ordinário.",
+  Prata: "Monitoramento ordinário e comunicação formal para aprimoramento dos controles internos.",
+  Bronze: "Monitoramento reforçado e plano de ação corretivo em 30 dias.",
+  Advertencia: "Advertência formal e plano de ação corretivo em 30 dias.",
+  Exclusao: "Início de procedimento para exclusão do PRC, assegurados o contraditório e a ampla defesa.",
 };
 
 /** Ano em que começa o ciclo (julho a junho) que contém a data. */
@@ -437,15 +627,33 @@ export function s10(service: string, serial: number, country: string): string {
 // ---------------------------------------------------------------------------
 
 export interface SellerKyc {
+  /** Política de Vendedores 3.1: denominação social, e-mail, telefone, endereço e meio de pagamento. */
+  legalName: string | null;
+  email: string | null;
+  phone: string | null;
   legalAddress: string | null;
+  payoutMethod: SellerPayoutMethod | null;
+  payoutInstitution: string | null;
+  /** Conta completa (só o mock guarda; a API devolve mascarada). */
+  payoutAccount: string | null;
+  payoutHolder: string | null;
   responsibleName: string | null;
   responsibleDocumentType: SellerDocumentType | null;
   /** Documento completo (só o mock guarda; a API devolve mascarado). */
   responsibleDocument: string | null;
+  /** Política 3.2: documentos (chave privada `doc/…` ou exemplo em /images/kyc). */
   identityDocumentUrl: string | null;
   rucCertificateUrl: string | null;
+  taxComplianceCertificateUrl: string | null;
+  articlesOfIncorporationUrl: string | null;
+  /** Itens conferidos pela equipe na aprovação (3.3). */
+  checklist: string[];
   verifiedAt: string | null;
   suspensionReason: string | null;
+  suspendedUntil: string | null;
+  policyVersionAccepted: string | null;
+  policyAcceptedAt: string | null;
+  dataConfirmedAt: string | null;
 }
 
 const RESPONSIBLES = [
@@ -468,33 +676,87 @@ const STREETS: Record<string, string> = {
 
 export const KYC_IDENTITY_URL = "/images/kyc/documento-responsavel.svg";
 export const KYC_RUC_URL = "/images/kyc/constancia-ruc.svg";
+export const KYC_TAX_CERTIFICATE_URL = "/images/kyc/certificado-cumplimiento.svg";
+export const KYC_ARTICLES_URL = "/images/kyc/atos-constitutivos.svg";
 
-/** Lojas fixas nascem com documentos conferidos (como no seed da API). */
+const BANKS = [
+  "Banco Continental",
+  "Banco Itaú Paraguay",
+  "ueno bank",
+  "Banco Basa",
+  "Banco GNB Paraguay",
+  "Visión Banco",
+  "Banco Atlas",
+  "Banco Familiar",
+];
+
+/** "TecnoCentro CDE S.A." / "… S.R.L." (como LegalNameFor da API). */
+export const legalNameFor = (storeName: string, index: number) => `${storeName} ${index % 2 === 0 ? "S.A." : "S.R.L."}`;
+
+/** Lojas fixas nascem com cadastro completo, conferido e com a Política aceita (como no seed da API). */
 export function seedSellerKyc(seller: SellerDto, index: number): SellerKyc {
   const verified = new Date(seller.memberSince);
   verified.setDate(verified.getDate() + 1);
+  const confirmed = new Date(Date.UTC(2026, 8, 25, 10));
+  confirmed.setUTCDate(confirmed.getUTCDate() - 20);
+  const legalName = legalNameFor(seller.name, index);
   return {
+    legalName,
+    email: `contato@${seller.slug}.com.py`,
+    phone: `+595 61 5${String(index).padStart(2, "0")} ${String(100 + index * 37).padStart(3, "0")}`,
     legalAddress: `${STREETS[seller.city] ?? "Av. Mcal. López"} ${120 + index * 85}, Microcentro`,
+    payoutMethod: "ContaBancaria",
+    payoutInstitution: BANKS[index % BANKS.length],
+    payoutAccount: String(100_000_000 + index * 7_654_321),
+    payoutHolder: legalName,
     responsibleName: RESPONSIBLES[index % RESPONSIBLES.length],
     responsibleDocumentType: "CedulaPy",
     responsibleDocument: String(3_100_000 + index * 271_113),
     identityDocumentUrl: KYC_IDENTITY_URL,
     rucCertificateUrl: KYC_RUC_URL,
+    taxComplianceCertificateUrl: KYC_TAX_CERTIFICATE_URL,
+    articlesOfIncorporationUrl: KYC_ARTICLES_URL,
+    checklist: [...SELLER_VERIFICATION_ITEMS],
     verifiedAt: verified.toISOString(),
     suspensionReason: null,
+    suspendedUntil: null,
+    policyVersionAccepted: INITIAL_SELLER_POLICY_VERSION,
+    policyAcceptedAt: new Date(Date.UTC(2026, 9, 9, 12)).toISOString(),
+    dataConfirmedAt: confirmed.toISOString(),
   };
 }
 
 export const EMPTY_KYC: SellerKyc = {
+  legalName: null,
+  email: null,
+  phone: null,
   legalAddress: null,
+  payoutMethod: null,
+  payoutInstitution: null,
+  payoutAccount: null,
+  payoutHolder: null,
   responsibleName: null,
   responsibleDocumentType: null,
   responsibleDocument: null,
   identityDocumentUrl: null,
   rucCertificateUrl: null,
+  taxComplianceCertificateUrl: null,
+  articlesOfIncorporationUrl: null,
+  checklist: [],
   verifiedAt: null,
   suspensionReason: null,
+  suspendedUntil: null,
+  policyVersionAccepted: null,
+  policyAcceptedAt: null,
+  dataConfirmedAt: null,
 };
+
+/** "100123456" → "*****3456" (conta bancária ou identificador da carteira). */
+export function maskAccount(account: string | null): string | null {
+  if (!account) return null;
+  const a = account.trim();
+  return a.length <= 4 ? "*".repeat(a.length) : `${"*".repeat(a.length - 4)}${a.slice(-4)}`;
+}
 
 /** "52998224725" → "***.982.247-**"; outros documentos mantêm os 3 últimos caracteres. */
 export function maskDocument(document: string | null): string | null {

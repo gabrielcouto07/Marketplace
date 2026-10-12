@@ -35,6 +35,12 @@ type NumericKey = Exclude<
   | "icmsStateOverrides"
   | "protectedBrands"
   | "requirePlatformLabel"
+  | "sellerPolicyVersion"
+  | "sellerPolicyApprovedAt"
+  | "complianceProgramApprovedAt"
+  | "programOwnerName"
+  | "programOwnerEmail"
+  | "platformLabelLocked"
 >;
 
 const PERCENT_KEYS = [
@@ -51,6 +57,17 @@ const RC_PERCENT_KEYS = [
   "insuranceBasisPoints",
 ] as const;
 const COMPLIANCE_INT_KEYS: NumericKey[] = ["sellerStrikeLimit", "strikeWindowDays", "priceFloorPercent"];
+/** Limites do monitoramento de padrões anômalos (Política de Vendedores 7.3) e da amostra de auditoria (7.4). */
+const MONITORING_INT_KEYS: NumericKey[] = [
+  "abruptIncreaseFactor",
+  "abruptIncreaseMinShipments",
+  "concentrationThreshold",
+  "auditSamplePercent",
+];
+
+/** "2026-10-09T12:00:00Z" ↔ "2026-10-09" para os campos de data. */
+const toDateInput = (iso: string | null | undefined) => (iso ? iso.slice(0, 10) : "");
+const fromDateInput = (value: string) => (value ? new Date(`${value}T12:00:00Z`).toISOString() : null);
 type PercentKey = (typeof PERCENT_KEYS)[number] | (typeof RC_PERCENT_KEYS)[number];
 const DAY_KEYS: NumericKey[] = [
   "quoteLockMinutes",
@@ -230,10 +247,85 @@ export function AdminSettings() {
           <label className="flex min-h-12 cursor-pointer items-center justify-between gap-3 rounded-md border border-border px-3 text-body-sm">
             <span className="flex flex-col">
               <span className="font-medium text-foreground">{t("settings_requirePlatformLabel")}</span>
-              <span className="text-caption text-foreground-secondary">{t("settings_requirePlatformLabel_hint")}</span>
+              <span className="text-caption text-foreground-secondary">
+                {form.platformLabelLocked ? t("settings_platformLabelLocked") : t("settings_requirePlatformLabel_hint")}
+              </span>
             </span>
-            <Switch checked={form.requirePlatformLabel} onCheckedChange={(v) => set("requirePlatformLabel", v)} />
+            <Switch
+              checked={form.requirePlatformLabel}
+              disabled={form.platformLabelLocked}
+              onCheckedChange={(v) => set("requirePlatformLabel", v)}
+            />
           </label>
+        </section>
+
+        <section className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-xs sm:p-6">
+          <div className="flex flex-col gap-1">
+            <h2 className="text-title-3 text-foreground">{t("settingsProgram")}</h2>
+            <p className="text-body-sm text-foreground-secondary">{t("settingsProgramHint")}</p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <FormField
+              id="set-ownerName"
+              label={t("settings_programOwnerName")}
+              hint={t("settings_programOwnerName_hint")}
+              error={errors.programOwnerName?.[0]}
+            >
+              <Input id="set-ownerName" autoComplete="off" value={form.programOwnerName} onChange={(e) => set("programOwnerName", e.target.value)} />
+            </FormField>
+            <FormField id="set-ownerEmail" label={t("settings_programOwnerEmail")} error={errors.programOwnerEmail?.[0]}>
+              <Input
+                id="set-ownerEmail"
+                type="email"
+                autoComplete="off"
+                value={form.programOwnerEmail}
+                onChange={(e) => set("programOwnerEmail", e.target.value)}
+              />
+            </FormField>
+            <FormField
+              id="set-programApproved"
+              label={t("settings_complianceProgramApprovedAt")}
+              hint={t("settings_complianceProgramApprovedAt_hint")}
+              error={errors.complianceProgramApprovedAt?.[0]}
+            >
+              <Input
+                id="set-programApproved"
+                type="date"
+                value={toDateInput(form.complianceProgramApprovedAt)}
+                onChange={(e) => set("complianceProgramApprovedAt", fromDateInput(e.target.value))}
+              />
+            </FormField>
+            <FormField
+              id="set-policyApproved"
+              label={t("settings_sellerPolicyApprovedAt")}
+              hint={t("settings_sellerPolicyApprovedAt_hint")}
+              error={errors.sellerPolicyApprovedAt?.[0]}
+            >
+              <Input
+                id="set-policyApproved"
+                type="date"
+                value={toDateInput(form.sellerPolicyApprovedAt)}
+                onChange={(e) => set("sellerPolicyApprovedAt", fromDateInput(e.target.value))}
+              />
+            </FormField>
+            <FormField
+              id="set-policyVersion"
+              label={t("settings_sellerPolicyVersion")}
+              hint={
+                settings.data && form.sellerPolicyVersion.trim() !== settings.data.sellerPolicyVersion
+                  ? t("settings_sellerPolicyVersion_changed")
+                  : t("settings_sellerPolicyVersion_hint")
+              }
+              error={errors.sellerPolicyVersion?.[0]}
+            >
+              <Input id="set-policyVersion" value={form.sellerPolicyVersion} maxLength={32} onChange={(e) => set("sellerPolicyVersion", e.target.value)} />
+            </FormField>
+          </div>
+          <div className="flex flex-col gap-1">
+            <h3 className="text-body font-semibold text-foreground">{t("settingsMonitoring")}</h3>
+            <p className="text-caption text-foreground-secondary">{t("settingsMonitoringHint")}</p>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">{MONITORING_INT_KEYS.map(intField)}</div>
         </section>
 
         <section className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-xs sm:p-6">

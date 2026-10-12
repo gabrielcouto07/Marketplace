@@ -14,6 +14,8 @@ export interface PanelNavItem {
   href: string;
   label: string;
   icon: LucideIcon;
+  /** Contador ao lado do rótulo (ex.: comunicações abertas); 0 ou vazio esconde. */
+  badge?: number;
 }
 
 interface PanelShellProps {
@@ -60,7 +62,7 @@ export function PanelShell({ title, subtitle, items, children }: PanelShellProps
           className="border-b border-border bg-surface md:w-60 md:shrink-0 md:border-r md:border-b-0"
         >
           <ul className="scrollbar-none flex gap-2 overflow-x-auto px-4 py-2 md:flex-col md:gap-1 md:p-4">
-            {items.map(({ href, label, icon: Icon }) => {
+            {items.map(({ href, label, icon: Icon, badge }) => {
               const active = isActive(href);
               return (
                 <li key={href} className="shrink-0">
@@ -76,6 +78,11 @@ export function PanelShell({ title, subtitle, items, children }: PanelShellProps
                   >
                     <Icon className="size-5" strokeWidth={1.75} aria-hidden />
                     {label}
+                    {badge ? (
+                      <span className="ml-auto min-w-6 rounded-full bg-primary px-1.5 text-center text-caption font-semibold text-primary-foreground tabular-nums">
+                        {badge}
+                      </span>
+                    ) : null}
                   </Link>
                 </li>
               );

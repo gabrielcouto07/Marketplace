@@ -87,6 +87,11 @@ public sealed class SerproOptions
     public string CpfPath { get; set; } = "/consulta-cpf-df/v3/cpf/{cpf}";
     public string ConsumerKey { get; set; } = string.Empty;
     public string ConsumerSecret { get; set; } = string.Empty;
+    /// <summary>
+    /// Sem a Consulta CPF (ou com ela fora do ar), fora de Development a venda não conclui (Programa 7.2). Ligue só em
+    /// demonstração: aí basta o dígito verificador e o pedido registra "sandbox" como origem da conferência.
+    /// </summary>
+    public bool AllowUnverifiedOutsideDevelopment { get; set; }
     public int CacheHours { get; set; } = 24;
     public int TimeoutSeconds { get; set; } = 10;
 }

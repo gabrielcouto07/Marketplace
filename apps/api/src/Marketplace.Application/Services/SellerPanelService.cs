@@ -3,20 +3,36 @@ using Marketplace.Application.Common;
 using Marketplace.Application.Contracts;
 using Marketplace.Domain;
 using Marketplace.Domain.Common;
+using Marketplace.Domain.Compliance;
 using Marketplace.Domain.Entities;
 using Microsoft.EntityFrameworkCore;
 
 namespace Marketplace.Application.Services;
 
-/// <summary>Área do vendedor: cadastro da loja, perfil, produtos, pedidos e indicadores.</summary>
+/// <summary>O que a loja pode fazer no painel conforme a situação dela.</summary>
+public enum SellerPanelAccess
+{
+    /// <summary>Publicar e editar anúncios: loja pendente ou aprovada.</summary>
+    Sell,
+    /// <summary>Atender pedidos já pagos e ver os anúncios: também a loja suspensa.</summary>
+    Fulfill,
+    /// <summary>Ver o cadastro, as comunicações e responder no prazo (Política 8.6): qualquer situação, inclusive excluída.</summary>
+    Account,
+}
+
+/// <summary>Área do vendedor: cadastro da loja, perfil, produtos, pedidos, indicadores e comunicações da plataforma.</summary>
 public sealed class SellerPanelService(
     IAppDbContext db,
     ICatalogCache catalogCache,
     AuthService auth,
     OrderService orders,
     ComplianceService compliance,
+    SellerGovernanceService governance,
     RemessaService remessa,
+    ReceiptService receipts,
     INcmCatalog ncmCatalog,
+    IPlatformIdentityProvider platform,
+    DocumentLinks links,
     PlatformSettingsProvider settingsProvider,
     ICurrentUser currentUser,
     TimeProvider clock)
@@ -31,22 +47,33 @@ public sealed class SellerPanelService(
 
     // ----- Loja -----
 
-    /// <summary>Loja do usuário atual; 403 SELLER_REQUIRED quando ainda não é vendedor (o front redireciona ao cadastro).</summary>
-    public async Task<Seller> RequireSellerAsync(CancellationToken ct, bool track = false)
+    /// <summary>
+    /// Loja do usuário atual; 403 SELLER_REQUIRED quando ainda não é vendedor (o front redireciona ao cadastro). Loja
+    /// suspensa só atende pedidos e responde comunicações; excluída só vê o cadastro e responde (Política 8.6).
+    /// </summary>
+    public async Task<Seller> RequireSellerAsync(CancellationToken ct, bool track = false, SellerPanelAccess access = SellerPanelAccess.Sell)
     {
         var userId = currentUser.RequireUserId();
         var query = track ? db.Sellers : db.Sellers.AsNoTracking();
         var seller = await query.Include(s => s.Categories).ThenInclude(c => c.Category)
                          .FirstOrDefaultAsync(s => s.OwnerUserId == userId, ct)
                      ?? throw new AppException(403, "SELLER_REQUIRED", "Cadastre sua loja para acessar o painel do vendedor.");
-        if (seller.Status == SellerStatus.Suspenso)
-            throw new AppException(403, "SELLER_SUSPENDED", "Sua loja está suspensa. Fale com o suporte.");
+        var allowed = access switch
+        {
+            SellerPanelAccess.Sell => seller.Status is SellerStatus.Pendente or SellerStatus.Aprovado,
+            SellerPanelAccess.Fulfill => seller.Status is not SellerStatus.Excluido,
+            _ => true,
+        };
+        if (!allowed)
+            throw seller.Status == SellerStatus.Excluido
+                ? new AppException(403, "SELLER_EXCLUDED", "Sua loja foi excluída da plataforma. Veja as comunicações para responder.")
+                : new AppException(403, "SELLER_SUSPENDED", "Sua loja está suspensa: novos anúncios ficam bloqueados. Veja as comunicações.");
         return seller;
     }
 
     public async Task<SellerProfileDto> ProfileAsync(CancellationToken ct)
     {
-        var seller = await RequireSellerAsync(ct);
+        var seller = await RequireSellerAsync(ct, access: SellerPanelAccess.Account);
         return await ToProfileAsync(seller, ct);
     }
 
@@ -61,11 +88,27 @@ public sealed class SellerPanelService(
         var input = new SellerProfileInput(request.Name, request.Ruc, request.City, request.Description, request.LogoUrl,
             request.BannerUrl, request.ExchangePolicy, request.CategoryIds, request.OriginPostalCode, request.Phone,
             request.LegalAddress, request.ResponsibleName, request.ResponsibleDocumentType, request.ResponsibleDocument,
-            request.IdentityDocumentUrl, request.RucCertificateUrl);
+            request.IdentityDocumentUrl, request.RucCertificateUrl, request.LegalName, request.Email, request.PayoutMethod,
+            request.PayoutInstitution, request.PayoutAccount, request.PayoutHolder, request.TaxComplianceCertificateUrl,
+            request.ArticlesOfIncorporationUrl);
         var validated = await ValidateProfileAsync(input, existing: null, ct);
-        if (request.AcceptTerms != true)
-            throw AppException.Validation("acceptTerms", "É preciso aceitar os termos para vendedores.");
+        new ValidationErrors()
+            .AddIf(request.AcceptTerms != true, "acceptTerms", "É preciso aceitar os termos para vendedores.")
+            .AddIf(request.AcceptSellerPolicy != true, "acceptSellerPolicy", "É preciso ler e aceitar a Política de Admissão e de Monitoramento de Vendedores.")
+            .AddIf(request.RepresentativeDeclaration != true, "representativeDeclaration", "Confirme que você é o representante legal da empresa (ou age em nome dele).")
+            .ThrowIfAny();
 
+        // Política 3.5: loja excluída não volta com os mesmos dados ou documentos.
+        var (strong, _) = await governance.MatchExcludedAsync(null, validated.Ruc, validated.LegalName, validated.ResponsibleDocumentType,
+            validated.ResponsibleDocument, validated.PayoutAccount, validated.Email, validated.Phone, ct);
+        if (strong.Count > 0)
+        {
+            governance.LogAction(EnforcementActionKind.CadastroRecusado, string.Join("; ", strong), "Cadastro recusado: dados de loja excluída (Política 3.5).");
+            await db.SaveChangesAsync(ct);
+            throw AppException.Conflict("SELLER_EXCLUDED", "Não é possível cadastrar a loja: os dados ou documentos informados pertencem a uma loja excluída da plataforma.");
+        }
+
+        var settings = await settingsProvider.GetAsync(ct);
         var now = Now;
         var seller = new Seller
         {
@@ -78,27 +121,21 @@ public sealed class SellerPanelService(
             LogoUrl = validated.LogoUrl,
             BannerUrl = validated.BannerUrl,
             ExchangePolicy = validated.ExchangePolicy,
-            OriginPostalCode = validated.OriginPostalCode,
-            Phone = validated.Phone,
-            LegalAddress = validated.LegalAddress,
-            ResponsibleName = validated.ResponsibleName,
-            ResponsibleDocumentType = validated.ResponsibleDocumentType,
-            ResponsibleDocument = validated.ResponsibleDocument,
-            IdentityDocumentUrl = validated.IdentityDocumentUrl,
-            RucCertificateUrl = validated.RucCertificateUrl,
             // Entra como Pendente: a vitrine só mostra lojas aprovadas pelo admin (CatalogService/SellerService).
             Status = SellerStatus.Pendente,
             OwnerUserId = userId,
             MemberSince = now,
             ReputationLevel = 3,
             Categories = validated.CategoryIds.Select(id => new SellerCategory { CategoryId = id }).ToList(),
+            DataConfirmedAt = now,
         };
+        Apply(seller, validated);
         db.Sellers.Add(seller);
+        governance.RecordAcceptance(seller, userId, validated.ResponsibleName, settings.SellerPolicyVersion);
         if (!user.Roles.Contains(UserRole.Vendedor)) user.Roles = [.. user.Roles, UserRole.Vendedor];
         user.UpdatedAt = now;
-        var settings = await settingsProvider.GetAsync(ct);
         db.Consents.Add(new Consent { Id = Guid.NewGuid(), UserId = userId, Type = ConsentType.TermosDeUso, Version = $"vendedor-{settings.TermsVersion}", AcceptedAt = now, IpAddress = currentUser.IpAddress, UserAgent = currentUser.UserAgent });
-        db.AuditLogs.Add(new AuditLog { UserId = userId, Action = "seller.register", Target = seller.Id.ToString(), OccurredAt = now, IpAddress = currentUser.IpAddress });
+        db.AuditLogs.Add(new AuditLog { UserId = userId, Action = "seller.register", Target = seller.Id.ToString(), OccurredAt = now, IpAddress = currentUser.IpAddress, Details = $"politica:{settings.SellerPolicyVersion}" });
         await db.SaveChangesAsync(ct);
 
         var session = await auth.ReissueSessionAsync(user, ct);
@@ -106,23 +143,22 @@ public sealed class SellerPanelService(
         return new SellerRegisterResponseDto(profile, session);
     }
 
+    /// <summary>Atualizar os dados conta como confirmação deles (Política 4.2 e 4.3).</summary>
     public async Task<SellerProfileDto> UpdateProfileAsync(SellerProfileInput input, CancellationToken ct)
     {
-        var seller = await RequireSellerAsync(ct, track: true);
+        var seller = await RequireSellerAsync(ct, track: true, access: SellerPanelAccess.Fulfill);
         var validated = await ValidateProfileAsync(input, seller, ct);
-        // Documento ou comprovantes novos exigem nova verificação da equipe.
+        // Dados de identificação ou documentos novos exigem nova verificação da equipe (Política 3.3).
         if (validated.ResponsibleDocument != seller.ResponsibleDocument || validated.IdentityDocumentUrl != seller.IdentityDocumentUrl
-            || validated.RucCertificateUrl != seller.RucCertificateUrl || validated.Ruc != seller.Ruc)
+            || validated.RucCertificateUrl != seller.RucCertificateUrl || validated.Ruc != seller.Ruc
+            || validated.LegalName != seller.LegalName || validated.TaxComplianceCertificateUrl != seller.TaxComplianceCertificateUrl
+            || validated.ArticlesOfIncorporationUrl != seller.ArticlesOfIncorporationUrl || validated.PayoutAccount != seller.PayoutAccount)
         {
             seller.VerifiedAt = null;
             seller.VerifiedByUserId = null;
+            seller.VerificationChecklist = [];
         }
-        seller.LegalAddress = validated.LegalAddress;
-        seller.ResponsibleName = validated.ResponsibleName;
-        seller.ResponsibleDocumentType = validated.ResponsibleDocumentType;
-        seller.ResponsibleDocument = validated.ResponsibleDocument;
-        seller.IdentityDocumentUrl = validated.IdentityDocumentUrl;
-        seller.RucCertificateUrl = validated.RucCertificateUrl;
+        Apply(seller, validated);
         seller.Name = validated.Name;
         seller.Ruc = validated.Ruc;
         seller.City = validated.City;
@@ -130,8 +166,6 @@ public sealed class SellerPanelService(
         seller.LogoUrl = validated.LogoUrl;
         seller.BannerUrl = validated.BannerUrl;
         seller.ExchangePolicy = validated.ExchangePolicy;
-        seller.OriginPostalCode = validated.OriginPostalCode;
-        seller.Phone = validated.Phone;
         seller.Categories.RemoveAll(c => !validated.CategoryIds.Contains(c.CategoryId));
         foreach (var id in validated.CategoryIds.Where(id => seller.Categories.All(c => c.CategoryId != id)))
             seller.Categories.Add(new SellerCategory { SellerId = seller.Id, CategoryId = id });
@@ -142,17 +176,102 @@ public sealed class SellerPanelService(
             p.OriginCity = validated.City;
             p.SearchText = Slug.Normalize($"{p.Name} {validated.Name}");
         }
+        await governance.MarkDataConfirmedAsync(seller, "Dados atualizados pelo vendedor", ct);
+        // Cadastro recusado e corrigido: volta para a análise da equipe (Política 3.3), salvo se há medida em vigor.
+        if (seller.Status == SellerStatus.Suspenso && seller.VerifiedAt is null && seller.SuspensionReason?.StartsWith("Cadastro recusado", StringComparison.Ordinal) == true
+            && !await governance.HasActiveSuspensionAsync(seller.Id, ct))
+        {
+            seller.Status = SellerStatus.Pendente;
+            seller.SuspensionReason = null;
+            seller.SuspendedAt = null;
+        }
+        db.AuditLogs.Add(new AuditLog { UserId = currentUser.UserId, Action = "seller.profile.update", Target = seller.Slug, OccurredAt = Now, IpAddress = currentUser.IpAddress });
         await db.SaveChangesAsync(ct);
         await catalogCache.InvalidateAsync(ct);
         var fresh = await db.Sellers.AsNoTracking().Include(s => s.Categories).ThenInclude(c => c.Category).FirstAsync(s => s.Id == seller.Id, ct);
         return await ToProfileAsync(fresh, ct);
     }
 
-    private sealed record ValidatedProfile(string Name, string Ruc, string City, string Description, string? LogoUrl, string? BannerUrl, string ExchangePolicy, List<Guid> CategoryIds, string? OriginPostalCode, string? Phone,
-        string LegalAddress, string ResponsibleName, SellerDocumentType ResponsibleDocumentType, string ResponsibleDocument, string IdentityDocumentUrl, string RucCertificateUrl);
+    /// <summary>Confirmação anual dos dados cadastrais sem alteração (Política 4.3).</summary>
+    public async Task<SellerProfileDto> ConfirmDataAsync(CancellationToken ct)
+    {
+        var seller = await RequireSellerAsync(ct, track: true, access: SellerPanelAccess.Fulfill);
+        if (!seller.HasAdmissionData)
+            throw AppException.Validation("profile", $"Complete o cadastro antes de confirmar: {string.Join(", ", SellerGovernanceService.MissingAdmissionData(seller))}.");
+        await governance.MarkDataConfirmedAsync(seller, "Dados confirmados pelo vendedor", ct);
+        db.AuditLogs.Add(new AuditLog { UserId = currentUser.UserId, Action = "seller.profile.confirm", Target = seller.Slug, OccurredAt = Now, IpAddress = currentUser.IpAddress });
+        await db.SaveChangesAsync(ct);
+        await catalogCache.InvalidateAsync(ct);
+        return await ProfileAsync(ct);
+    }
 
-    private static bool IsUploadUrl(string? url) =>
-        url is { Length: > 0 and <= 1024 } && (url.StartsWith('/') || url.StartsWith("http", StringComparison.OrdinalIgnoreCase));
+    /// <summary>Aceite da versão vigente da Política (2.2 e 10.3), pelo representante legal.</summary>
+    public async Task<SellerProfileDto> AcceptPolicyAsync(SellerPolicyAcceptRequest request, CancellationToken ct)
+    {
+        var seller = await RequireSellerAsync(ct, track: true, access: SellerPanelAccess.Fulfill);
+        var representative = string.IsNullOrWhiteSpace(request.RepresentativeName) ? seller.ResponsibleName : request.RepresentativeName.Trim();
+        new ValidationErrors()
+            .AddIf(!request.Accept, "accept", "Marque que leu e aceita a Política.")
+            .AddIf(representative is null || representative.Length < 5, "representativeName", "Informe o nome do representante legal que aceita.")
+            .ThrowIfAny();
+        var settings = await settingsProvider.GetAsync(ct);
+        governance.RecordAcceptance(seller, currentUser.RequireUserId(), representative!, settings.SellerPolicyVersion);
+        await governance.CloseOpenPolicyNoticesAsync(seller.Id, ct);
+        db.AuditLogs.Add(new AuditLog { UserId = currentUser.UserId, Action = "seller.policy.accept", Target = seller.Slug, OccurredAt = Now, IpAddress = currentUser.IpAddress, Details = settings.SellerPolicyVersion });
+        await db.SaveChangesAsync(ct);
+        return await ProfileAsync(ct);
+    }
+
+    public async Task<SellerComplianceStatusDto> ComplianceStatusAsync(CancellationToken ct)
+    {
+        var seller = await RequireSellerAsync(ct, access: SellerPanelAccess.Account);
+        return await governance.StatusForSellerAsync(seller, ct);
+    }
+
+    // ----- Comunicações (Política 8.5 e 8.6) -----
+
+    public async Task<PagedResult<SellerNoticeDto>> NoticesAsync(SellerNoticeStatus? status, int? page, int? pageSize, CancellationToken ct)
+    {
+        var seller = await RequireSellerAsync(ct, access: SellerPanelAccess.Account);
+        return await governance.ListNoticesAsync(seller.Id, status, null, page, pageSize, ct);
+    }
+
+    public async Task<SellerNoticeDto> NoticeAsync(Guid id, CancellationToken ct)
+    {
+        var seller = await RequireSellerAsync(ct, access: SellerPanelAccess.Account);
+        return await governance.GetNoticeAsync(id, seller.Id, markRead: true, ct);
+    }
+
+    public async Task<SellerNoticeDto> RespondNoticeAsync(Guid id, SellerNoticeResponseRequest request, CancellationToken ct)
+    {
+        var seller = await RequireSellerAsync(ct, access: SellerPanelAccess.Account);
+        return await governance.RespondAsync(id, seller.Id, request, ct);
+    }
+
+    private sealed record ValidatedProfile(string Name, string Ruc, string City, string Description, string? LogoUrl, string? BannerUrl, string ExchangePolicy, List<Guid> CategoryIds, string? OriginPostalCode, string Phone,
+        string LegalAddress, string ResponsibleName, SellerDocumentType ResponsibleDocumentType, string ResponsibleDocument, string IdentityDocumentUrl, string RucCertificateUrl,
+        string LegalName, string Email, SellerPayoutMethod PayoutMethod, string? PayoutInstitution, string PayoutAccount, string PayoutHolder,
+        string TaxComplianceCertificateUrl, string ArticlesOfIncorporationUrl);
+
+    private static void Apply(Seller seller, ValidatedProfile v)
+    {
+        seller.LegalName = v.LegalName;
+        seller.Email = v.Email;
+        seller.Phone = v.Phone;
+        seller.OriginPostalCode = v.OriginPostalCode;
+        seller.LegalAddress = v.LegalAddress;
+        seller.ResponsibleName = v.ResponsibleName;
+        seller.ResponsibleDocumentType = v.ResponsibleDocumentType;
+        seller.ResponsibleDocument = v.ResponsibleDocument;
+        seller.PayoutMethod = v.PayoutMethod;
+        seller.PayoutInstitution = v.PayoutInstitution;
+        seller.PayoutAccount = v.PayoutAccount;
+        seller.PayoutHolder = v.PayoutHolder;
+        seller.IdentityDocumentUrl = v.IdentityDocumentUrl;
+        seller.RucCertificateUrl = v.RucCertificateUrl;
+        seller.TaxComplianceCertificateUrl = v.TaxComplianceCertificateUrl;
+        seller.ArticlesOfIncorporationUrl = v.ArticlesOfIncorporationUrl;
+    }
 
     /// <summary>Documento do responsável: CPF com dígito verificador, cédula paraguaia (5 a 9 dígitos) ou passaporte (6 a 12 letras/dígitos).</summary>
     public static string? NormalizeResponsibleDocument(SellerDocumentType type, string? raw)
@@ -172,13 +291,18 @@ public sealed class SellerPanelService(
         var legalAddress = input.LegalAddress?.Trim() ?? string.Empty;
         var responsibleName = input.ResponsibleName?.Trim() ?? string.Empty;
         var documentType = input.ResponsibleDocumentType ?? existing?.ResponsibleDocumentType;
-        // No perfil o documento volta mascarado: nulo/vazio mantém o atual.
+        // No perfil o documento e a conta voltam mascarados: nulo/vazio mantém o atual.
         var document = string.IsNullOrWhiteSpace(input.ResponsibleDocument) && existing?.ResponsibleDocument is { } current && documentType == existing.ResponsibleDocumentType
             ? current
             : documentType is { } dt ? NormalizeResponsibleDocument(dt, input.ResponsibleDocument) : null;
-        var identityUrl = input.IdentityDocumentUrl?.Trim();
-        var rucCertificateUrl = input.RucCertificateUrl?.Trim();
+        var payoutAccount = string.IsNullOrWhiteSpace(input.PayoutAccount) ? existing?.PayoutAccount : input.PayoutAccount.Trim();
+        var identityUrl = DocumentLinks.Normalize(input.IdentityDocumentUrl);
+        var rucCertificateUrl = DocumentLinks.Normalize(input.RucCertificateUrl);
+        var taxCertificateUrl = DocumentLinks.Normalize(input.TaxComplianceCertificateUrl);
+        var articlesUrl = DocumentLinks.Normalize(input.ArticlesOfIncorporationUrl);
         var name = input.Name?.Trim() ?? string.Empty;
+        var legalName = input.LegalName?.Trim() ?? string.Empty;
+        var email = input.Email?.Trim().ToLowerInvariant() ?? string.Empty;
         var ruc = (input.Ruc ?? string.Empty).Trim().ToUpperInvariant();
         var city = input.City?.Trim() ?? string.Empty;
         var description = input.Description?.Trim() ?? string.Empty;
@@ -187,31 +311,41 @@ public sealed class SellerPanelService(
             : input.ExchangePolicy.Trim();
         var categoryIds = (input.CategoryIds ?? []).Distinct().ToList();
         var originPostalCode = string.IsNullOrWhiteSpace(input.OriginPostalCode) ? null : input.OriginPostalCode.Trim().ToUpperInvariant();
-        var phone = string.IsNullOrWhiteSpace(input.Phone) ? null : input.Phone.Trim();
+        var phone = input.Phone?.Trim() ?? string.Empty;
+        var payoutHolder = input.PayoutHolder?.Trim() ?? string.Empty;
+        var payoutInstitution = string.IsNullOrWhiteSpace(input.PayoutInstitution) ? null : input.PayoutInstitution.Trim();
 
         var errors = new ValidationErrors()
             .AddIf(name.Length < 3, "name", "Informe o nome da loja (mínimo 3 caracteres).")
-            .AddIf(originPostalCode is { Length: > 16 }, "originPostalCode", "Código postal inválido.")
-            .AddIf(phone is { Length: > 32 } || (phone is not null && Documents.OnlyDigits(phone).Length < 8), "phone", "Telefone inválido.")
             .AddIf(name.Length > 80, "name", "Nome muito longo (máximo 80 caracteres).")
+            .AddIf(legalName.Length is < 3 or > 200, "legalName", "Informe a denominação social da empresa (como no RUC).")
+            .AddIf(!Documents.IsValidEmail(email), "email", "Informe o e-mail da empresa.")
+            .AddIf(originPostalCode is { Length: > 16 }, "originPostalCode", "Código postal inválido.")
+            .AddIf(phone.Length > 32 || Documents.OnlyDigits(phone).Length < 8, "phone", "Informe o telefone da empresa.")
             .AddIf(!Documents.IsValidRuc(ruc), "ruc", "RUC inválido (ex.: 80012345-0).")
             .AddIf(city.Length < 2, "city", "Informe a cidade de origem dos envios.")
             .AddIf(description.Length < 20, "description", "Conte um pouco sobre a loja (mínimo 20 caracteres).")
             .AddIf(description.Length > 1000, "description", "Descrição muito longa (máximo 1000 caracteres).")
             .AddIf(categoryIds.Count == 0, "categoryIds", "Escolha pelo menos uma categoria.")
             .AddIf(input.LogoUrl is { Length: > 1024 } || input.BannerUrl is { Length: > 1024 }, "logoUrl", "URL da imagem inválida.")
-            // Política de admissão (critério v) e remetente da declaração.
+            // Política de admissão (3.1 e 3.2) e remetente da declaração.
             .AddIf(legalAddress.Length < 10 || legalAddress.Length > 300, "legalAddress", "Informe o endereço completo de onde os pacotes saem (rua, número e bairro).")
-            .AddIf(responsibleName.Length < 5 || responsibleName.Length > 160, "responsibleName", "Informe o nome completo do responsável pela loja.")
-            .AddIf(documentType is null, "responsibleDocumentType", "Escolha o tipo de documento do responsável.")
-            .AddIf(documentType is not null && document is null, "responsibleDocument", "Documento do responsável inválido.")
-            .AddIf(!IsUploadUrl(identityUrl), "identityDocumentUrl", "Envie a foto do documento do responsável.")
-            .AddIf(!IsUploadUrl(rucCertificateUrl), "rucCertificateUrl", "Envie a constância do RUC.");
+            .AddIf(responsibleName.Length < 5 || responsibleName.Length > 160, "responsibleName", "Informe o nome completo do representante legal.")
+            .AddIf(documentType is null, "responsibleDocumentType", "Escolha o tipo de documento do representante legal.")
+            .AddIf(documentType is not null && document is null, "responsibleDocument", "Documento do representante inválido.")
+            .AddIf(input.PayoutMethod is null && existing?.PayoutMethod is null, "payoutMethod", "Escolha o meio de recebimento (conta bancária ou carteira digital).")
+            .AddIf(payoutAccount is null || payoutAccount.Length is < 4 or > 64, "payoutAccount", "Informe o número da conta ou o identificador da carteira.")
+            .AddIf(payoutHolder.Length is < 3 or > 200, "payoutHolder", "Informe o titular da conta.")
+            .AddIf(payoutInstitution is { Length: > 120 }, "payoutInstitution", "Nome muito longo.")
+            .AddIf(!DocumentLinks.IsValidReference(identityUrl), "identityDocumentUrl", "Envie o documento com foto do representante legal.")
+            .AddIf(!DocumentLinks.IsValidReference(rucCertificateUrl), "rucCertificateUrl", "Envie a Constancia de RUC.")
+            .AddIf(!DocumentLinks.IsValidReference(taxCertificateUrl), "taxComplianceCertificateUrl", "Envie o Certificado de Cumplimiento Tributario.")
+            .AddIf(!DocumentLinks.IsValidReference(articlesUrl), "articlesOfIncorporationUrl", "Envie os atos constitutivos e o registro comercial.");
         errors.ThrowIfAny();
 
         if (await db.Sellers.AnyAsync(s => s.Ruc == ruc && s.Id != existingId, ct))
             throw AppException.Validation("ruc", "Já existe uma loja cadastrada com este RUC.");
-        var validCategories = await db.Categories.Where(c => categoryIds.Contains(c.Id)).Select(c => c.Id).ToListAsync(ct);
+        var validCategories = await db.Categories.Where(c => categoryIds.Contains(c.Id) && c.IsActive).Select(c => c.Id).ToListAsync(ct);
         if (validCategories.Count != categoryIds.Count)
             throw AppException.Validation("categoryIds", "Categoria inválida.");
 
@@ -219,7 +353,9 @@ public sealed class SellerPanelService(
             string.IsNullOrWhiteSpace(input.LogoUrl) ? null : input.LogoUrl.Trim(),
             string.IsNullOrWhiteSpace(input.BannerUrl) ? null : input.BannerUrl.Trim(),
             policy, categoryIds, originPostalCode, phone,
-            legalAddress, responsibleName, documentType!.Value, document!, identityUrl!, rucCertificateUrl!);
+            legalAddress, responsibleName, documentType!.Value, document!, identityUrl!, rucCertificateUrl!,
+            legalName, email, (input.PayoutMethod ?? existing?.PayoutMethod)!.Value, payoutInstitution, payoutAccount!, payoutHolder,
+            taxCertificateUrl!, articlesUrl!);
     }
 
     private async Task<string> UniqueSellerSlugAsync(string name, CancellationToken ct)
@@ -237,18 +373,33 @@ public sealed class SellerPanelService(
         var count = await db.Products.CountAsync(p => p.SellerId == s.Id && p.Status == ProductStatus.Ativo, ct);
         return new SellerProfileDto(s.Id, s.Slug, s.Name, s.LogoUrl, s.BannerUrl, s.City, s.Description, s.Ruc, s.ExchangePolicy,
             s.Status, s.ReputationLevel, s.IsOfficialStore, s.Rating, s.ReviewCount, count, s.MemberSince,
-            s.Categories.Select(c => c.Category.ToRef()).ToList(), s.OriginPostalCode, s.Phone, ToVerification(s));
+            s.Categories.Select(c => c.Category.ToRef()).ToList(), s.OriginPostalCode, s.Phone, ToVerification(s, links), s.LegalName, s.Email);
     }
 
-    public static SellerVerificationDto ToVerification(Seller s) =>
-        new(s.LegalAddress, s.ResponsibleName, s.ResponsibleDocumentType, Mappers.MaskDocument(s.ResponsibleDocument),
-            s.IdentityDocumentUrl, s.RucCertificateUrl, s.HasVerificationDocuments, s.VerifiedAt, s.SuspensionReason);
+    /// <summary>Dados de admissão para o vendedor e o admin: documentos como link assinado, documento e conta mascarados.</summary>
+    public static SellerVerificationDto ToVerification(Seller s, DocumentLinks links)
+    {
+        var keys = new Dictionary<string, string>();
+        void Key(string field, string? value)
+        {
+            if (!string.IsNullOrWhiteSpace(value)) keys[field] = value;
+        }
+        Key("identityDocumentUrl", s.IdentityDocumentUrl);
+        Key("rucCertificateUrl", s.RucCertificateUrl);
+        Key("taxComplianceCertificateUrl", s.TaxComplianceCertificateUrl);
+        Key("articlesOfIncorporationUrl", s.ArticlesOfIncorporationUrl);
+        return new SellerVerificationDto(s.LegalAddress, s.ResponsibleName, s.ResponsibleDocumentType, Mappers.MaskDocument(s.ResponsibleDocument),
+            links.Url(s.IdentityDocumentUrl), links.Url(s.RucCertificateUrl), s.HasVerificationDocuments, s.VerifiedAt, s.SuspensionReason,
+            links.Url(s.TaxComplianceCertificateUrl), links.Url(s.ArticlesOfIncorporationUrl), s.PayoutMethod, s.PayoutInstitution,
+            Mappers.MaskDocument(s.PayoutAccount), s.PayoutHolder, s.HasAdmissionData, SellerGovernanceService.MissingAdmissionData(s),
+            s.VerificationChecklist, s.PolicyVersionAccepted, s.PolicyAcceptedAt, s.DataConfirmedAt, s.SuspendedUntil, keys);
+    }
 
     // ----- Dashboard -----
 
     public async Task<SellerDashboardDto> DashboardAsync(CancellationToken ct)
     {
-        var seller = await RequireSellerAsync(ct);
+        var seller = await RequireSellerAsync(ct, access: SellerPanelAccess.Fulfill);
         var now = Now;
         var from = now.AddDays(-30);
         var paidStatuses = new[] { OrderStatus.Pago, OrderStatus.EmPreparacao, OrderStatus.Enviado, OrderStatus.EmTransitoInternacional, OrderStatus.Entregue, OrderStatus.Concluido };
@@ -265,7 +416,7 @@ public sealed class SellerPanelService(
 
     public async Task<PagedResult<SellerProductListItemDto>> ListProductsAsync(ProductStatus? status, string? q, int? page, int? pageSize, CancellationToken ct)
     {
-        var seller = await RequireSellerAsync(ct);
+        var seller = await RequireSellerAsync(ct, access: SellerPanelAccess.Fulfill);
         var query = db.Products.AsNoTracking().Include(p => p.Images).Where(p => p.SellerId == seller.Id);
         if (status is { } s) query = query.Where(p => p.Status == s);
         if (!string.IsNullOrWhiteSpace(q))
@@ -280,7 +431,7 @@ public sealed class SellerPanelService(
 
     public async Task<SellerProductDto> GetProductAsync(Guid id, CancellationToken ct)
     {
-        var seller = await RequireSellerAsync(ct);
+        var seller = await RequireSellerAsync(ct, access: SellerPanelAccess.Fulfill);
         var product = await db.Products.AsNoTracking().Include(p => p.Images).FirstOrDefaultAsync(p => p.Id == id && p.SellerId == seller.Id, ct)
                       ?? throw AppException.NotFound("Produto");
         var ncm = product.HsCode is { } code ? await ncmCatalog.FindAsync(code, ct) : null;
@@ -320,6 +471,7 @@ public sealed class SellerPanelService(
             Attributes = v.Attributes,
             Images = v.Images.Select((img, i) => new ProductImage { Id = Guid.NewGuid(), Url = img.Url!, Alt = img.Alt ?? v.Name, SortOrder = i + 1, StorageKey = img.StorageKey }).ToList(),
         };
+        ApplyDeclaration(product, v.Declaration);
         await ApplyListingDecisionAsync(product, v.Status, ct);
         db.Products.Add(product);
         await db.SaveChangesAsync(ct);
@@ -351,6 +503,7 @@ public sealed class SellerPanelService(
         product.HandlingDaysMin = v.HandlingDaysMin;
         product.HandlingDaysMax = v.HandlingDaysMax;
         product.Attributes = v.Attributes;
+        ApplyDeclaration(product, v.Declaration);
         product.UpdatedAt = Now;
         await ApplyListingDecisionAsync(product, v.Status, ct);
 
@@ -373,7 +526,18 @@ public sealed class SellerPanelService(
         return ToDto(product);
     }
 
-    /// <summary>Bloqueado fica bloqueado; marca protegida ou preço muito baixo vão para análise (ComplianceService).</summary>
+    private static void ApplyDeclaration(Product product, DeclarationInput d)
+    {
+        product.Nature = d.Nature;
+        product.Brand = d.Unbranded ? null : d.Brand;
+        product.Unbranded = d.Unbranded;
+        product.Model = d.Model;
+        product.Material = d.Material;
+        product.PackageQuantity = d.Quantity;
+        product.OriginCountry = d.OriginCountry;
+    }
+
+    /// <summary>Bloqueado fica bloqueado; Anexo I, descrição da declaração, marca protegida e preço vão para análise (ComplianceService).</summary>
     private async Task ApplyListingDecisionAsync(Product product, ProductStatus requested, CancellationToken ct)
     {
         var decision = await compliance.DecideListingAsync(product, requested, ct);
@@ -393,16 +557,20 @@ public sealed class SellerPanelService(
     /// <summary>Arquiva (não apaga): pedidos antigos continuam referenciando o produto.</summary>
     public async Task ArchiveProductAsync(Guid id, CancellationToken ct)
     {
-        var seller = await RequireSellerAsync(ct);
+        var seller = await RequireSellerAsync(ct, access: SellerPanelAccess.Fulfill);
         var product = await db.Products.FirstOrDefaultAsync(p => p.Id == id && p.SellerId == seller.Id, ct)
                       ?? throw AppException.NotFound("Produto");
+        // Bloqueado pela equipe continua bloqueado (o registro da medida não some).
+        if (product.Status == ProductStatus.Bloqueado) throw AppException.Conflict("PRODUCT_BLOCKED", "Este anúncio foi removido pela equipe.");
         product.Status = ProductStatus.Arquivado;
         product.UpdatedAt = Now;
         await db.SaveChangesAsync(ct);
         await catalogCache.InvalidateAsync(ct);
     }
 
-    private sealed record ValidatedProduct(string Name, string Description, Guid CategoryId, long PriceAmount, long? CompareAtAmount, int Stock, bool FreeShipping, int? WarrantyMonths, int HandlingDaysMin, int HandlingDaysMax, List<ProductAttribute> Attributes, List<SellerProductImageInput> Images, ProductStatus Status, int? WeightGrams, ParcelDimensionsDto? Dimensions, string? HsCode);
+    private sealed record DeclarationInput(string? Nature, string? Brand, bool Unbranded, string? Model, string? Material, int Quantity, string? OriginCountry);
+
+    private sealed record ValidatedProduct(string Name, string Description, Guid CategoryId, long PriceAmount, long? CompareAtAmount, int Stock, bool FreeShipping, int? WarrantyMonths, int HandlingDaysMin, int HandlingDaysMax, List<ProductAttribute> Attributes, List<SellerProductImageInput> Images, ProductStatus Status, int? WeightGrams, ParcelDimensionsDto? Dimensions, string? HsCode, DeclarationInput Declaration);
 
     private async Task<ValidatedProduct> ValidateProductAsync(SellerProductInput input, CancellationToken ct)
     {
@@ -417,6 +585,9 @@ public sealed class SellerPanelService(
         var status = input.Status is null or ProductStatus.EmAnalise or ProductStatus.Bloqueado ? ProductStatus.Ativo : input.Status.Value;
         var dims = input.Dimensions;
         var listed = status != ProductStatus.Rascunho;
+        static string? Clean(string? v) => string.IsNullOrWhiteSpace(v) ? null : v.Trim();
+        var declaration = new DeclarationInput(Clean(input.Nature), Clean(input.Brand), input.Unbranded, Clean(input.Model), Clean(input.Material),
+            input.PackageQuantity ?? 1, Countries.Normalize(input.OriginCountry));
 
         var errors = new ValidationErrors()
             .AddIf(name.Length < 5, "name", "Informe o nome do produto (mínimo 5 caracteres).")
@@ -424,7 +595,7 @@ public sealed class SellerPanelService(
             .AddIf(dims is not null && (dims.LengthCm is < 1 or > 200 || dims.WidthCm is < 1 or > 200 || dims.HeightCm is < 1 or > 200), "dimensions", "Dimensões inválidas (1 a 200 cm).")
             .AddIf(name.Length > 200, "name", "Nome muito longo (máximo 200 caracteres).")
             .AddIf(description.Length < 20, "description", "Descreva o produto (mínimo 20 caracteres).")
-            .AddIf(listed && description.Length is >= 20 and < 40, "description", "Para publicar, descreva o produto com pelo menos 40 caracteres (a descrição vai na declaração de importação).")
+            .AddIf(listed && description.Length is >= 20 and < 40, "description", "Para publicar, descreva o produto com pelo menos 40 caracteres.")
             .AddIf(input.CategoryId is null, "categoryId", "Escolha a categoria.")
             .AddIf(input.PriceAmount is null or < 100, "priceAmount", "Informe um preço válido (mínimo R$ 1,00).")
             .AddIf(input.PriceAmount > 100_000_000, "priceAmount", "Preço acima do limite permitido.")
@@ -435,15 +606,31 @@ public sealed class SellerPanelService(
             .AddIf(images.Count == 0, "images", "Adicione pelo menos uma foto do produto.")
             .AddIf(images.Count > 8, "images", "Máximo de 8 fotos.")
             .AddIf(images.Any(i => i.Url!.Length > 1024 || !(i.Url.StartsWith("/") || i.Url.StartsWith("http"))), "images", "URL de imagem inválida.")
-            .AddIf(status == ProductStatus.Arquivado, "status", "Use a ação de arquivar para remover o produto.");
+            .AddIf(status == ProductStatus.Arquivado, "status", "Use a ação de arquivar para remover o produto.")
+            // Descrição da declaração (Programa 7.4 e 7.6): obrigatória para publicar.
+            .AddIf(declaration.Nature is { Length: > 120 }, "nature", "Máximo de 120 caracteres.")
+            .AddIf(declaration.Brand is { Length: > 80 } || declaration.Model is { Length: > 80 }, "brand", "Máximo de 80 caracteres.")
+            .AddIf(declaration.Material is { Length: > 160 }, "material", "Máximo de 160 caracteres.")
+            .AddIf(declaration.Quantity is < 1 or > 1000, "packageQuantity", "Quantidade entre 1 e 1.000 unidades.")
+            .AddIf(declaration.OriginCountry is not null && !Countries.IsValid(declaration.OriginCountry), "originCountry", "País de origem inválido.");
+        if (listed)
+        {
+            errors
+                .AddIf(declaration.Nature is null || declaration.Nature.Length < 3, "nature", "Diga o que é o produto (ex.: \"Fone de ouvido Bluetooth\"). Vai na declaração de importação.")
+                .AddIf(declaration.Nature is { Length: >= 3 } && DeclarationText.IsGeneric(declaration.Nature), "nature",
+                    "Natureza genérica (ex.: \"produto\", \"acessórios\", \"presente\") não é aceita na declaração. Diga exatamente o que é.")
+                .AddIf(!declaration.Unbranded && declaration.Brand is null, "brand", "Informe a marca ou marque \"produto sem marca\".")
+                .AddIf(declaration.Material is null || declaration.Material.Length < 2, "material", "Informe o material (ex.: \"plástico ABS e alumínio\").")
+                .AddIf(declaration.OriginCountry is null, "originCountry", "Informe o país de origem (onde o produto foi fabricado).");
+        }
         errors.ThrowIfAny();
 
-        var category = await db.Categories.AsNoTracking().FirstOrDefaultAsync(c => c.Id == input.CategoryId, ct)
+        var category = await db.Categories.AsNoTracking().FirstOrDefaultAsync(c => c.Id == input.CategoryId && c.IsActive, ct)
                        ?? throw AppException.Validation("categoryId", "Categoria inválida.");
         var hsCode = await compliance.ValidateNcmAsync(input.HsCode, category.Slug, required: listed, ct);
 
         return new ValidatedProduct(name, description, input.CategoryId!.Value, input.PriceAmount!.Value, input.CompareAtAmount, input.Stock!.Value,
-            input.FreeShipping, input.WarrantyMonths, minDays, maxDays, attributes, images, status, input.WeightGrams, dims, hsCode);
+            input.FreeShipping, input.WarrantyMonths, minDays, maxDays, attributes, images, status, input.WeightGrams, dims, hsCode, declaration);
     }
 
     private async Task<string> UniqueProductSlugAsync(string name, CancellationToken ct)
@@ -467,13 +654,15 @@ public sealed class SellerPanelService(
             p is { LengthCm: { } len, WidthCm: { } wid, HeightCm: { } hei } ? new ParcelDimensionsDto(len, wid, hei) : null,
             p.HsCode,
             p.ModerationReason,
-            p.ModerationNote);
+            p.ModerationNote,
+            null,
+            p.Nature, p.Brand, p.Unbranded, p.Model, p.Material, p.PackageQuantity, p.OriginCountry, p.DeclarationDescription());
 
     // ----- Pedidos da loja -----
 
     public async Task<PagedResult<OrderDto>> ListOrdersAsync(OrderStatus? status, int? page, int? pageSize, CancellationToken ct)
     {
-        var seller = await RequireSellerAsync(ct);
+        var seller = await RequireSellerAsync(ct, access: SellerPanelAccess.Fulfill);
         var query = orders.FullOrders().AsNoTracking().Where(o => o.SellerId == seller.Id);
         if (status is { } s) query = query.Where(o => o.Status == s);
         var paged = await query.OrderByDescending(o => o.CreatedAt).ToPagedAsync(page, pageSize, 20, ct);
@@ -485,7 +674,7 @@ public sealed class SellerPanelService(
 
     private async Task<Order> RequireOrderAsync(Guid id, CancellationToken ct)
     {
-        var seller = await RequireSellerAsync(ct);
+        var seller = await RequireSellerAsync(ct, access: SellerPanelAccess.Fulfill);
         return await orders.FullOrders().FirstOrDefaultAsync(o => o.Id == id && o.SellerId == seller.Id, ct)
                ?? throw AppException.NotFound("Pedido");
     }
@@ -511,11 +700,14 @@ public sealed class SellerPanelService(
         return await remessa.CreateAsync(order, ct);
     }
 
+    /// <summary>Com o ADE configurado a operação no PRC começou: nenhuma remessa sai fora do fluxo (Programa 9.5).</summary>
+    private async Task<bool> PlatformLabelRequiredAsync(CancellationToken ct) =>
+        !string.IsNullOrWhiteSpace(platform.Current.AdeNumber) || (await settingsProvider.GetAsync(ct)).RequirePlatformLabel;
+
     public async Task<SellerShippingPolicyDto> ShippingPolicyAsync(CancellationToken ct)
     {
-        await RequireSellerAsync(ct);
-        var settings = await settingsProvider.GetAsync(ct);
-        return new SellerShippingPolicyDto(settings.RequirePlatformLabel, remessa.CarrierIsConfigured, remessa.CarrierIsSandbox,
+        await RequireSellerAsync(ct, access: SellerPanelAccess.Fulfill);
+        return new SellerShippingPolicyDto(await PlatformLabelRequiredAsync(ct), remessa.CarrierIsConfigured, remessa.CarrierIsSandbox,
             remessa.CarrierName);
     }
 
@@ -527,27 +719,33 @@ public sealed class SellerPanelService(
 
     public async Task<(byte[] Pdf, string FileName)> ShipmentLabelAsync(Guid id, CancellationToken ct)
     {
-        var seller = await RequireSellerAsync(ct);
+        var seller = await RequireSellerAsync(ct, access: SellerPanelAccess.Fulfill);
         return await remessa.LabelAsync(id, seller.Id, ct);
+    }
+
+    /// <summary>Comprovante da compra do pedido (Programa 10.3).</summary>
+    public async Task<OrderDocument> ReceiptAsync(Guid id, CancellationToken ct)
+    {
+        var order = await RequireOrderAsync(id, ct);
+        return await receipts.GetOrCreateAsync(order.Id, ct);
     }
 
     /// <summary>
     /// Pago/EmPreparacao → Enviado. Com etiqueta da plataforma, usa o rastreio dela; sem etiqueta, só se a plataforma
-    /// permitir (RequirePlatformLabel desligado), com transportadora e código informados pelo vendedor.
+    /// permitir (RequirePlatformLabel desligado e operação no PRC não iniciada), com transportadora e código informados.
     /// </summary>
     public async Task<OrderDto> ShipOrderAsync(Guid id, ShipOrderRequest request, CancellationToken ct)
     {
         var order = await RequireOrderAsync(id, ct);
         if (order.Status is not (OrderStatus.Pago or OrderStatus.EmPreparacao))
             throw AppException.Conflict("ORDER_INVALID_TRANSITION", "Só pedidos pagos ou em preparação podem ser enviados.");
-        var settings = await settingsProvider.GetAsync(ct);
         string tracking, carrierName;
         if (order.Shipment is { Status: ShipmentStatus.EtiquetaEmitida, TrackingCode: { } labelTracking } shipment)
         {
             tracking = labelTracking;
             carrierName = shipment.Carrier ?? order.ShippingOption.Carrier;
         }
-        else if (settings.RequirePlatformLabel)
+        else if (await PlatformLabelRequiredAsync(ct))
         {
             throw AppException.Conflict("LABEL_REQUIRED", "Gere a etiqueta da plataforma antes de confirmar o envio. É ela que leva a declaração antecipada do Remessa Conforme.");
         }
