@@ -800,7 +800,8 @@ public sealed class AdminService(
             s.IcmsStateOverrides, s.IbsStateBasisPoints, s.IbsMunicipalBasisPoints, s.CbsBasisPoints, s.InsuranceBasisPoints, s.OtherExpensesAmount,
             s.SellerStrikeLimit, s.StrikeWindowDays, s.PriceFloorPercent, s.ProtectedBrands, s.RequirePlatformLabel || PlatformLabelLocked,
             s.SellerPolicyVersion, s.SellerPolicyApprovedAt, s.ComplianceProgramApprovedAt, s.ProgramOwnerName, s.ProgramOwnerEmail,
-            s.AbruptIncreaseFactor, s.AbruptIncreaseMinShipments, s.ConcentrationThreshold, s.AuditSamplePercent, PlatformLabelLocked);
+            s.AbruptIncreaseFactor, s.AbruptIncreaseMinShipments, s.ConcentrationThreshold, s.AuditSamplePercent, PlatformLabelLocked,
+            s.ImportDutyLowTierBasisPoints, s.ImportDutyHighTierBasisPoints, s.ImportDutyHighTierDeductionUsdCents);
 
     public async Task<PlatformSettingsDto> GetSettingsAsync(CancellationToken ct) =>
         ToDto(await db.PlatformSettings.AsNoTracking().FirstAsync(s => s.Id == 1, ct));
@@ -810,6 +811,9 @@ public sealed class AdminService(
         new ValidationErrors()
             .AddIf(input.ImportTaxBasisPoints is < 0 or > 20000, "importTaxBasisPoints", "Alíquota entre 0% e 200%.")
             .AddIf(input.IcmsBasisPoints is < 0 or > 5000, "icmsBasisPoints", "ICMS entre 0% e 50%.")
+            .AddIf(input.ImportDutyLowTierBasisPoints is < 0 or > 10_000, "importDutyLowTierBasisPoints", "Alíquota entre 0% e 100%.")
+            .AddIf(input.ImportDutyHighTierBasisPoints is < 0 or > 10_000, "importDutyHighTierBasisPoints", "Alíquota entre 0% e 100%.")
+            .AddIf(input.ImportDutyHighTierDeductionUsdCents is < 0 or > 50_000, "importDutyHighTierDeductionUsdCents", "Dedução entre US$ 0 e US$ 500.")
             .AddIf(input.PlatformFeeBasisPoints is < 0 or > 5000, "platformFeeBasisPoints", "Comissão entre 0% e 50%.")
             .AddIf(input.PaymentFeeBasisPoints is < 0 or > 2000, "paymentFeeBasisPoints", "Taxa de pagamento entre 0% e 20%.")
             .AddIf(input.FreeShippingThresholdAmount < 0, "freeShippingThresholdAmount", "Valor inválido.")
@@ -845,6 +849,9 @@ public sealed class AdminService(
         s.ImportTaxMode = input.ImportTaxMode;
         s.ImportTaxBasisPoints = input.ImportTaxBasisPoints;
         s.IcmsBasisPoints = input.IcmsBasisPoints;
+        s.ImportDutyLowTierBasisPoints = input.ImportDutyLowTierBasisPoints;
+        s.ImportDutyHighTierBasisPoints = input.ImportDutyHighTierBasisPoints;
+        s.ImportDutyHighTierDeductionUsdCents = input.ImportDutyHighTierDeductionUsdCents;
         s.PlatformFeeBasisPoints = input.PlatformFeeBasisPoints;
         s.PaymentFeeBasisPoints = input.PaymentFeeBasisPoints;
         s.FreeShippingThresholdAmount = input.FreeShippingThresholdAmount;

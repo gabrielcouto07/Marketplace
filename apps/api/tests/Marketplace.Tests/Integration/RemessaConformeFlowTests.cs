@@ -238,8 +238,10 @@ public sealed class RemessaConformeFlowTests : IClassFixture<ApiFactory>
 
         var estimate = await client.GetFromJsonAsync<JsonElement>("/api/taxes/estimate?amount=10000&state=SP", Json);
         Assert.Equal("RemessaConforme", estimate.GetProperty("regime").GetString());
-        Assert.Equal(2000, estimate.GetProperty("importDutyBasisPoints").GetInt32());
-        Assert.Equal(2000, estimate.GetProperty("importDuty").GetProperty("amount").GetInt64());
+        // Até US$ 50 o II é zero (Portaria MF 1.342/2026); o ICMS continua.
+        Assert.Equal(0, estimate.GetProperty("importDutyBasisPoints").GetInt32());
+        Assert.Equal(0, estimate.GetProperty("importDuty").GetProperty("amount").GetInt64());
+        Assert.True(estimate.GetProperty("icms").GetProperty("amount").GetInt64() > 0);
         Assert.True(estimate.TryGetProperty("ibs", out _) && estimate.TryGetProperty("cbs", out _));
     }
 

@@ -40,6 +40,9 @@ export type TaxSettings = Pick<
   | "cbsBasisPoints"
   | "insuranceBasisPoints"
   | "otherExpensesAmount"
+  | "importDutyLowTierBasisPoints"
+  | "importDutyHighTierBasisPoints"
+  | "importDutyHighTierDeductionUsdCents"
 >;
 
 /** Versão inicial da Política de Admissão e de Monitoramento de Vendedores (PlatformSettings.InitialSellerPolicyVersion). */
@@ -55,6 +58,10 @@ export const REMESSA_SETTINGS_DEFAULTS = {
   cbsBasisPoints: 0,
   insuranceBasisPoints: 0,
   otherExpensesAmount: 0,
+  // Faixas do II (Portaria MF 1.342/2026): 0% até US$ 50 e 60% − US$ 30 acima.
+  importDutyLowTierBasisPoints: 0,
+  importDutyHighTierBasisPoints: 6000,
+  importDutyHighTierDeductionUsdCents: 3000,
   sellerStrikeLimit: 3,
   strikeWindowDays: 365,
   priceFloorPercent: 40,
@@ -74,14 +81,11 @@ export const REMESSA_SETTINGS_DEFAULTS = {
 } as const satisfies Partial<PlatformSettingsDto>;
 
 // ---------------------------------------------------------------------------
-// Tributos (Lei 14.902/2024, Portaria MF 1.086/2024, LC 214/2025)
+// Tributos (Portaria MF 1.342/2026, LC 214/2025)
 // ---------------------------------------------------------------------------
 
 const LOW_TIER_LIMIT_USD_CENTS = 50_00;
 const SIMPLIFIED_LIMIT_USD_CENTS = 3_000_00;
-const HIGH_TIER_DEDUCTION_USD_CENTS = 20_00;
-const LOW_TIER_BASIS_POINTS = 2000;
-const HIGH_TIER_BASIS_POINTS = 6000;
 
 const brl = (amount: number): Money => ({ amount, currency: "BRL" });
 const applyBasisPoints = (amount: number, basisPoints: number) => Math.round((amount * basisPoints) / 10_000);
@@ -118,8 +122,9 @@ function usdRate(): UsdRateDto {
 }
 
 /**
- * II de 20% até US$ 50 e de 60% com dedução de US$ 20 acima; ICMS "por dentro" sobre valor aduaneiro + II; IBS e
- * CBS sobre a mesma base. No modo Flat, alíquota única apresentada como estimativa.
+ * II pelas faixas configuradas (Portaria MF 1.342/2026: 0% até US$ 50 e 60% com dedução de US$ 30 acima); ICMS "por
+ * dentro" sobre valor aduaneiro + II; IBS e CBS sobre a mesma base. No modo Flat, alíquota única apresentada como
+ * estimativa. Configurações gravadas antes das faixas (banco do mock antigo) caem nos padrões.
  */
 export function calculateImportTax(input: TaxInput, settings: TaxSettings): ImportTaxBreakdownDto {
   const rate = usdRate();
@@ -169,14 +174,20 @@ export function calculateImportTax(input: TaxInput, settings: TaxSettings): Impo
 
   let duty: number;
   let deduction = 0;
+  let deductionUsd: Money | null = null;
   let dutyBasisPoints: number;
   if (usdCents <= LOW_TIER_LIMIT_USD_CENTS) {
-    dutyBasisPoints = LOW_TIER_BASIS_POINTS;
-    duty = applyBasisPoints(customs, LOW_TIER_BASIS_POINTS);
+    dutyBasisPoints = settings.importDutyLowTierBasisPoints ?? REMESSA_SETTINGS_DEFAULTS.importDutyLowTierBasisPoints;
+    duty = applyBasisPoints(customs, dutyBasisPoints);
   } else {
-    dutyBasisPoints = HIGH_TIER_BASIS_POINTS;
-    const gross = applyBasisPoints(customs, HIGH_TIER_BASIS_POINTS);
-    deduction = Math.min(Math.round((HIGH_TIER_DEDUCTION_USD_CENTS * rate.numerator) / rate.denominator), gross);
+    dutyBasisPoints = settings.importDutyHighTierBasisPoints ?? REMESSA_SETTINGS_DEFAULTS.importDutyHighTierBasisPoints;
+    const deductionUsdCents = Math.max(
+      0,
+      settings.importDutyHighTierDeductionUsdCents ?? REMESSA_SETTINGS_DEFAULTS.importDutyHighTierDeductionUsdCents,
+    );
+    const gross = applyBasisPoints(customs, dutyBasisPoints);
+    deduction = Math.min(Math.round((deductionUsdCents * rate.numerator) / rate.denominator), gross);
+    deductionUsd = { amount: deductionUsdCents, currency: "USD" };
     duty = gross - deduction;
   }
   const icmsBasisPoints = icmsBasisPointsFor(settings, state);
@@ -197,6 +208,7 @@ export function calculateImportTax(input: TaxInput, settings: TaxSettings): Impo
     importDuty: brl(duty),
     importDutyBasisPoints: dutyBasisPoints,
     importDutyDeduction: brl(deduction),
+    importDutyDeductionUsd: deductionUsd,
     icms: brl(icms),
     icmsBasisPoints,
     icmsState: state,
@@ -215,14 +227,15 @@ export function calculateImportTax(input: TaxInput, settings: TaxSettings): Impo
   };
 }
 
-/** Soma das remessas de uma compra (resumo do checkout). Alíquotas que variam entre remessas viram 0. */
+/** Soma das remessas de uma compra (resumo do checkout). Alíquotas que variam entre remessas viram 0 (no II, −1). */
 export function sumImportTaxes(parts: ImportTaxBreakdownDto[]): ImportTaxBreakdownDto | null {
   if (parts.length === 0) return null;
   if (parts.length === 1) return parts[0];
   const first = parts[0];
   const total = (pick: (p: ImportTaxBreakdownDto) => Money) => brl(parts.reduce((acc, p) => acc + pick(p).amount, 0));
-  const same = (pick: (p: ImportTaxBreakdownDto) => number) =>
-    new Set(parts.map(pick)).size === 1 ? pick(first) : 0;
+  const same = (pick: (p: ImportTaxBreakdownDto) => number, varies = 0) =>
+    new Set(parts.map(pick)).size === 1 ? pick(first) : varies;
+  const deductionsUsd = parts.filter((p) => p.importDutyDeductionUsd).map((p) => p.importDutyDeductionUsd!.amount);
   const customs = total((p) => p.customsValue);
   const taxes = total((p) => p.totalTaxes);
   const usd = parts.every((p) => p.customsValueUsd)
@@ -239,8 +252,11 @@ export function sumImportTaxes(parts: ImportTaxBreakdownDto[]): ImportTaxBreakdo
     customsValue: customs,
     customsValueUsd: usd,
     importDuty: total((p) => p.importDuty),
-    importDutyBasisPoints: same((p) => p.importDutyBasisPoints),
+    importDutyBasisPoints: same((p) => p.importDutyBasisPoints, -1),
     importDutyDeduction: total((p) => p.importDutyDeduction),
+    importDutyDeductionUsd: deductionsUsd.length
+      ? { amount: deductionsUsd.reduce((a, b) => a + b, 0), currency: "USD" }
+      : null,
     icms: total((p) => p.icms),
     icmsBasisPoints: same((p) => p.icmsBasisPoints),
     icmsState: first.icmsState,

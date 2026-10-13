@@ -31,7 +31,7 @@ public sealed record ImportTaxBreakdown(
     Money CustomsValue,
     long? CustomsValueUsdCents,
     Money ImportDuty,
-    /// <summary>2000 (até US$ 50) ou 6000 (acima); na estimativa, a alíquota única. 0 = varia entre remessas.</summary>
+    /// <summary>Alíquota da faixa (Portaria MF 1.342/2026: 0 até US$ 50 e 6000 acima); na estimativa, a alíquota única. −1 = varia entre remessas.</summary>
     int ImportDutyBasisPoints,
     Money ImportDutyDeduction,
     Money Icms,
@@ -48,7 +48,9 @@ public sealed record ImportTaxBreakdown(
     Money Total,
     UsdRateSnapshot? UsdRate,
     /// <summary>Acima de US$ 3.000 a remessa não cabe na tributação simplificada.</summary>
-    bool ExceedsSimplifiedLimit)
+    bool ExceedsSimplifiedLimit,
+    /// <summary>Dedução fixa do II acima de US$ 50, em centavos de dólar. Nula até US$ 50 e em cálculos gravados antes do campo.</summary>
+    long? ImportDutyDeductionUsdCents = null)
 {
     public Money Ibs => IbsState.Add(IbsMunicipal);
 
@@ -59,35 +61,38 @@ public sealed record ImportTaxBreakdown(
 
     public bool IsFinal => Regime == ImportTaxRegime.RemessaConforme;
 
-    /// <summary>Soma das remessas de uma compra (resumo do checkout). Alíquotas que variam viram 0.</summary>
+    /// <summary>Soma das remessas de uma compra (resumo do checkout). Alíquotas que variam viram 0 (no II, −1: 0% é uma faixa).</summary>
     public static ImportTaxBreakdown Sum(IReadOnlyList<ImportTaxBreakdown> parts)
     {
         if (parts.Count == 0) throw new ArgumentException("Nenhuma remessa.", nameof(parts));
         if (parts.Count == 1) return parts[0];
         static Money S(IEnumerable<Money> values) => Money.Sum(values);
-        static int Same(IEnumerable<int> values) { var set = values.Distinct().ToList(); return set.Count == 1 ? set[0] : 0; }
+        static int Same(IEnumerable<int> values, int varies = 0) { var set = values.Distinct().ToList(); return set.Count == 1 ? set[0] : varies; }
         var first = parts[0];
         long? usd = parts.All(p => p.CustomsValueUsdCents is not null) ? parts.Sum(p => p.CustomsValueUsdCents!.Value) : null;
         return new ImportTaxBreakdown(
             parts.Any(p => p.Regime == ImportTaxRegime.Estimativa) ? ImportTaxRegime.Estimativa : ImportTaxRegime.RemessaConforme,
             S(parts.Select(p => p.Products)), S(parts.Select(p => p.Freight)), S(parts.Select(p => p.Insurance)),
             S(parts.Select(p => p.OtherExpenses)), S(parts.Select(p => p.Discount)), S(parts.Select(p => p.CustomsValue)), usd,
-            S(parts.Select(p => p.ImportDuty)), Same(parts.Select(p => p.ImportDutyBasisPoints)), S(parts.Select(p => p.ImportDutyDeduction)),
+            S(parts.Select(p => p.ImportDuty)), Same(parts.Select(p => p.ImportDutyBasisPoints), varies: -1), S(parts.Select(p => p.ImportDutyDeduction)),
             S(parts.Select(p => p.Icms)), Same(parts.Select(p => p.IcmsBasisPoints)), first.IcmsState,
             S(parts.Select(p => p.IbsState)), first.IbsStateBasisPoints,
             S(parts.Select(p => p.IbsMunicipal)), first.IbsMunicipalBasisPoints,
             S(parts.Select(p => p.Cbs)), first.CbsBasisPoints,
             S(parts.Select(p => p.TotalTaxes)), S(parts.Select(p => p.Total)),
-            first.UsdRate, parts.Any(p => p.ExceedsSimplifiedLimit));
+            first.UsdRate, parts.Any(p => p.ExceedsSimplifiedLimit),
+            parts.Any(p => p.ImportDutyDeductionUsdCents is not null) ? parts.Sum(p => p.ImportDutyDeductionUsdCents ?? 0) : null);
     }
 }
 
 /// <summary>
 /// Tributos de importação de remessas Paraguai → Brasil.
 /// <para>
-/// Modo <see cref="ImportTaxMode.RemessaConforme"/> (Lei 14.902/2024 e Portaria MF 1.086/2024): II de 20% até US$ 50
-/// e de 60% com dedução de US$ 20 acima disso (até US$ 3.000); ICMS "por dentro" sobre valor aduaneiro + II, com a
-/// alíquota da UF de destino; IBS (estadual + municipal) e CBS sobre valor aduaneiro + II, com as alíquotas
+/// Modo <see cref="ImportTaxMode.RemessaConforme"/>: II por faixa do valor aduaneiro em dólar, até US$ 50 e acima disso
+/// (até US$ 3.000), com dedução fixa em dólar na faixa de cima. As faixas vêm de <see cref="PlatformSettings"/>
+/// (admin › Configurações) porque são fixadas por portaria do Ministério da Fazenda: a Portaria MF 1.342/2026
+/// (MP 1.357/2026) dá 0% até US$ 50 e 60% com dedução de US$ 30 acima. ICMS "por dentro" sobre valor aduaneiro + II,
+/// com a alíquota da UF de destino; IBS (estadual + municipal) e CBS sobre valor aduaneiro + II, com as alíquotas
 /// configuradas pelo admin (LC 214/2025). O valor é definitivo: a plataforma cobra na compra e repassa.
 /// </para>
 /// <para>Modo <see cref="ImportTaxMode.Flat"/> ou sem cotação do dólar: alíquota única, apresentada como estimativa.</para>
@@ -96,9 +101,6 @@ public static class ImportTaxCalculator
 {
     public const long LowTierLimitUsdCents = 50_00;
     public const long SimplifiedRegimeLimitUsdCents = 3_000_00;
-    private const long HighTierDeductionUsdCents = 20_00;
-    public const int LowTierBasisPoints = 2000;
-    public const int HighTierBasisPoints = 6000;
 
     /// <summary>Compatível com a estimativa antiga: só produtos + frete − desconto, sem seguro nem despesas.</summary>
     /// <param name="taxable">Produtos + frete − desconto, em BRL.</param>
@@ -138,17 +140,19 @@ public static class ImportTaxCalculator
         var usdCents = ToUsdCents(customs, rate!);
         Money duty;
         Money deduction = zero;
+        long? deductionUsdCents = null;
         int dutyBasisPoints;
         if (usdCents <= LowTierLimitUsdCents)
         {
-            dutyBasisPoints = LowTierBasisPoints;
-            duty = customs.MultiplyBasisPoints(LowTierBasisPoints);
+            dutyBasisPoints = settings.ImportDutyLowTierBasisPoints;
+            duty = customs.MultiplyBasisPoints(dutyBasisPoints);
         }
         else
         {
-            dutyBasisPoints = HighTierBasisPoints;
-            deduction = Money.Brl(Money.RoundDiv(HighTierDeductionUsdCents * rate!.Numerator, rate.Denominator));
-            var gross = customs.MultiplyBasisPoints(HighTierBasisPoints);
+            dutyBasisPoints = settings.ImportDutyHighTierBasisPoints;
+            deductionUsdCents = Math.Max(0, settings.ImportDutyHighTierDeductionUsdCents);
+            deduction = Money.Brl(Money.RoundDiv(deductionUsdCents.Value * rate!.Numerator, rate.Denominator));
+            var gross = customs.MultiplyBasisPoints(dutyBasisPoints);
             deduction = Money.Brl(Math.Min(deduction.Amount, gross.Amount));
             duty = gross.Subtract(deduction);
         }
@@ -172,7 +176,8 @@ public static class ImportTaxCalculator
             ibsState, settings.IbsStateBasisPoints, ibsMunicipal, settings.IbsMunicipalBasisPoints,
             cbs, settings.CbsBasisPoints,
             totalTaxes, customs.Add(totalTaxes), rate,
-            ExceedsSimplifiedLimit: usdCents > SimplifiedRegimeLimitUsdCents);
+            ExceedsSimplifiedLimit: usdCents > SimplifiedRegimeLimitUsdCents,
+            ImportDutyDeductionUsdCents: deductionUsdCents);
     }
 
     private static long ToUsdCents(Money brl, UsdRateSnapshot rate) =>

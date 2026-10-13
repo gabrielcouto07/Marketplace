@@ -87,7 +87,7 @@ tests/Marketplace.Tests/         xUnit: domínio + fluxo completo do comprador v
   cotação (expirada/consumida/frete alterado → 422), CPF, estoque (reserva ao criar, devolve ao cancelar/expirar).
 - **Impostos de importação** (`Domain/ImportTaxCalculator.cs`): no modo `RemessaConforme` (padrão) o valor é
   definitivo e calculado por remessa (um pedido por loja): valor aduaneiro = produtos + frete + seguro + despesas −
-  desconto rateado; II de 20 % até US$ 50 e de 60 % − US$ 20 acima (câmbio PTAX); ICMS por dentro com a alíquota da UF
+  desconto rateado; II pelas faixas das configurações (Portaria MF 1.342/2026: 0 % até US$ 50 e 60 % − US$ 30 acima, câmbio PTAX); ICMS por dentro com a alíquota da UF
   de destino; IBS (estadual + municipal) e CBS sobre valor aduaneiro + II. O detalhamento (`taxes`) vai na cotação, no
   pedido e na declaração. O modo `Flat` (alíquota única) segue disponível e aparece como estimativa. Parâmetros em
   `platform_settings`, editáveis no admin.

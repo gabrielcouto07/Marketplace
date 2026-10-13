@@ -1197,6 +1197,12 @@ export const adminHandlers = [
     if (!within(body.cbsBasisPoints, 0, 3000)) errors.cbsBasisPoints = ["CBS entre 0% e 30%."];
     if (!within(body.insuranceBasisPoints, 0, 2000))
       errors.insuranceBasisPoints = ["Seguro entre 0% e 20%."];
+    if (!within(body.importDutyLowTierBasisPoints, 0, 10_000))
+      errors.importDutyLowTierBasisPoints = ["Alíquota entre 0% e 100%."];
+    if (!within(body.importDutyHighTierBasisPoints, 0, 10_000))
+      errors.importDutyHighTierBasisPoints = ["Alíquota entre 0% e 100%."];
+    if (!within(body.importDutyHighTierDeductionUsdCents, 0, 50_000))
+      errors.importDutyHighTierDeductionUsdCents = ["Dedução entre US$ 0 e US$ 500."];
     if (!within(body.otherExpensesAmount, 0, 1_000_000))
       errors.otherExpensesAmount = ["Despesas entre R$ 0 e R$ 10.000."];
     if (!within(body.sellerStrikeLimit, 0, 50))

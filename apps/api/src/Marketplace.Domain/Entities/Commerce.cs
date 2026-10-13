@@ -281,6 +281,14 @@ public class PlatformSettings
     public ImportTaxMode ImportTaxMode { get; set; } = ImportTaxMode.RemessaConforme;
     /// <summary>Alíquota estimada de importação no modo Flat (6000 = 60%).</summary>
     public int ImportTaxBasisPoints { get; set; } = 6000;
+    /// <summary>
+    /// II do Remessa Conforme por faixa do valor aduaneiro em dólar. Padrões da Portaria MF 1.342/2026 (MP 1.357/2026):
+    /// 0% até US$ 50 e 60% acima, com dedução de US$ 30. Ficam aqui porque mudam por portaria do Ministério da Fazenda.
+    /// </summary>
+    public int ImportDutyLowTierBasisPoints { get; set; }
+    public int ImportDutyHighTierBasisPoints { get; set; } = 6000;
+    /// <summary>Dedução fixa do II acima de US$ 50, em centavos de dólar (3000 = US$ 30).</summary>
+    public long ImportDutyHighTierDeductionUsdCents { get; set; } = 3000;
     /// <summary>ICMS padrão no modo RemessaConforme (1700 = 17%).</summary>
     public int IcmsBasisPoints { get; set; } = 1700;
     /// <summary>Exceções de ICMS por UF em pontos-base, ex.: "SP=2000; RJ=2000". Vazio = ICMS padrão em todas.</summary>

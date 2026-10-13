@@ -68,6 +68,7 @@ public sealed record ImportTaxBreakdownDto(
     Money CustomsValue,
     Money? CustomsValueUsd,
     Money ImportDuty,
+    /// <summary>Alíquota da faixa; −1 = varia entre as remessas da compra.</summary>
     int ImportDutyBasisPoints,
     Money ImportDutyDeduction,
     Money Icms,
@@ -85,7 +86,9 @@ public sealed record ImportTaxBreakdownDto(
     Money Total,
     int EffectiveBasisPoints,
     UsdRateDto? UsdRate,
-    bool ExceedsSimplifiedLimit);
+    bool ExceedsSimplifiedLimit,
+    /// <summary>Dedução fixa do II acima de US$ 50, em dólar; nula até US$ 50 e em pedidos gravados antes do campo.</summary>
+    Money? ImportDutyDeductionUsd = null);
 
 // ----- Checkout -----
 

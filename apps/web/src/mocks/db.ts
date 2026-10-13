@@ -191,7 +191,7 @@ interface MockDb {
  * v4: Programa de Conformidade e Política de Vendedores (categoria Games no lugar de Bebidas, dados de admissão,
  * comunicações, infrações, medidas e registros). Bancos antigos são descartados.
  */
-const STORAGE_KEY = "mktpy.mockdb.v4";
+const STORAGE_KEY = "mktpy.mockdb.v5";
 /** Os pedidos seed usam 100100–100110; os criados pelo usuário começam em 100201. */
 const ORDER_SEQ_START = 100200;
 

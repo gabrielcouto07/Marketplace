@@ -1491,6 +1491,18 @@ namespace Marketplace.Infrastructure.Persistence.Migrations
                         .HasColumnType("character varying(400)")
                         .HasColumnName("icms_state_overrides");
 
+                    b.Property<int>("ImportDutyHighTierBasisPoints")
+                        .HasColumnType("integer")
+                        .HasColumnName("import_duty_high_tier_basis_points");
+
+                    b.Property<long>("ImportDutyHighTierDeductionUsdCents")
+                        .HasColumnType("bigint")
+                        .HasColumnName("import_duty_high_tier_deduction_usd_cents");
+
+                    b.Property<int>("ImportDutyLowTierBasisPoints")
+                        .HasColumnType("integer")
+                        .HasColumnName("import_duty_low_tier_basis_points");
+
                     b.Property<int>("ImportTaxBasisPoints")
                         .HasColumnType("integer")
                         .HasColumnName("import_tax_basis_points");

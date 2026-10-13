@@ -125,7 +125,8 @@ public static class Mappers
             t.Cbs, t.CbsBasisPoints,
             t.TotalTaxes, t.Total, t.EffectiveBasisPoints,
             t.UsdRate is { } r ? new UsdRateDto(r.Numerator, r.Denominator, r.Display, r.QuotedAt, r.Source) : null,
-            t.ExceedsSimplifiedLimit);
+            t.ExceedsSimplifiedLimit,
+            t.ImportDutyDeductionUsdCents is { } d ? new Money(d, CurrencyCode.USD) : null);
 
     public static TaxRemittanceDto ToDto(this TaxRemittance r) =>
         new(r.Status, Money.Brl(r.ImportDutyAmount), Money.Brl(r.IcmsAmount), Money.Brl(r.IbsStateAmount),

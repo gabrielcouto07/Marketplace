@@ -198,7 +198,7 @@ public enum ImportTaxMode
 {
     /// <summary>Alíquota única sobre produtos + frete (padrão: 60%).</summary>
     Flat,
-    /// <summary>Remessa Conforme: 20% até US$ 50; 60% acima com dedução de US$ 20; + ICMS, IBS e CBS.</summary>
+    /// <summary>Remessa Conforme: II por faixa (hoje 0% até US$ 50 e 60% acima com dedução de US$ 30); + ICMS, IBS e CBS.</summary>
     RemessaConforme,
 }
 

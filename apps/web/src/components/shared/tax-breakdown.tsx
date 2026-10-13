@@ -66,12 +66,24 @@ export function TaxBreakdown({
   const products: Money = { ...taxes.products, amount: taxes.products.amount + listing };
   const discount: Money = { ...taxes.discount, amount: taxes.discount.amount + listing };
 
-  const dutyLabel =
-    taxes.importDutyBasisPoints === 0
-      ? t("importDuty")
-      : taxes.importDutyDeduction.amount > 0
-        ? t("importDutyHigh", { rate: pct(taxes.importDutyBasisPoints) })
-        : t("importDutyRate", { rate: pct(taxes.importDutyBasisPoints) });
+  // −1 = a alíquota varia entre as remessas da compra (0% é faixa válida: até US$ 50, Portaria MF 1.342/2026).
+  const dutyVaries = taxes.importDutyBasisPoints < 0;
+  const dutyRate = pct(Math.max(0, taxes.importDutyBasisPoints));
+  const deductionUsd = taxes.importDutyDeductionUsd ? formatMoney(taxes.importDutyDeductionUsd, { locale }) : null;
+  const highTier = taxes.importDutyDeduction.amount > 0 || (taxes.customsValueUsd?.amount ?? 0) > 50_00;
+  const dutyLabel = dutyVaries
+    ? t("importDuty")
+    : taxes.importDutyDeduction.amount > 0
+      ? deductionUsd
+        ? t("importDutyHigh", { rate: dutyRate, deduction: deductionUsd })
+        : t("importDutyHighPlain", { rate: dutyRate })
+      : t("importDutyRate", { rate: dutyRate });
+  const deductionHint =
+    taxes.importDutyDeduction.amount > 0
+      ? deductionUsd
+        ? t("deduction", { usd: deductionUsd, value: formatMoney(taxes.importDutyDeduction) })
+        : t("deductionPlain", { value: formatMoney(taxes.importDutyDeduction) })
+      : undefined;
 
   return (
     <div className={cn("flex flex-col gap-3", className)}>
@@ -115,7 +127,7 @@ export function TaxBreakdown({
         <dl className="flex flex-col gap-1.5">
           <Row
             label={dutyLabel}
-            hint={taxes.importDutyDeduction.amount > 0 ? t("deduction", { value: formatMoney(taxes.importDutyDeduction) }) : undefined}
+            hint={deductionHint}
             value={formatMoney(taxes.importDuty)}
           />
           {estimate && taxes.icms.amount === 0 ? null : (
@@ -151,7 +163,7 @@ export function TaxBreakdown({
       <ul className="flex flex-col gap-1 text-caption text-foreground-secondary">
         <li>
           {estimate
-            ? t("noteEstimate", { rate: pct(taxes.importDutyBasisPoints || taxes.effectiveBasisPoints) })
+            ? t("noteEstimate", { rate: pct(taxes.importDutyBasisPoints > 0 ? taxes.importDutyBasisPoints : taxes.effectiveBasisPoints) })
             : preview
               ? t("notePreview")
               : t("noteFinal")}
@@ -164,8 +176,14 @@ export function TaxBreakdown({
             })}
           </li>
         ) : null}
-        {!estimate && taxes.importDutyBasisPoints !== 0 ? (
-          <li>{taxes.importDutyDeduction.amount > 0 ? t("noteHighTier") : t("noteLowTier")}</li>
+        {!estimate && !dutyVaries ? (
+          <li>
+            {!highTier
+              ? t("noteLowTier", { rate: dutyRate })
+              : deductionUsd
+                ? t("noteHighTier", { rate: dutyRate, usd: deductionUsd })
+                : t("noteHighTierPlain", { rate: dutyRate })}
+          </li>
         ) : null}
       </ul>
     </div>

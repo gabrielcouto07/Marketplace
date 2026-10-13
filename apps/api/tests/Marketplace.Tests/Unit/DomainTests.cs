@@ -97,21 +97,21 @@ public class ImportTaxTests
     }
 
     [Fact]
-    public void RemessaConforme_LowTier_20PercentPlusIcms()
+    public void RemessaConforme_LowTier_NoDutyPlusIcms()
     {
-        // R$ 100 ≈ US$ 18,5 → 20% II = R$ 20; ICMS 17% por dentro sobre 120 → 120/0,83 − 120 = 24,58
+        // R$ 100 ≈ US$ 18,5 → II 0% (Portaria MF 1.342/2026); ICMS 17% por dentro sobre 100 → 100/0,83 − 100 = 20,48
         var result = ImportTaxCalculator.Estimate(Money.Brl(10000), new PlatformSettings { ImportTaxMode = ImportTaxMode.RemessaConforme, IcmsBasisPoints = 1700 }, Usd);
-        Assert.Equal(2000 + 2458, result.Tax.Amount);
-        Assert.Equal(4458, result.EffectiveBasisPoints);
+        Assert.Equal(2048, result.Tax.Amount);
+        Assert.Equal(2048, result.EffectiveBasisPoints);
     }
 
     [Fact]
     public void RemessaConforme_HighTier_60PercentMinusDeduction()
     {
-        // R$ 1.000 ≈ US$ 185 → 60% = 600 − dedução US$ 20 (R$ 108) = 492; ICMS sobre 1.492
+        // R$ 1.000 ≈ US$ 185 → 60% = 600 − dedução US$ 30 (R$ 162) = 438; ICMS sobre 1.438
         var result = ImportTaxCalculator.Estimate(Money.Brl(100000), new PlatformSettings { ImportTaxMode = ImportTaxMode.RemessaConforme, IcmsBasisPoints = 1700 }, Usd);
-        var expectedIcms = Money.RoundDiv(149200L * 10_000, 8300) - 149200;
-        Assert.Equal(49200 + expectedIcms, result.Tax.Amount);
+        var expectedIcms = Money.RoundDiv(143800L * 10_000, 8300) - 143800;
+        Assert.Equal(43800 + expectedIcms, result.Tax.Amount);
     }
 
     [Fact]

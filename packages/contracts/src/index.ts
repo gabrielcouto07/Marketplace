@@ -438,9 +438,11 @@ export interface ImportTaxBreakdownDto {
   customsValue: Money;
   customsValueUsd: Money | null;
   importDuty: Money;
-  /** 2000 (até US$ 50) ou 6000 (acima); 0 = varia entre remessas. */
+  /** Alíquota da faixa (Portaria MF 1.342/2026: 0 até US$ 50 e 6000 acima); −1 = varia entre remessas. */
   importDutyBasisPoints: number;
   importDutyDeduction: Money;
+  /** Dedução fixa do II acima de US$ 50, em dólar; null até US$ 50 e em pedidos gravados antes do campo. */
+  importDutyDeductionUsd?: Money | null;
   icms: Money;
   icmsBasisPoints: number;
   icmsState: string | null;
@@ -1391,6 +1393,11 @@ export interface PlatformSettingsDto {
   ibsMunicipalBasisPoints: number;
   cbsBasisPoints: number;
   insuranceBasisPoints: number;
+  /** Faixas do II no Remessa Conforme (Portaria MF 1.342/2026: 0, 6000 e US$ 30). */
+  importDutyLowTierBasisPoints: number;
+  importDutyHighTierBasisPoints: number;
+  /** Dedução fixa do II acima de US$ 50, em centavos de dólar. */
+  importDutyHighTierDeductionUsdCents: number;
   otherExpensesAmount: number;
   sellerStrikeLimit: number;
   strikeWindowDays: number;

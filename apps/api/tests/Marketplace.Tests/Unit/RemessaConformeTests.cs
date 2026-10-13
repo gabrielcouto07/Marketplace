@@ -25,24 +25,37 @@ public class ImportTaxBreakdownTests
     [Fact]
     public void LowTier_ItemizesEveryTax()
     {
-        // R$ 80 + R$ 20 de frete = R$ 100 ≈ US$ 18,52 → II 20% = 20,00; ICMS por dentro sobre 120 = 24,58.
+        // R$ 80 + R$ 20 de frete = R$ 100 ≈ US$ 18,52 → II 0% (Portaria MF 1.342/2026); ICMS por dentro sobre 100 = 20,48.
         var t = ImportTaxCalculator.Calculate(new ImportTaxInput(Money.Brl(8000), Money.Brl(2000), Money.ZeroBrl, "SP"), Rc(), Usd);
         Assert.Equal(ImportTaxRegime.RemessaConforme, t.Regime);
         Assert.True(t.IsFinal);
         Assert.Equal(10000, t.CustomsValue.Amount);
         Assert.Equal(1852, t.CustomsValueUsdCents);
-        Assert.Equal(2000, t.ImportDuty.Amount);
-        Assert.Equal(ImportTaxCalculator.LowTierBasisPoints, t.ImportDutyBasisPoints);
-        Assert.Equal(2458, t.Icms.Amount);
+        Assert.Equal(0, t.ImportDuty.Amount);
+        Assert.Equal(0, t.ImportDutyBasisPoints);
+        Assert.Equal(0, t.ImportDutyDeduction.Amount);
+        Assert.Null(t.ImportDutyDeductionUsdCents);
+        Assert.Equal(2048, t.Icms.Amount);
         Assert.Equal(0, t.Ibs.Amount);
         Assert.Equal(0, t.Cbs.Amount);
-        Assert.Equal(4458, t.TotalTaxes.Amount);
-        Assert.Equal(14458, t.Total.Amount);
+        Assert.Equal(2048, t.TotalTaxes.Amount);
+        Assert.Equal(12048, t.Total.Amount);
         Assert.Equal("US$ 1,00 = R$ 5,40", t.UsdRate!.Display);
     }
 
     [Fact]
-    public void HighTier_DeductsTwentyDollars_AndAppliesIbsCbsAndStateIcms()
+    public void LowTier_FollowsTheConfiguredRate()
+    {
+        // A faixa muda por portaria: com 20% configurado (regra da Portaria MF 1.086/2024) o II volta a ser R$ 20,00.
+        var t = ImportTaxCalculator.Calculate(new ImportTaxInput(Money.Brl(10000), Money.ZeroBrl, Money.ZeroBrl, "SP"),
+            Rc(s => s.ImportDutyLowTierBasisPoints = 2000), Usd);
+        Assert.Equal(2000, t.ImportDutyBasisPoints);
+        Assert.Equal(2000, t.ImportDuty.Amount);
+        Assert.Equal(2458, t.Icms.Amount);
+    }
+
+    [Fact]
+    public void HighTier_DeductsThirtyDollars_AndAppliesIbsCbsAndStateIcms()
     {
         var settings = Rc(s =>
         {
@@ -53,11 +66,12 @@ public class ImportTaxBreakdownTests
         });
         var t = ImportTaxCalculator.Calculate(new ImportTaxInput(Money.Brl(100000), Money.ZeroBrl, Money.ZeroBrl, "rj"), settings, Usd);
         Assert.Equal(6000, t.ImportDutyBasisPoints);
-        Assert.Equal(10800, t.ImportDutyDeduction.Amount);
-        Assert.Equal(60000 - 10800, t.ImportDuty.Amount);
+        Assert.Equal(3000, t.ImportDutyDeductionUsdCents);
+        Assert.Equal(16200, t.ImportDutyDeduction.Amount); // US$ 30 × 5,40
+        Assert.Equal(60000 - 16200, t.ImportDuty.Amount);
         Assert.Equal("RJ", t.IcmsState);
         Assert.Equal(2000, t.IcmsBasisPoints);
-        var baseWithDuty = 100000 + 49200;
+        var baseWithDuty = 100000 + 43800;
         Assert.Equal(Money.RoundDiv(baseWithDuty * 10_000L, 8000) - baseWithDuty, t.Icms.Amount);
         Assert.Equal(Money.Brl(baseWithDuty).MultiplyBasisPoints(10).Amount, t.IbsState.Amount);
         Assert.Equal(Money.Brl(baseWithDuty).MultiplyBasisPoints(5).Amount, t.IbsMunicipal.Amount);
@@ -99,7 +113,8 @@ public class ImportTaxBreakdownTests
         var b = ImportTaxCalculator.Calculate(new ImportTaxInput(Money.Brl(100000), Money.ZeroBrl, Money.ZeroBrl), Rc(), Usd);
         var sum = ImportTaxBreakdown.Sum([a, b]);
         Assert.Equal(a.TotalTaxes.Amount + b.TotalTaxes.Amount, sum.TotalTaxes.Amount);
-        Assert.Equal(0, sum.ImportDutyBasisPoints); // 20% e 60%: varia
+        Assert.Equal(-1, sum.ImportDutyBasisPoints); // 0% e 60%: varia (0 é uma faixa válida)
+        Assert.Equal(3000, sum.ImportDutyDeductionUsdCents);
         Assert.Equal(1700, sum.IcmsBasisPoints);
     }
 

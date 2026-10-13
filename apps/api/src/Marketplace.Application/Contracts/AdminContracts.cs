@@ -253,7 +253,11 @@ public sealed record PlatformSettingsDto(
     int ConcentrationThreshold = 5,
     int AuditSamplePercent = 10,
     /// <summary>Somente leitura: com o ADE configurado a etiqueta da plataforma não pode ser desligada (Programa 9.5).</summary>
-    bool PlatformLabelLocked = false);
+    bool PlatformLabelLocked = false,
+    // Faixas do II no Remessa Conforme (Portaria MF 1.342/2026)
+    int ImportDutyLowTierBasisPoints = 0,
+    int ImportDutyHighTierBasisPoints = 6000,
+    long ImportDutyHighTierDeductionUsdCents = 3000);
 
 // Auditoria
 public sealed record AdminAuditLogDto(long Id, Guid? UserId, string? UserEmail, string Action, string? Target, DateTime OccurredAt, string? IpAddress);

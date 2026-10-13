@@ -502,7 +502,7 @@ export const TYPE_SCALE: TypeStep[] = [
 
 const brl = (amount: number) => ({ amount, currency: "BRL" as const });
 
-/** Remessa Conforme acima de US$ 50 (II de 60% com dedução de US$ 20, ICMS 17% por dentro), frete incluído no preço. */
+/** Remessa Conforme acima de US$ 50 (II de 60% com dedução de US$ 30, ICMS 17% por dentro), frete incluído no preço. */
 export const TAX_BREAKDOWN: ImportTaxBreakdownDto = {
   regime: "RemessaConforme",
   isFinal: true,
@@ -513,10 +513,11 @@ export const TAX_BREAKDOWN: ImportTaxBreakdownDto = {
   discount: brl(0),
   customsValue: brl(34900),
   customsValueUsd: { amount: 6463, currency: "USD" },
-  importDuty: brl(10140),
+  importDuty: brl(4740),
   importDutyBasisPoints: 6000,
-  importDutyDeduction: brl(10800),
-  icms: brl(9225),
+  importDutyDeduction: brl(16200),
+  importDutyDeductionUsd: { amount: 3000, currency: "USD" },
+  icms: brl(8119),
   icmsBasisPoints: 1700,
   icmsState: "SP",
   ibs: brl(0),
@@ -527,9 +528,9 @@ export const TAX_BREAKDOWN: ImportTaxBreakdownDto = {
   ibsMunicipalBasisPoints: 0,
   cbs: brl(0),
   cbsBasisPoints: 0,
-  totalTaxes: brl(19365),
-  total: brl(54265),
-  effectiveBasisPoints: 5549,
+  totalTaxes: brl(12859),
+  total: brl(47759),
+  effectiveBasisPoints: 3685,
   usdRate: { numerator: 540, denominator: 100, displayRate: "US$ 1,00 = R$ 5,40", quotedAt: "2026-10-09T12:00:00Z", source: "PTAX" },
   exceedsSimplifiedLimit: false,
 };

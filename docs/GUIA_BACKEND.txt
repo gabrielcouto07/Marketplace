@@ -254,8 +254,9 @@ Exemplo: o celular pede GET /api/products/smart-tv-55-ele1
 5.3 Imposto de importação (ImportTaxCalculator)
 - Modo `Flat` (padrão): alíquota única de platform_settings
   (ImportTaxBasisPoints = 6000 = 60%) sobre produtos + frete − desconto.
-- Modo `RemessaConforme`: até US$ 50 → 20%; acima → 60% com dedução de
-  US$ 20; depois ICMS 17% "por dentro" (base/(1−0,17) − base).
+- Modo `RemessaConforme`: até US$ 50 → 0%; acima → 60% com dedução de
+  US$ 30 (Portaria MF 1.342/2026; faixas editáveis em Configurações);
+  depois ICMS 17% "por dentro" (base/(1−0,17) − base).
 - Sempre devolve também o `EffectiveBasisPoints` para o front exibir
   "alíquota de X%". É ESTIMATIVA: a Receita pode cobrar diferente.
 - Parâmetros ficam na tabela platform_settings (linha única, id = 1).

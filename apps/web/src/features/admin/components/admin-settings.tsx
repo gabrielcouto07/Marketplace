@@ -1,7 +1,7 @@
 "use client";
 
 import type { ImportTaxMode, PlatformSettingsDto } from "@marketplace/contracts";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -49,6 +49,8 @@ const PERCENT_KEYS = [
   "platformFeeBasisPoints",
   "paymentFeeBasisPoints",
 ] as const;
+/** Faixas do II no Remessa Conforme (Portaria MF 1.342/2026): mudam por portaria, então ficam editáveis. */
+const DUTY_TIER_KEYS = ["importDutyLowTierBasisPoints", "importDutyHighTierBasisPoints"] as const;
 /** Tributos da reforma (LC 214/2025) e seguro: em pontos-base, exibidos em %. */
 const RC_PERCENT_KEYS = [
   "ibsStateBasisPoints",
@@ -68,7 +70,10 @@ const MONITORING_INT_KEYS: NumericKey[] = [
 /** "2026-10-09T12:00:00Z" ↔ "2026-10-09" para os campos de data. */
 const toDateInput = (iso: string | null | undefined) => (iso ? iso.slice(0, 10) : "");
 const fromDateInput = (value: string) => (value ? new Date(`${value}T12:00:00Z`).toISOString() : null);
-type PercentKey = (typeof PERCENT_KEYS)[number] | (typeof RC_PERCENT_KEYS)[number];
+type PercentKey =
+  | (typeof PERCENT_KEYS)[number]
+  | (typeof RC_PERCENT_KEYS)[number]
+  | (typeof DUTY_TIER_KEYS)[number];
 const DAY_KEYS: NumericKey[] = [
   "quoteLockMinutes",
   "pixExpirationMinutes",
@@ -81,6 +86,8 @@ const DAY_KEYS: NumericKey[] = [
 export function AdminSettings() {
   const t = useTranslations("admin");
   const tc = useTranslations("common");
+  // Dólar no idioma do painel ("US$ 30,00"), não no padrão en-US da moeda.
+  const locale = useLocale();
   const settings = useAdminSettings();
   const update = useAdminSettingsUpdate();
   const onError = useAdminErrorToast();
@@ -185,6 +192,25 @@ export function AdminSettings() {
               </SelectContent>
             </Select>
           </FormField>
+          <div className="grid gap-4 sm:grid-cols-3">
+            {DUTY_TIER_KEYS.map(percentField)}
+            <FormField
+              id="set-dutyDeduction"
+              label={t("settings_importDutyHighTierDeductionUsdCents")}
+              hint={t("settings_importDutyHighTierDeductionUsdCents_hint")}
+              error={errors.importDutyHighTierDeductionUsdCents?.[0]}
+            >
+              <Input
+                id="set-dutyDeduction"
+                inputMode="numeric"
+                className="tabular-nums"
+                value={formatMoney({ amount: form.importDutyHighTierDeductionUsdCents, currency: "USD" }, { locale })}
+                onChange={(e) =>
+                  set("importDutyHighTierDeductionUsdCents", Number(e.target.value.replace(/\D/g, "").slice(0, 6) || 0))
+                }
+              />
+            </FormField>
+          </div>
           <div className="grid gap-4 sm:grid-cols-2">{PERCENT_KEYS.map(percentField)}</div>
         </section>
 

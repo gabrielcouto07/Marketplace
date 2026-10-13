@@ -406,7 +406,7 @@ public sealed class CheckoutService(
             t.IbsState, t.IbsStateBasisPoints, t.IbsMunicipal, t.IbsMunicipalBasisPoints,
             t.Cbs, t.CbsBasisPoints, t.TotalTaxes, t.Total,
             t.UsdRate is { } r ? new UsdRateSnapshot(r.Numerator, r.Denominator, r.DisplayRate, r.QuotedAt, r.Source) : null,
-            t.ExceedsSimplifiedLimit);
+            t.ExceedsSimplifiedLimit, t.ImportDutyDeductionUsd?.Amount);
 
     private async Task<PlaceOrderResponseDto> BuildResponseAsync(Guid purchaseId, CancellationToken ct)
     {

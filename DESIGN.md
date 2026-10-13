@@ -324,7 +324,7 @@ burocráticos:
 
 - SellerBadge (reputação em barra, tempo de envio).
 - "Compra garantida" com ícone de escudo.
-- Tributos de importação discriminados (`TaxBreakdown`): caixa `surface-muted` com II (alíquota e dedução de US$ 20),
+- Tributos de importação discriminados (`TaxBreakdown`): caixa `surface-muted` com II (alíquota e, acima de US$ 50, a dedução em dólar),
   ICMS (com a UF), IBS, CBS e o total; abaixo, as notas de valor definitivo, câmbio usado e faixa de US$ 50. No
   checkout e no pedido vem antes a conta inteira (produtos, frete, seguro, outras despesas, desconto e valor aduaneiro
   com o equivalente em US$). Na PDP e no carrinho o título leva "(estimativa)": é prévia sem frete. Detalhes em

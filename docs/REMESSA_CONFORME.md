@@ -15,7 +15,7 @@ Base legal:
 
 | Norma | O que define |
 | --- | --- |
-| Lei 14.902/2024 e Portaria MF 1.086/2024 | Imposto de Importação de 20% até US$ 50 e de 60% com dedução de US$ 20 acima (até US$ 3.000) |
+| MP 1.357/2026 e Portaria MF 1.342/2026 | Imposto de Importação de 0% até US$ 50 e de 60% com dedução de US$ 30 acima (até US$ 3.000) para empresas do PRC. As faixas ficam em **Configurações** porque mudam por portaria (a regra anterior, da Portaria MF 1.086/2024, era 20% e US$ 20) |
 | Portaria Coana 130/2023, art. 8º | Requisitos para a empresa de comércio eletrônico (ECE) ser certificada: incisos I a V abaixo |
 | Portaria Coana 193/2026 | Monitoramento por três indicadores (contrafação, subvaloração, qualidade da declaração), faixas Ouro/Prata/Bronze/Advertência/Exclusão, ciclo de julho a junho e selo em dezembro para quem passa de 100 mil remessas |
 | LC 214/2025 | IBS (estadual e municipal) e CBS sobre importações; as alíquotas ficam configuráveis no admin |
@@ -52,8 +52,8 @@ rateado pelo subtotal de cada remessa (a última absorve o arredondamento).
 ```
 valor aduaneiro (VA) = produtos + frete + seguro + outras despesas − desconto
 VA em US$            = VA ÷ cotação PTAX (USD→BRL)
-II                   = VA × 20%                         se VA ≤ US$ 50
-                     = VA × 60% − (US$ 20 × cotação)    se VA > US$ 50   (até US$ 3.000)
+II                   = VA × faixa baixa (0%)                       se VA ≤ US$ 50
+                     = VA × faixa alta (60%) − (US$ 30 × cotação)  se VA > US$ 50   (até US$ 3.000)
 base                 = VA + II
 ICMS ("por dentro")  = base ÷ (1 − alíquota da UF) − base
 IBS estadual         = base × alíquota IBS estadual
@@ -72,16 +72,22 @@ Exemplo real (bicicleta ergométrica de R$ 899,00, frete grátis, entrega em SP,
 | Linha | Valor |
 | --- | --- |
 | Valor aduaneiro | R$ 899,00 (≈ US$ 166,48, acima de US$ 50) |
-| II: 60% − US$ 20 | R$ 539,40 − R$ 108,00 = **R$ 431,40** |
-| ICMS 17% (SP), por dentro | (899,00 + 431,40) ÷ 0,83 − 1.330,40 = **R$ 272,49** |
+| II: 60% − US$ 30 | R$ 539,40 − R$ 162,00 = **R$ 377,40** |
+| ICMS 17% (SP), por dentro | (899,00 + 377,40) ÷ 0,83 − 1.276,40 = **R$ 261,43** |
 | IBS e CBS | R$ 0,00 (alíquotas em 0 até a consultoria confirmar) |
-| **Total de tributos** | **R$ 703,89**, cobrado na compra |
+| **Total de tributos** | **R$ 638,83**, cobrado na compra |
+
+Até US$ 50 o II é zero e só o ICMS (e IBS/CBS, quando houver alíquota) entra: um produto de R$ 99,00 com R$ 24,90 de
+frete para SP paga R$ 30,45 de ICMS e nada de II.
 
 ### Configuração (admin › Configurações)
 
 | Campo | Padrão | Observação |
 | --- | --- | --- |
 | Modo | `RemessaConforme` | a migration `RemessaConforme` muda bancos existentes de `Flat` para este modo |
+| II até US$ 50 | 0% | `importDutyLowTierBasisPoints` (Portaria MF 1.342/2026) |
+| II acima de US$ 50 | 60% | `importDutyHighTierBasisPoints` |
+| Dedução acima de US$ 50 | US$ 30 | `importDutyHighTierDeductionUsdCents`; a migration `FaixasImpostoImportacao` grava 0%, 60% e US$ 30 nos bancos existentes |
 | ICMS padrão | 17% | `icmsBasisPoints` |
 | ICMS por estado | vazio | ex.: `SP=2000; RJ=2000` (pontos-base); vale a UF do endereço de entrega |
 | IBS estadual, IBS municipal, CBS | 0% | LC 214/2025: preencher com as alíquotas vigentes |
@@ -220,9 +226,9 @@ Autenticação: `Authorization: Bearer <ApiKey>` (ou o header e esquema configur
     "remetente": { "nome": "TecnoCentro CDE", "tipoDocumento": "5", "documento": "80012345-0", "endereco": { "logradouro": "Av. Monseñor Rodríguez 120, Microcentro", "cidade": "Ciudad del Este", "cep": "7000", "pais": "PY" } },
     "destinatario": { "nome": "Gabriel Demo", "tipoDocumento": "1", "documento": "52998224725", "endereco": { "logradouro": "Avenida Paulista, 1578 – Apto 42 – Bela Vista", "cidade": "São Paulo", "uf": "SP", "cep": "01310100", "pais": "BR" }, "telefone": "11987654321", "email": "demo@mktpy.com" },
     "mercadorias": [ { "sequencia": "1", "codElementoNcm": "85171300", "descricao": "Smartphone 6.1\" 128 GB dual chip 4G", "quantidade": 1, "valor": 999.00, "valorUnitario": 999.00, "moeda": "BRL", "peso": 0.42, "paisOrigem": "PY" } ],
-    "remessaConforme": { "codigoECE": "<CNPJ>", "nomeECE": "<razão social>", "codigoOND": "", "nomeOND": "", "dataCompra": "2026-10-05T15:00:00.000", "valorProvII": 491.40, "valorProvICMS": 305.26, "valorProvIBSEstadual": 0.00, "valorProvIBSMunicipal": 0.00, "valorProvCBS": 0.00 }
+    "remessaConforme": { "codigoECE": "<CNPJ>", "nomeECE": "<razão social>", "codigoOND": "", "nomeOND": "", "dataCompra": "2026-10-05T15:00:00.000", "valorProvII": 437.40, "valorProvICMS": 294.20, "valorProvIBSEstadual": 0.00, "valorProvIBSMunicipal": 0.00, "valorProvCBS": 0.00 }
   },
-  "valores": { "produtos": 999.00, "frete": 0.00, "seguro": 0.00, "desconto": 0.00, "valorAduaneiro": 999.00, "valorAduaneiroUsd": 185.00, "cambioUsdBrl": "US$ 1,00 = R$ 5,40", "regime": "RemessaConforme", "totalTributos": 796.66 }
+  "valores": { "produtos": 999.00, "frete": 0.00, "seguro": 0.00, "desconto": 0.00, "valorAduaneiro": 999.00, "valorAduaneiroUsd": 185.00, "cambioUsdBrl": "US$ 1,00 = R$ 5,40", "regime": "RemessaConforme", "totalTributos": 731.60 }
 }
 ```
 
@@ -243,7 +249,7 @@ remessa em `Falhou`, e o admin reenvia em **Remessas**.
 **Repassar tributos** — `POST {BaseUrl}/v1/tributos/repasses`
 
 ```json
-{ "versao": "1", "idRepasse": "…", "pedido": "PY-2026-100201", "numeroRemessa": "LB123456785PY", "referencia": "op-123", "dataPagamento": "2026-10-05T15:02:11.000", "valorII": 491.40, "valorICMS": 305.26, "valorIBSEstadual": 0.00, "valorIBSMunicipal": 0.00, "valorCBS": 0.00, "valorTotal": 796.66, "moeda": "BRL" }
+{ "versao": "1", "idRepasse": "…", "pedido": "PY-2026-100201", "numeroRemessa": "LB123456785PY", "referencia": "op-123", "dataPagamento": "2026-10-05T15:02:11.000", "valorII": 437.40, "valorICMS": 294.20, "valorIBSEstadual": 0.00, "valorIBSMunicipal": 0.00, "valorCBS": 0.00, "valorTotal": 731.60, "moeda": "BRL" }
 ```
 
 Resposta: `{ "referencia": "rep-987", "confirmado": true }`. Sem confirmação, o job tenta de novo (até 8 vezes);
@@ -297,7 +303,7 @@ emblema + "Remessa Conforme" + medalha + "Simulação" a partir do `lg`. No celu
 - Mock (MSW): `src/mocks/fixtures/remessa.ts` reproduz a calculadora, a tabela NCM (recorte), o Anexo I, as faixas e o S10;
   `src/mocks/governance.ts` e `src/mocks/handlers/governance.ts` reproduzem o Programa e a Política (comunicações,
   medidas, monitoramento, Receita, capacitação, auditoria, comprovante e dossiê). O banco do mock mudou para
-  `mktpy.mockdb.v4`.
+  `mktpy.mockdb.v5` (v5: faixas do II nas configurações).
 - Testes: `Unit/RemessaConformeTests.cs` (calculadora, NCM, faixas, S10, Code 128, marcas) e
   `Integration/RemessaConformeFlowTests.cs` (etiqueta e postagem, NCM e marca protegida, denúncia procedente,
   reincidência, verificação de loja, CPF do destinatário, integrações, política de envio do vendedor e segunda via da etiqueta);
