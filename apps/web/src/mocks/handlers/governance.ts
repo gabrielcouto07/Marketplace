@@ -121,13 +121,13 @@ export const governanceHandlers = [
     const body: SellerPolicyInfoDto = {
       version: db.settings.sellerPolicyVersion,
       approvedAt: db.settings.sellerPolicyApprovedAt,
-      brand: "Mercado Paraguai",
+      brand: "Mania Paraguai",
       // No mock a identidade da empresa não está configurada: o texto mostra o aviso de pendência.
       companyLegalName: null,
       companyDocumentType: null,
       companyDocument: null,
       companyAddress: null,
-      platformUrl: typeof window === "undefined" ? "https://mercadoparaguai.com.br" : window.location.origin,
+      platformUrl: typeof window === "undefined" ? "https://maniaparaguai.com.br" : window.location.origin,
       annex: ANNEX_ITEMS,
     };
     return HttpResponse.json(body);

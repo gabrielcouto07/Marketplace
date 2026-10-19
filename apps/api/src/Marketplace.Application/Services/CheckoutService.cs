@@ -384,7 +384,7 @@ public sealed class CheckoutService(
         {
             var result = await Gateway.CreatePaymentAsync(new CreatePaymentRequest(
                 paymentId, purchaseId, payment.Method, quote.Total, payerDocument, user.FullName, user.Email,
-                $"Marketplace PY — compra {purchaseId.ToString()[..8]}", expiresAt,
+                $"Mania Paraguai — compra {purchaseId.ToString()[..8]}", expiresAt,
                 payment.Card is null ? null : new CardTokenInput(payment.Card.Token!, payment.Card.HolderName ?? user.FullName,
                     payment.Card.Brand ?? "Cartão", payment.Card.Last4 ?? "0000", payment.Card.Installments),
                 quote.Subtotal.MultiplyBasisPoints(settings.PlatformFeeBasisPoints)), ct);

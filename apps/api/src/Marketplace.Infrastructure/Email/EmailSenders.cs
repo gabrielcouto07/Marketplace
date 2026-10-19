@@ -11,7 +11,7 @@ public sealed class EmailOptions
     /// <summary>"Log" (dev) ou "Smtp".</summary>
     public string Provider { get; set; } = "Log";
     public string FromAddress { get; set; } = "no-reply@marketplacepy.com";
-    public string FromName { get; set; } = "Marketplace PY";
+    public string FromName { get; set; } = "Mania Paraguai";
     public string SmtpHost { get; set; } = string.Empty;
     public int SmtpPort { get; set; } = 587;
     public string? SmtpUser { get; set; }

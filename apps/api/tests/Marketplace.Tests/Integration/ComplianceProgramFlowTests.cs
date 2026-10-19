@@ -53,7 +53,7 @@ public sealed class ComplianceProgramFlowTests : IClassFixture<ApiFactory>
 
         var created = await anonymous.PostAsJsonAsync("/api/reports", new
         {
-            product = $"https://mercadoparaguai.com.br/produto/{slug}?ref=x",
+            product = $"https://maniaparaguai.com.br/produto/{slug}?ref=x",
             reason = "PropriedadeIntelectual",
             details = "Uso da marca registrada sem autorização do titular.",
             reporterName = "Escritório de Marcas",

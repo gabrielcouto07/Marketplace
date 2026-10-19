@@ -5,7 +5,7 @@ com estratégias de cache, fallback offline, carrinho offline, prompt de instala
 
 ## Manifest — `src/app/manifest.ts` → `/manifest.webmanifest`
 
-`name` "Mercado Paraguai", `short_name` "Mercado Paraguai", `display: standalone`, `theme_color #006BEB` (Azul do header),
+`name` "Mania Paraguai", `short_name` "Mania Paraguai", `display: standalone`, `theme_color #006BEB` (Azul do header),
 `background_color #EAEDF0`, `start_url /?source=pwa`, ícones 192/512 + **maskable** 192/512 (`public/icons`),
 atalhos (Buscar, Carrinho, Meus pedidos), screenshot 1200×630. Referenciado no `<head>` pelo `metadata.manifest` do
 layout raiz; `appleWebApp` + `apple-touch-icon` para iOS; `viewport-fit=cover`.
@@ -61,5 +61,5 @@ layout raiz; `appleWebApp` + `apple-touch-icon` para iOS; `viewport-fit=cover`.
 1. `pnpm build` (gera `public/sw.js` com precache) e `pnpm start`.
 2. Servir em HTTPS (Cloudflare) — obrigatório para SW e instalação.
 3. Validar no Lighthouse: manifest, ícones maskable, SW com fetch handler, offline `/offline` respondendo.
-4. Trocar `public/brand/logo-mercado-paraguai.png` pela logo oficial em vetor ou ≥ 1024 px, rodar `pnpm icons` e renomear
-   os PNGs de `public/icons` (o SW guarda `/icons/*` em CacheFirst).
+4. Trocar `public/brand/icone-mania-paraguai*.png` e `logo-mania-paraguai.png` pela arte em vetor ou ≥ 1024 px, rodar
+   `pnpm icons` e renomear os PNGs de `public/icons` (o SW guarda `/icons/*` em CacheFirst).

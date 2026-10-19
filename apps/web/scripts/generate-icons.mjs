@@ -1,6 +1,11 @@
-// Gera os ícones PNG do manifest, favicons, apple-touch-icon e a imagem OG a partir da sacola
-// Mercado Paraguai (public/brand/logo-mercado-paraguai.png, ver DESIGN.md › Apêndice B, item 13).
-// A fonte é um raster de 256 px com fundo branco: o 512 sai ampliado ~2×.
+// Gera os ícones PNG do manifest, favicons, apple-touch-icon e a imagem OG a partir da identidade
+// Mania Paraguai (ver DESIGN.md › Apêndice B, item 14):
+//  - public/brand/icone-mania-paraguai.png: o tile Marinho com a sacola, cantos arredondados e fundo
+//    transparente (512 px, recortado da folha da marca: o 512 sai do tamanho do recorte, ampliado ~2,3×);
+//  - public/brand/icone-mania-paraguai-maskable.png: o mesmo tile num quadrado Marinho até a borda,
+//    com a sacola dentro da zona segura (maskable e apple-touch);
+//  - public/brand/logo-mania-paraguai.png: a logo horizontal (sacola + "Mania Paraguai"), fundo transparente,
+//    feita para superfícies claras.
 // Os nomes dos arquivos mudam quando a arte muda: o service worker guarda /icons/* em CacheFirst.
 // Fora do prebuild: os PNGs são versionados e a imagem do Docker não tem fontes (o texto da OG
 // sairia em caixinhas).
@@ -14,77 +19,55 @@ const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const outDir = join(root, "public/icons");
 mkdirSync(outDir, { recursive: true });
 
-/** Cores da identidade (DESIGN.md): tile branco, Marinho e as quatro cores da marca. */
-const TILE = "#FFFFFF";
-const MARINHO = "#0A1733";
-const WHITE_80 = "#CED1D6";
-const QUARTET = ["#F2263E", "#1552EB", "#00B852", "#FFD20A"];
+const brand = (file) => join(root, "public/brand", file);
+const TILE = brand("icone-mania-paraguai.png");
+const FULL_BLEED = brand("icone-mania-paraguai-maskable.png");
+const LOGO = brand("logo-mania-paraguai.png");
 
-/** A sacola recortada rente ao desenho (o PNG tem margem branca desigual). */
-const bag = await sharp(join(root, "public/brand/logo-mercado-paraguai.png"))
-  .trim({ background: TILE, threshold: 12 })
-  .toBuffer({ resolveWithObject: true });
-const bagRatio = bag.info.width / bag.info.height;
+/** Cores da logo: o Marinho do contorno do wordmark, o Vermelho e o Azul da sacola. */
+const MARINHO = "#041850";
+const VERMELHO = "#E8202E";
+const AZUL = "#1F55E0";
 
-/** A sacola com `height` px de altura, no fundo branco do próprio PNG. */
-const bagAt = (height) =>
-  sharp(bag.data)
-    .resize({ height: Math.round(height), width: Math.round(height * bagRatio), fit: "fill" })
-    .png()
-    .toBuffer();
+/** PNG com paleta (libimagequant, com dithering): a arte é raster e sem a paleta o 512 passa de 400 KB. */
+const PNG = { palette: true, quality: 90, effort: 10, compressionLevel: 9 };
 
-/**
- * Tile branco de `size` px com a sacola ocupando `fill` da altura. `radius` em fração do lado
- * (0.25 = o raio do tile do BrandMark); 0 = full-bleed, para quem aplica a própria máscara.
- */
-async function tile(size, { fill, radius }) {
-  const r = Math.round(size * radius);
-  const base = Buffer.from(
-    `<svg width="${size}" height="${size}"><rect width="${size}" height="${size}" rx="${r}" fill="${TILE}"/></svg>`,
-  );
-  return sharp(base)
-    .composite([{ input: await bagAt(size * fill), gravity: "center" }])
-    .png()
-    .toBuffer();
-}
+const resize = (file, size) => sharp(file).resize(size, size, { fit: "contain", background: "#00000000" }).png(PNG).toBuffer();
 
-/** Ícone "any": tile com cantos arredondados e fundo transparente fora dele. */
+/** Ícone "any": o tile com os cantos arredondados e fundo transparente fora dele. */
 async function plain(size) {
-  writeFileSync(join(outDir, `sacola-${size}.png`), await tile(size, { fill: 0.74, radius: 0.25 }));
+  writeFileSync(join(outDir, `mania-${size}.png`), await resize(TILE, size));
 }
 
-/** Maskable: branco até a borda e a sacola dentro da zona segura (círculo de 80 % central). */
+/** Maskable: Marinho até a borda e a sacola dentro da zona segura (círculo de 80 % central). */
 async function maskable(size) {
-  writeFileSync(
-    join(outDir, `sacola-maskable-${size}.png`),
-    await tile(size, { fill: 0.6, radius: 0 }),
-  );
+  writeFileSync(join(outDir, `mania-maskable-${size}.png`), await resize(FULL_BLEED, size));
 }
 
 /** Apple touch icon: full-bleed (o iOS arredonda os cantos). */
 async function apple(size) {
-  writeFileSync(join(outDir, "sacola-apple-touch.png"), await tile(size, { fill: 0.74, radius: 0 }));
+  writeFileSync(join(outDir, "mania-apple-touch.png"), await resize(FULL_BLEED, size));
 }
 
-/** OG / screenshot do manifest: Marinho, ícone, nome em branco e a faixa das quatro cores. */
+/** OG / screenshot do manifest: fundo branco, a logo horizontal, a frase em Marinho e a faixa Vermelho/Azul. */
 async function splash() {
   const w = 1200;
   const h = 630;
-  const icon = await tile(220, { fill: 0.74, radius: 0.25 });
-  const band = QUARTET.map(
-    (c, i) => `<rect x="${i * (w / 4)}" width="${w / 4}" height="10" fill="${c}"/>`,
-  ).join("");
-  const stripe = Buffer.from(`<svg width="${w}" height="10">${band}</svg>`);
-  const text = Buffer.from(
-    `<svg width="${w}" height="${h}"><text x="600" y="444" text-anchor="middle" font-family="Figtree, Arial, sans-serif" font-size="60" font-style="italic" font-weight="800" letter-spacing="-1.2" fill="#FFFFFF">Mercado Paraguai</text><text x="600" y="496" text-anchor="middle" font-family="Figtree, Arial, sans-serif" font-size="26" font-weight="500" fill="${WHITE_80}">Do Paraguai para todo o Brasil, com preço, frete e impostos claros</text></svg>`,
+  const logo = await sharp(LOGO).resize({ width: 780 }).png().toBuffer();
+  const { height: logoH } = await sharp(logo).metadata();
+  const stripe = Buffer.from(
+    `<svg width="${w}" height="12"><rect width="${w / 2}" height="12" fill="${VERMELHO}"/><rect x="${w / 2}" width="${w / 2}" height="12" fill="${AZUL}"/></svg>`,
   );
-  const buf = await sharp({ create: { width: w, height: h, channels: 4, background: MARINHO } })
+  const text = Buffer.from(
+    `<svg width="${w}" height="${h}"><text x="600" y="480" text-anchor="middle" font-family="Figtree, Arial, sans-serif" font-size="30" font-weight="600" fill="${MARINHO}">Do Paraguai para todo o Brasil, com preço, frete e impostos claros</text></svg>`,
+  );
+  const buf = await sharp({ create: { width: w, height: h, channels: 4, background: "#FFFFFF" } })
     .composite([
-      { input: icon, top: 140, left: 490 },
+      { input: logo, top: Math.round(270 - logoH / 2), left: 210 },
       { input: text, top: 0, left: 0 },
-      { input: stripe, top: h - 10, left: 0 },
+      { input: stripe, top: h - 12, left: 0 },
     ])
-    .png()
+    .png(PNG)
     .toBuffer();
   writeFileSync(join(root, "public/og-default.png"), buf);
 }
@@ -92,8 +75,7 @@ async function splash() {
 /** favicon.ico com PNGs embutidos (16, 32 e 48 px), formato aceito por todos os navegadores. */
 async function favicon() {
   const sizes = [16, 32, 48];
-  // Sacola maior no tile: nos tamanhos de aba a margem só tira leitura.
-  const images = await Promise.all(sizes.map((s) => tile(s, { fill: 0.9, radius: 0.25 })));
+  const images = await Promise.all(sizes.map((s) => resize(TILE, s)));
   const header = Buffer.alloc(6);
   header.writeUInt16LE(0, 0);
   header.writeUInt16LE(1, 2);

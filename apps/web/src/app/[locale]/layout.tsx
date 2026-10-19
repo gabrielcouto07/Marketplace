@@ -43,7 +43,7 @@ export async function generateMetadata({
     formatDetection: { telephone: false },
     icons: {
       icon: [{ url: "/favicon-32.png", sizes: "32x32", type: "image/png" }],
-      apple: "/icons/sacola-apple-touch.png",
+      apple: "/icons/mania-apple-touch.png",
     },
     openGraph: {
       type: "website",

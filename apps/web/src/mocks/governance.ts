@@ -772,7 +772,7 @@ export function receiptPdf(order: OrderDto): Uint8Array {
   const t = order.totals.taxes;
   const a = order.shippingAddress;
   const lines: TextPdfLine[] = [
-    { text: "Mercado Paraguai", bold: true, size: 16, gap: 2 },
+    { text: "Mania Paraguai", bold: true, size: 16, gap: 2 },
     { text: `Comprovante do pedido ${order.number}`, bold: true, size: 13, gap: 8 },
     { text: `Data da compra: ${new Date(order.createdAt).toLocaleString("pt-BR")}` },
     { text: `Comprador e destinatário: ${a.recipientName} (CPF ${maskDocument(a.recipientCpf) ?? "-"})` },

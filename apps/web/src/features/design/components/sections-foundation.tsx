@@ -64,17 +64,15 @@ const BRAND_COLORS = [
 export function BrandSection() {
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      <Demo label="Logo · Etiqueta" hint="public/logo.svg · detalhe muda com o tamanho">
+      <Demo label="Logo horizontal" hint="public/brand/logo-mania-paraguai.png · superfícies claras">
         <div className="flex flex-wrap items-end gap-6">
-          <BrandLogo size={96} title="Logo do Mercado Paraguai" />
-          <BrandLogo size={48} />
-          <BrandLogo size={40} />
-          <BrandLogo size={24} />
+          <BrandLogo height={96} title="Logo da Mania Paraguai" />
+          <BrandLogo height={48} />
         </div>
         <p className="mt-4 text-body-sm text-foreground-secondary">
-          Sacola do Paraguai (Vermelho · branco com estrela · Azul) com a etiqueta do Brasil presa
-          na alça, sobre o tile Amarelo. ≥ 42 px completo; abaixo disso sai a estrela; &lt; 28 px
-          saem barbante e círculo e a alça engrossa. Nunca recebe sombra, contorno ou recolorização.
+          Sacola Vermelho e Azul com a estrela e as linhas de velocidade + “Mania Paraguai” branco com
+          contorno Marinho. Raster recortado de fundo branco: só em superfície clara (no dark mode entra
+          o ícone do app). Nunca recebe sombra, contorno ou recolorização.
         </p>
       </Demo>
       <Demo
@@ -89,15 +87,16 @@ export function BrandSection() {
           <BrandMark tone="light" size="sm" />
         </div>
       </Demo>
-      <Demo label="Ícone do app" hint="public/icons/sacola-*.png · pnpm --filter web icons">
+      <Demo label="Ícone do app" hint="public/icons/mania-*.png · pnpm --filter web icons">
         <div className="flex flex-wrap items-end gap-6">
           <AppIcon size={96} />
           <AppIcon size={72} />
           <AppIcon size={40} />
         </div>
         <p className="mt-4 text-body-sm text-foreground-secondary">
-          Tile branco com a sacola do lockup. Sai no manifest (any e maskable), apple-touch,
-          favicon e OG; na interface, só no convite de instalação e em /instalar.
+          Tile Marinho com a sacola (public/brand/icone-mania-paraguai.png). Sai no manifest (any e
+          maskable), apple-touch e favicon e abre o lockup do header; na interface, também no convite de
+          instalação, em /instalar e no login em dark mode.
         </p>
       </Demo>
       <Demo label="Paleta da marca" hint="cores chapadas vivas em cima · tons claros embaixo">

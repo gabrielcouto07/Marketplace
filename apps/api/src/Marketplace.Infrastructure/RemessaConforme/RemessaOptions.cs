@@ -12,8 +12,8 @@ public sealed class RemessaConformeOptions
 /// <summary>Empresa de comércio eletrônico (ECE) que vai na etiqueta e no bloco "remessaConforme" da DIR.</summary>
 public sealed class PlatformIdentityOptions
 {
-    public string Brand { get; set; } = "Mercado Paraguai";
-    public string TradeName { get; set; } = "Mercado Paraguai";
+    public string Brand { get; set; } = "Mania Paraguai";
+    public string TradeName { get; set; } = "Mania Paraguai";
     /// <summary>Razão social (obrigatória fora do sandbox).</summary>
     public string LegalName { get; set; } = string.Empty;
     /// <summary>"CNPJ" (empresa nacional) ou "TIN" (estrangeira, com representante no Brasil).</summary>

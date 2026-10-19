@@ -139,7 +139,7 @@ app.UseOutputCache();
 if (app.Environment.IsDevelopment() || config.GetValue<bool>("OpenApi:Enabled"))
 {
     app.MapOpenApi();
-    app.MapScalarApiReference(o => o.WithTitle("Marketplace PY API"));
+    app.MapScalarApiReference(o => o.WithTitle("Mania Paraguai API"));
 }
 app.MapHealthChecks("/health");
 

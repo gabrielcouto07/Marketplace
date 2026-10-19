@@ -1,4 +1,4 @@
-# DESIGN.md — Mercado Paraguai
+# DESIGN.md — Mania Paraguai
 
 Este documento é a fonte de verdade visual e de código de UI do projeto. Toda tarefa de interface deve
 segui-lo. Os apêndices no final registram a análise da marca (ícone) e as decisões de adaptação tomadas
@@ -23,11 +23,12 @@ Cada decisão visual deve ter motivo.
 
 # O produto
 
-**Mercado Paraguai** é um marketplace PWA mobile-first que conecta vendedores do Paraguai a
-compradores no Brasil (referências funcionais: Mercado Livre e Amazon). A marca é o **logo
-"Etiqueta"**: uma sacola nas faixas do Paraguai com a etiqueta do Brasil presa na alça, nas
-cores vivas das duas bandeiras (Vermelho, Azul, Verde, Amarelo) sobre a barra Azul do
-topo. O app deve transmitir: CONFIANÇA (comprar de outro país dá medo), CLAREZA (preço,
+**Mania Paraguai** é um marketplace PWA mobile-first que conecta vendedores do Paraguai a
+compradores no Brasil (referências funcionais: Mercado Livre e Amazon). A marca é a **sacola
+Mania Paraguai**: uma sacola Vermelho e Azul com a estrela branca e linhas de velocidade, num
+tile Marinho, com o nome em branco contornado de Marinho (Apêndice B, item 14), sobre a barra
+Azul do topo; a interface segue nas cores vivas das duas bandeiras (Vermelho, Azul, Verde,
+Amarelo). O app deve transmitir: CONFIANÇA (comprar de outro país dá medo), CLAREZA (preço,
 frete, impostos e prazo sempre explícitos) e ENERGIA (ofertas, descoberta) com a
 familiaridade de uma grande loja: quem já comprou na Amazon se acha aqui sem pensar.
 
@@ -427,7 +428,11 @@ imposto ou prazo significa.
 
 ---
 
-# Apêndice A — A marca: logo "Etiqueta"
+# Apêndice A — A marca: logo "Etiqueta" (histórico)
+
+> **Substituída em 19/10/2026 pela marca Mania Paraguai** (Apêndice B, item 14): `public/logo.svg`,
+> `public/brand/app-icon-1024.png` e o SVG do `BrandLogo` saíram do código. Este apêndice fica como
+> registro do desenho antigo.
 
 Geometria do caminho A do arquivo `Marketplace Paraguai — identidade.html`, nas cores vivas
 desde 01/10/2026. Vetor: `apps/web/public/logo.svg` (viewBox 120×120). Componente React com a
@@ -629,3 +634,27 @@ Imagens`). Regras derivadas:
       dias. A OG passou a dizer "Mercado Paraguai". `<AppIcon size />` (`components/layout/app-icon.tsx`)
       mostra o mesmo PNG no convite de instalação e em `/instalar`, no lugar do `BrandLogo`. Fonte
       de 256 px: o 512 sai ampliado; regerar quando houver a sacola em vetor ou em ≥ 1024 px.
+14. **"Mania Paraguai" (19/10/2026)**: a pedido, a partir da folha da marca enviada (logo principal,
+    vertical, horizontal, ícone do app, avatar, versão para fundo escuro e vetorial).
+    - **Nome**: o app passou a se chamar **Mania Paraguai** (`site.ts`, `common.siteName`, manifest,
+      OG, e-mails — `Email:FromName` —, etiqueta e comprovante da Remessa Conforme — `RemessaConforme:Platform`
+      Brand/TradeName). Em pt-BR o nome é feminino ("Venda na Mania Paraguai", "A Mania Paraguai é um
+      PWA"); em es-PY entra sem artigo. As chaves de armazenamento local (`mktpy.*`) não mudaram.
+    - **Arte**: três PNGs em `public/brand`, recortados da folha da marca (raster, sem vetor):
+      `logo-mania-paraguai.png` (779 × 273, logo horizontal com fundo transparente, recortada do
+      fundo branco), `icone-mania-paraguai.png` (512 px, o tile Marinho "Ícone para app" com máscara
+      arredondada de raio 22,7 %) e `icone-mania-paraguai-maskable.png` (700 px, o tile no centro com o
+      Marinho estendido até a borda; a sacola fica dentro da zona segura). Cores da logo em
+      `LOGO_COLORS` (`brand-logo.tsx`): contorno Marinho `#041850`, Vermelho `#E8202E`, Azul `#1F55E0`.
+    - **Lockup**: `BrandMark` = o tile Marinho (56 px no header desktop, 36 px no mobile, rodapé e
+      painéis) + "Mania Paraguai" numa linha, Figtree 800 itálico branco com contorno Marinho de 2 px
+      (o da logo). O wordmark fica em texto, e não no PNG, para ficar nítido em qualquer tamanho.
+    - **`BrandLogo`** deixou de ser o SVG "Etiqueta" (saíram `public/logo.svg` e
+      `public/brand/app-icon-1024.png`): agora é a logo horizontal, só para superfície clara (login,
+      `/design`); no dark mode mostra o ícone do app, porque o recorte do fundo branco deixa halo em
+      fundo escuro.
+    - **Ícones e OG**: `pnpm --filter web icons` gera `public/icons/mania-*.png` (nome novo pelo
+      CacheFirst do SW), favicon e a OG: fundo branco, logo horizontal, frase em Marinho e faixa
+      Vermelho/Azul. PNG com paleta (libimagequant): sem ela o 512 passa de 400 KB.
+    - **Pendente**: a logo em vetor ou em ≥ 1024 px. O tile do ícone tem 225 px na folha, então o 512
+      sai ampliado ~2,3×; com a arte maior, trocar os três PNGs e rodar `pnpm --filter web icons`.

@@ -17,32 +17,32 @@ export default function manifest(): MetadataRoute.Manifest {
     lang: "pt-BR",
     categories: ["shopping"],
     icons: [
-      { src: "/icons/sacola-192.png", sizes: "192x192", type: "image/png" },
-      { src: "/icons/sacola-512.png", sizes: "512x512", type: "image/png" },
+      { src: "/icons/mania-192.png", sizes: "192x192", type: "image/png" },
+      { src: "/icons/mania-512.png", sizes: "512x512", type: "image/png" },
       {
-        src: "/icons/sacola-maskable-192.png",
+        src: "/icons/mania-maskable-192.png",
         sizes: "192x192",
         type: "image/png",
         purpose: "maskable",
       },
       {
-        src: "/icons/sacola-maskable-512.png",
+        src: "/icons/mania-maskable-512.png",
         sizes: "512x512",
         type: "image/png",
         purpose: "maskable",
       },
     ],
     shortcuts: [
-      { name: "Buscar", url: "/busca", icons: [{ src: "/icons/sacola-192.png", sizes: "192x192" }] },
+      { name: "Buscar", url: "/busca", icons: [{ src: "/icons/mania-192.png", sizes: "192x192" }] },
       {
         name: "Carrinho",
         url: "/carrinho",
-        icons: [{ src: "/icons/sacola-192.png", sizes: "192x192" }],
+        icons: [{ src: "/icons/mania-192.png", sizes: "192x192" }],
       },
       {
         name: "Meus pedidos",
         url: "/conta/pedidos",
-        icons: [{ src: "/icons/sacola-192.png", sizes: "192x192" }],
+        icons: [{ src: "/icons/mania-192.png", sizes: "192x192" }],
       },
     ],
     screenshots: [

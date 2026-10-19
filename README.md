@@ -42,7 +42,7 @@ Outros comandos (raiz ou `apps/web`):
 | `pnpm lint` / `pnpm --filter web lint:fix` | ESLint                                                                                          |
 | `pnpm format`                              | Prettier                                                                                        |
 | `pnpm --filter web images`                 | baixa/otimiza as fotos de produtos, categorias, banners e lojas (ver `docs/MOCKS.md › Imagens`) |
-| `pnpm --filter web icons`                  | regenera ícones do manifest a partir de `public/logo.svg`                                       |
+| `pnpm --filter web icons`                  | regenera ícones do manifest, favicon e OG a partir de `public/brand/*mania-paraguai*.png`       |
 | `pnpm --filter web sw`                     | reconstrói o service worker                                                                     |
 
 > A porta padrão é **3210** (3000 estava em uso na máquina de desenvolvimento). Altere em `apps/web/package.json`

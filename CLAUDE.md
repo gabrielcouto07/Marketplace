@@ -1,4 +1,4 @@
-# Mercado Paraguai — instruções para o Claude
+# Mania Paraguai — instruções para o Claude
 
 Monorepo pnpm. O app é `apps/web` (Next.js 16 App Router, React 19, TypeScript strict, Tailwind CSS 4,
 shadcn/ui sobre Base UI, TanStack Query, Zustand, MSW, next-intl, Serwist). Porta de dev: 3210.
@@ -36,7 +36,7 @@ base, atualize a seção correspondente lá.
 pnpm install            # raiz
 pnpm dev                # http://localhost:3210 (mock MSW ativado por .env.local)
 pnpm typecheck && pnpm lint && pnpm build
-pnpm --filter web icons # regenera ícones a partir de apps/web/public/brand/logo-mercado-paraguai.png
+pnpm --filter web icons # regenera ícones e OG a partir de apps/web/public/brand/icone-mania-paraguai*.png e logo-mania-paraguai.png
 ```
 
 ## Onde estão as coisas
@@ -46,9 +46,11 @@ pnpm --filter web icons # regenera ícones a partir de apps/web/public/brand/log
 - Componentes base: `apps/web/src/components/ui` (shadcn) e `apps/web/src/components/shared`
   (ProductCard, PriceTag, SellerBadge, TrustBadge, OrderTimeline, EmptyState…).
 - Layout: `apps/web/src/components/layout` (StoreShell, Header, Footer, BottomNav, BrandMark, TricolorStripe).
-- Marca: `apps/web/public/brand/logo-mercado-paraguai.png` (sacola; favicon, ícones do manifest e OG saem dela via
-  `pnpm --filter web icons`), `apps/web/public/logo.svg` (logo "Etiqueta" antigo, vetor),
-  `components/layout/brand-logo.tsx`, `brand-mark.tsx` e `components/shared/flags.tsx`. Geometria original:
+- Marca (Mania Paraguai, 19/10/2026): `apps/web/public/brand/logo-mania-paraguai.png` (logo horizontal, superfícies
+  claras), `icone-mania-paraguai.png` (tile Marinho com a sacola: lockup do header, ícones e favicon) e
+  `icone-mania-paraguai-maskable.png` (o tile até a borda: maskable e apple-touch); `pnpm --filter web icons` gera
+  `public/icons/mania-*.png`, favicon e OG. Componentes: `components/layout/brand-logo.tsx`, `brand-mark.tsx`,
+  `app-icon.tsx` e `components/shared/flags.tsx`. Geometria original:
   `../Marketplace Paraguai — identidade.html` (as cores e o nome de lá foram substituídos em 01/10/2026).
 - Docs técnicas: `docs/*.md` (arquitetura, contratos, mocks, PWA, i18n, convenções).
 

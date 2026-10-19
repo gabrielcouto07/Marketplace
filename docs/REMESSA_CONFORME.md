@@ -227,7 +227,7 @@ Autenticação: `Authorization: Bearer <ApiKey>` (ou o header e esquema configur
   "pedido": "PY-2026-100201",
   "servico": "ECONOMICO",
   "transportadoraSugerida": "Correo Paraguayo + Correios",
-  "etiqueta": { "marca": "Mercado Paraguai", "nomeComercial": "Mercado Paraguai", "razaoSocial": "…", "tipoDocumento": "CNPJ", "documento": "…", "ade": "…" },
+  "etiqueta": { "marca": "Mania Paraguai", "nomeComercial": "Mania Paraguai", "razaoSocial": "…", "tipoDocumento": "CNPJ", "documento": "…", "ade": "…" },
   "remessa": {
     "descricao": "Smartphone 6.1\" 128 GB dual chip 4G",
     "destinacaoComercial": "n",

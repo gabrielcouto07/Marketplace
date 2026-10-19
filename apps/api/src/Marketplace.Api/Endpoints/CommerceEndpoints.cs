@@ -88,7 +88,7 @@ public static class CommerceEndpoints
                 return Results.Redirect(payment.BoletoPdfUrl);
             var pdf = SimplePdf.Build(
             [
-                "BOLETO DE DEMONSTRACAO - Marketplace PY",
+                "BOLETO DE DEMONSTRACAO - Mania Paraguai",
                 $"Pagamento: {payment.Id}",
                 $"Valor: R$ {payment.Amount / 100m:N2}",
                 $"Vencimento: {payment.BoletoDueDate:dd/MM/yyyy}",

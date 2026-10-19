@@ -16,14 +16,14 @@ interface BrandMarkProps {
 }
 
 const TILE = {
-  sm: { px: 36, radius: "rounded-[9px]", text: "text-[20px]" },
-  md: { px: 56, radius: "rounded-[14px]", text: "text-[26px]" },
+  sm: { px: 36, text: "text-[20px]" },
+  md: { px: 56, text: "text-[26px]" },
 } as const;
 
 /**
- * Lockup da marca: a sacola nas cores do Paraguai num tile branco + "Mercado Paraguai" em uma
- * linha, Figtree 800 itálico com contorno Tinta pintado por baixo do preenchimento (sem ele o
- * branco some em superfície clara). Sempre linka para a home.
+ * Lockup da marca: o ícone do app (tile Marinho com a sacola) + "Mania Paraguai" em uma linha,
+ * Figtree 800 itálico branco com o contorno Marinho da logo pintado por baixo do preenchimento (sem
+ * ele o branco some em superfície clara). Sempre linka para a home.
  */
 export function BrandMark({ tone = "dark", size = "md", compact, className }: BrandMarkProps) {
   const t = useTranslations("common");
@@ -39,20 +39,15 @@ export function BrandMark({ tone = "dark", size = "md", compact, className }: Br
         className,
       )}
     >
-      <span
+      <Image
+        src="/brand/icone-mania-paraguai.png"
+        alt=""
         aria-hidden
-        className={cn("block shrink-0 overflow-hidden bg-white", tile.radius)}
-        style={{ width: tile.px, height: tile.px }}
-      >
-        <Image
-          src="/brand/logo-mercado-paraguai.png"
-          alt=""
-          width={tile.px}
-          height={tile.px}
-          priority={size === "md"}
-          className="block size-full object-contain"
-        />
-      </span>
+        width={tile.px}
+        height={tile.px}
+        priority={size === "md"}
+        className="block shrink-0"
+      />
       {compact ? null : (
         <span
           aria-hidden

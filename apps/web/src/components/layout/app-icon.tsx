@@ -10,16 +10,17 @@ interface AppIconProps {
 
 /**
  * O ícone do app instalado (o mesmo PNG do manifest, gerado por `pnpm --filter web icons`): tile
- * branco com a sacola. O contorno segura o tile branco sobre a superfície clara. Decorativo.
+ * Marinho com a sacola, cantos arredondados e fundo transparente. Decorativo.
  */
 export function AppIcon({ size, className }: AppIconProps) {
   return (
     <Image
-      src="/icons/sacola-192.png"
+      src="/icons/mania-192.png"
       alt=""
+      aria-hidden
       width={size}
       height={size}
-      className={cn("shrink-0 rounded-[25%] ring-1 ring-border", className)}
+      className={cn("shrink-0", className)}
     />
   );
 }

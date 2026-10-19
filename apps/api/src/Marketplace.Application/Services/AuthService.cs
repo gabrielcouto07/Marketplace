@@ -147,7 +147,7 @@ public sealed class AuthService(
         var link = links.PasswordReset(token);
         await email.SendAsync(new EmailMessage(
             user.Email,
-            "Redefinição de senha — Marketplace PY",
+            "Redefinição de senha — Mania Paraguai",
             $"Olá, {user.FullName}!\n\nPara redefinir sua senha, acesse: {link}\n\nO link vale por {Options.PasswordResetMinutes} minutos. Se você não pediu isso, ignore este e-mail."), ct);
     }
 
