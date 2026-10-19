@@ -64,25 +64,33 @@ const BRAND_COLORS = [
 export function BrandSection() {
   return (
     <div className="grid gap-4 md:grid-cols-2">
-      <Demo label="Logo horizontal" hint="public/brand/logo-mania-paraguai.png · superfícies claras">
+      <Demo
+        label="Logo"
+        hint="public/brand/logo-mania-paraguai-v2.png e sacola-mania-paraguai.png · qualquer superfície"
+      >
         <div className="flex flex-wrap items-end gap-6">
           <BrandLogo height={96} title="Logo da Mania Paraguai" />
           <BrandLogo height={48} />
+          <BrandLogo variant="symbol" height={48} />
         </div>
         <p className="mt-4 text-body-sm text-foreground-secondary">
           Sacola Vermelho e Azul com a estrela e as linhas de velocidade + “Mania Paraguai” branco com
-          contorno Marinho. Raster recortado de fundo branco: só em superfície clara (no dark mode entra
-          o ícone do app). Nunca recebe sombra, contorno ou recolorização.
+          contorno Marinho, a arte da folha da marca com fundo transparente (sem halo em fundo escuro).
+          A sacola sozinha (variant symbol) entra onde não cabe o nome. Nunca recebe sombra, contorno
+          ou recolorização.
         </p>
       </Demo>
       <Demo
-        label="Lockup"
-        hint="tone dark (padrão) na barra Marinho · tone light em superfícies claras"
+        label="BrandMark"
+        hint="a logo com link para a home · md 56 px no header desktop · sm 44 px · compact = a sacola"
       >
         <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-3 rounded-lg bg-brand-deep p-4">
+          <div className="flex flex-col items-start gap-3 rounded-lg bg-header p-4">
             <BrandMark />
             <BrandMark size="sm" />
+          </div>
+          <div className="flex items-center gap-3 rounded-lg bg-brand-deep p-4">
+            <BrandMark compact />
           </div>
           <BrandMark tone="light" size="sm" />
         </div>
@@ -95,8 +103,7 @@ export function BrandSection() {
         </div>
         <p className="mt-4 text-body-sm text-foreground-secondary">
           Tile Marinho com a sacola (public/brand/icone-mania-paraguai.png). Sai no manifest (any e
-          maskable), apple-touch e favicon e abre o lockup do header; na interface, também no convite de
-          instalação, em /instalar e no login em dark mode.
+          maskable), apple-touch e favicon; na interface, só no convite de instalação e em /instalar.
         </p>
       </Demo>
       <Demo label="Paleta da marca" hint="cores chapadas vivas em cima · tons claros embaixo">

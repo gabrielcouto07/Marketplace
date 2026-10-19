@@ -21,9 +21,10 @@
 
 ## Marca
 
-Mania Paraguai: `public/brand/logo-mania-paraguai.png` (logo horizontal), `icone-mania-paraguai.png` (tile Marinho com
-a sacola) e `icone-mania-paraguai-maskable.png` (o tile até a borda). `components/layout/brand-logo.tsx` (`<BrandLogo />`,
-a logo horizontal em superfícies claras; no dark mode, o ícone), `brand-mark.tsx` (tile + wordmark "Mania Paraguai"),
+Mania Paraguai: `public/brand/logo-mania-paraguai-v2.png` (a logo sem fundo), `sacola-mania-paraguai.png` (só a sacola),
+`icone-mania-paraguai.png` (tile Marinho com a sacola) e `icone-mania-paraguai-maskable.png` (o tile até a borda).
+`components/layout/brand-logo.tsx` (`<BrandLogo variant="logo|symbol" />`, em qualquer superfície), `brand-mark.tsx` (a
+logo com link para a home no header, rodapé e painéis; `compact` = a sacola),
 `app-icon.tsx` (`<AppIcon />`), `tricolor-stripe.tsx`. Ícones do manifest, favicon e OG são gerados por
 `scripts/generate-icons.mjs` a partir desses PNGs.
 

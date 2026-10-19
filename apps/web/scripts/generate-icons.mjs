@@ -4,8 +4,7 @@
 //    transparente (512 px, recortado da folha da marca: o 512 sai do tamanho do recorte, ampliado ~2,3×);
 //  - public/brand/icone-mania-paraguai-maskable.png: o mesmo tile num quadrado Marinho até a borda,
 //    com a sacola dentro da zona segura (maskable e apple-touch);
-//  - public/brand/logo-mania-paraguai.png: a logo horizontal (sacola + "Mania Paraguai"), fundo transparente,
-//    feita para superfícies claras.
+//  - public/brand/logo-mania-paraguai-v2.png: a logo (sacola + "Mania Paraguai"), fundo transparente sem halo.
 // Os nomes dos arquivos mudam quando a arte muda: o service worker guarda /icons/* em CacheFirst.
 // Fora do prebuild: os PNGs são versionados e a imagem do Docker não tem fontes (o texto da OG
 // sairia em caixinhas).
@@ -22,7 +21,7 @@ mkdirSync(outDir, { recursive: true });
 const brand = (file) => join(root, "public/brand", file);
 const TILE = brand("icone-mania-paraguai.png");
 const FULL_BLEED = brand("icone-mania-paraguai-maskable.png");
-const LOGO = brand("logo-mania-paraguai.png");
+const LOGO = brand("logo-mania-paraguai-v2.png");
 
 /** Cores da logo: o Marinho do contorno do wordmark, o Vermelho e o Azul da sacola. */
 const MARINHO = "#041850";

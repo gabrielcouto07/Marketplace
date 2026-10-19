@@ -1,47 +1,44 @@
 import Image from "next/image";
 
-import { AppIcon } from "@/components/layout/app-icon";
 import { cn } from "@/lib/utils";
 
-/*
- * Cores da logo Mania Paraguai (DESIGN.md › Apêndice B, item 14). São do asset, não tokens de UI: a
- * logo nunca é recolorida, nem no dark mode.
+/**
+ * A arte da folha da marca com fundo transparente (recorte sem halo: serve em claro, no Azul do header
+ * e no Marinho). Nunca é recolorida, nem no dark mode (DESIGN.md › Apêndice B, item 14). O nome do
+ * arquivo muda quando a arte muda: `/_next/image` fica em CacheFirst no service worker.
  */
-export const LOGO_COLORS = {
-  /** Marinho do contorno do wordmark. */
-  ink: "#041850",
-  vermelho: "#E8202E",
-  azul: "#1F55E0",
-  branco: "#FFFFFF",
+const ART = {
+  /** Sacola + "Mania Paraguai" em duas linhas: 773 × 259 px. */
+  logo: { src: "/brand/logo-mania-paraguai-v2.png", ratio: 773 / 259 },
+  /** Só a sacola com a alça e as linhas de velocidade: 321 × 259 px. */
+  symbol: { src: "/brand/sacola-mania-paraguai.png", ratio: 321 / 259 },
 } as const;
 
-/** public/brand/logo-mania-paraguai.png: 779 × 273 px. */
-const LOGO_RATIO = 779 / 273;
-
 interface BrandLogoProps {
-  /** Altura da logo horizontal em px. */
+  /** Altura em px. */
   height?: number;
+  /** `symbol`: só a sacola, sem o wordmark. */
+  variant?: keyof typeof ART;
   /** Texto acessível; sem `title` a logo é decorativa. */
   title?: string;
+  priority?: boolean;
   className?: string;
 }
 
-/**
- * Logo horizontal (sacola + "Mania Paraguai") para superfícies claras. O PNG foi recortado de um fundo
- * branco e ganha halo em fundo escuro, então no dark mode entra o ícone do app (tile Marinho).
- */
-export function BrandLogo({ height = 48, title, className }: BrandLogoProps) {
+/** A logo Mania Paraguai (ou só a sacola) em qualquer superfície. */
+export function BrandLogo({ height = 48, variant = "logo", title, priority, className }: BrandLogoProps) {
+  const art = ART[variant];
   return (
     <span className={cn("inline-flex shrink-0", className)} role={title ? "img" : undefined} aria-label={title}>
       <Image
-        src="/brand/logo-mania-paraguai.png"
+        src={art.src}
         alt=""
         aria-hidden
-        width={Math.round(height * LOGO_RATIO)}
+        width={Math.round(height * art.ratio)}
         height={height}
-        className="block dark:hidden"
+        priority={priority}
+        className="block"
       />
-      <AppIcon size={height} className="hidden dark:block" />
     </span>
   );
 }

@@ -25,9 +25,9 @@ Cada decisão visual deve ter motivo.
 
 **Mania Paraguai** é um marketplace PWA mobile-first que conecta vendedores do Paraguai a
 compradores no Brasil (referências funcionais: Mercado Livre e Amazon). A marca é a **sacola
-Mania Paraguai**: uma sacola Vermelho e Azul com a estrela branca e linhas de velocidade, num
-tile Marinho, com o nome em branco contornado de Marinho (Apêndice B, item 14), sobre a barra
-Azul do topo; a interface segue nas cores vivas das duas bandeiras (Vermelho, Azul, Verde,
+Mania Paraguai**: uma sacola Vermelho e Azul com a estrela branca e linhas de velocidade, com o
+nome em branco contornado de Marinho (Apêndice B, item 14), sem fundo, sobre a barra Azul do
+topo; a interface segue nas cores vivas das duas bandeiras (Vermelho, Azul, Verde,
 Amarelo). O app deve transmitir: CONFIANÇA (comprar de outro país dá medo), CLAREZA (preço,
 frete, impostos e prazo sempre explícitos) e ENERGIA (ofertas, descoberta) com a
 familiaridade de uma grande loja: quem já comprou na Amazon se acha aqui sem pensar.
@@ -352,18 +352,18 @@ burocráticos:
 - Item ativo em --primary com barra indicadora de 3 px no topo. Badge do carrinho em --cta.
 - Header sticky em Azul (`header`), texto branco, links com contorno branco de 1 px
   no hover e anel Amarelo de realce no foco (`link-on-deep`):
-  - desktop (≥ md): barra de 64 px com o lockup (logo 40), "Enviar para / CEP" (≥ lg), a
+  - desktop (≥ md): barra com a logo (56 px de altura), "Enviar para / CEP" (≥ lg), a
     busca branca de 44 px (raio 6, botão Laranja quadrado à direita), "Olá, faça seu login /
     Conta e favoritos", "Acompanhe seus / Pedidos" (≥ lg) e o carrinho com contador. Embaixo,
     a faixa de departamentos de 40 px em `header-raised`: Todos (→ departamentos),
     Ofertas do dia, Mais vendidos, Novidades, Lojas, Favoritos e, à direita, o selo Remessa
     Conforme (quando ligado) e "Venda no Paraguai Já". Total: 104 px (`--header-height`).
-  - mobile, home: lockup + "Entrar ›" e carrinho numa linha de 56 px; a busca branca de 44 px
+  - mobile, home: logo (44 px) + "Entrar ›" e carrinho numa linha de 56 px; a busca branca de 44 px
     com o botão Laranja; a faixa "Enviar para CEP …" de 40 px em `header-raised`.
-  - mobile, páginas internas: uma linha de 56 px com voltar (ou logo compacto), busca ou
+  - mobile, páginas internas: uma linha de 56 px com voltar (ou a sacola sozinha, 36 px), busca ou
     título, e o carrinho. A busca (`/busca`) desenha a própria barra Azul com o input.
 - Footer: "Voltar ao início" em `brand-deep-raised`, colunas de links (só rotas
-  existentes) em `brand-deep`, lockup e a faixa das quatro cores na base. Não aparece nos
+  existentes) em `brand-deep`, a logo e a faixa das quatro cores na base. Não aparece nos
   fluxos sem bottom nav (checkout, pagamento, login).
 - Hero da home: carrossel de banners de ponta a ponta (até 1500 px), scrim em
   `brand-deep`, chip do título no tom do banner, manchete em hero/hero-lg; setas laterais
@@ -641,18 +641,25 @@ Imagens`). Regras derivadas:
       Brand/TradeName). Em pt-BR o nome é feminino ("Venda na Mania Paraguai", "A Mania Paraguai é um
       PWA"); em es-PY entra sem artigo. As chaves de armazenamento local (`mktpy.*`) não mudaram.
     - **Arte**: três PNGs em `public/brand`, recortados da folha da marca (raster, sem vetor):
-      `logo-mania-paraguai.png` (779 × 273, logo horizontal com fundo transparente, recortada do
-      fundo branco), `icone-mania-paraguai.png` (512 px, o tile Marinho "Ícone para app" com máscara
+      `logo-mania-paraguai.png` (779 × 273, logo horizontal recortada do fundo branco, com halo em
+      fundo escuro; trocada à tarde pela `-v2`, abaixo), `icone-mania-paraguai.png` (512 px, o tile Marinho "Ícone para app" com máscara
       arredondada de raio 22,7 %) e `icone-mania-paraguai-maskable.png` (700 px, o tile no centro com o
       Marinho estendido até a borda; a sacola fica dentro da zona segura). Cores da logo em
-      `LOGO_COLORS` (`brand-logo.tsx`): contorno Marinho `#041850`, Vermelho `#E8202E`, Azul `#1F55E0`.
-    - **Lockup**: `BrandMark` = o tile Marinho (56 px no header desktop, 36 px no mobile, rodapé e
-      painéis) + "Mania Paraguai" numa linha, Figtree 800 itálico branco com contorno Marinho de 2 px
-      (o da logo). O wordmark fica em texto, e não no PNG, para ficar nítido em qualquer tamanho.
-    - **`BrandLogo`** deixou de ser o SVG "Etiqueta" (saíram `public/logo.svg` e
-      `public/brand/app-icon-1024.png`): agora é a logo horizontal, só para superfície clara (login,
-      `/design`); no dark mode mostra o ícone do app, porque o recorte do fundo branco deixa halo em
-      fundo escuro.
+      `scripts/generate-icons.mjs`: contorno Marinho `#041850`, Vermelho `#E8202E`, Azul `#1F55E0`.
+    - **Logo sem fundo no header (19/10/2026, a pedido)**: o header, o rodapé e os painéis mostram a
+      logo da folha da marca, com a escrita dela (sacola + "Mania Paraguai" em duas linhas), e não mais
+      o tile Marinho + o nome em Figtree. Recorte novo, sem halo em fundo escuro:
+      `logo-mania-paraguai-v2.png` (773 × 259) e `sacola-mania-paraguai.png` (321 × 259, só a sacola
+      com a alça e as linhas de velocidade). O fundo branco e a sombra suave saíram; o contorno Marinho
+      e a extrusão das letras ficaram. Nome com `-v2` porque o SW guarda `/_next/image` em CacheFirst.
+    - **`BrandLogo`** (`brand-logo.tsx`, `<BrandLogo height variant="logo|symbol" />`) mostra a logo (ou
+      a sacola) em qualquer superfície, login e `/design` inclusive. **`BrandMark`** é a logo com link
+      para a home: 56 px no header desktop (`md`), 44 px no mobile e no rodapé (`sm`) e só a sacola, 36
+      px, nas páginas internas do mobile e nos painéis (`compact`). O tile Marinho fica só no ícone do
+      app (manifest, favicon, convite de instalação e `/instalar`).
+    - Antes (manhã de 19/10/2026): `BrandMark` era o tile Marinho + "Mania Paraguai" em Figtree 800
+      itálico com contorno de 2 px, e `BrandLogo` (que substituiu o SVG "Etiqueta"; saíram
+      `public/logo.svg` e `public/brand/app-icon-1024.png`) só aparecia em superfície clara.
     - **Ícones e OG**: `pnpm --filter web icons` gera `public/icons/mania-*.png` (nome novo pelo
       CacheFirst do SW), favicon e a OG: fundo branco, logo horizontal, frase em Marinho e faixa
       Vermelho/Azul. PNG com paleta (libimagequant): sem ela o 512 passa de 400 KB.

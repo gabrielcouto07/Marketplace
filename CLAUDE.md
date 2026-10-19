@@ -36,7 +36,7 @@ base, atualize a seção correspondente lá.
 pnpm install            # raiz
 pnpm dev                # http://localhost:3210 (mock MSW ativado por .env.local)
 pnpm typecheck && pnpm lint && pnpm build
-pnpm --filter web icons # regenera ícones e OG a partir de apps/web/public/brand/icone-mania-paraguai*.png e logo-mania-paraguai.png
+pnpm --filter web icons # regenera ícones e OG a partir de apps/web/public/brand/icone-mania-paraguai*.png e logo-mania-paraguai-v2.png
 ```
 
 ## Onde estão as coisas
@@ -46,8 +46,9 @@ pnpm --filter web icons # regenera ícones e OG a partir de apps/web/public/bran
 - Componentes base: `apps/web/src/components/ui` (shadcn) e `apps/web/src/components/shared`
   (ProductCard, PriceTag, SellerBadge, TrustBadge, OrderTimeline, EmptyState…).
 - Layout: `apps/web/src/components/layout` (StoreShell, Header, Footer, BottomNav, BrandMark, TricolorStripe).
-- Marca (Mania Paraguai, 19/10/2026): `apps/web/public/brand/logo-mania-paraguai.png` (logo horizontal, superfícies
-  claras), `icone-mania-paraguai.png` (tile Marinho com a sacola: lockup do header, ícones e favicon) e
+- Marca (Mania Paraguai, 19/10/2026): `apps/web/public/brand/logo-mania-paraguai-v2.png` (a logo sem fundo: header,
+  rodapé, login), `sacola-mania-paraguai.png` (só a sacola: `BrandMark compact`), `icone-mania-paraguai.png` (tile
+  Marinho com a sacola: ícones, favicon e convite de instalação) e
   `icone-mania-paraguai-maskable.png` (o tile até a borda: maskable e apple-touch); `pnpm --filter web icons` gera
   `public/icons/mania-*.png`, favicon e OG. Componentes: `components/layout/brand-logo.tsx`, `brand-mark.tsx`,
   `app-icon.tsx` e `components/shared/flags.tsx`. Geometria original:
