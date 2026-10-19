@@ -5,6 +5,7 @@ import type {
   DocumentRequestKind,
   InfractionSeverity,
   MeasureRecommendationDto,
+  SellerInfractionDto,
   SellerMeasureDto,
   SellerMeasureType,
   SellerNoticeDto,
@@ -252,6 +253,7 @@ export function SellerGovernanceSection({ detail }: { detail: AdminSellerDetailD
         key={recommendation?.infractionId ?? "measure"}
         open={sheet === "measure"}
         sellerId={sellerId}
+        infractions={g.infractions}
         recommendation={recommendation}
         onClose={() => {
           setSheet(null);
@@ -389,15 +391,18 @@ function InfractionSheet({
 function MeasureSheet({
   open,
   sellerId,
+  infractions,
   recommendation,
   onClose,
 }: {
   open: boolean;
   sellerId: string;
+  infractions: SellerInfractionDto[];
   recommendation: { infractionId: string; value: MeasureRecommendationDto } | null;
   onClose: () => void;
 }) {
   const t = useTranslations("admin");
+  const format = useFormatter();
   const onError = useAdminErrorToast();
   const { applyMeasure } = useProgramMutations();
   const products = useAdminProducts({ sellerId, pageSize: 100 });
@@ -405,7 +410,16 @@ function MeasureSheet({
   const [reason, setReason] = useState("");
   const [productId, setProductId] = useState("");
   const [days, setDays] = useState(String(recommendation?.value.suspensionDays ?? 30));
+  const [infractionId, setInfractionId] = useState(recommendation?.infractionId ?? "");
   const productItems = { "": t("noProduct"), ...Object.fromEntries((products.data?.items ?? []).map((p) => [p.id, p.name])) };
+  const infractionItems = {
+    "": t("noInfraction"),
+    ...Object.fromEntries(
+      infractions.map((i) => [i.id, `${i.code} · ${t(`severity.${i.severity}`)} · ${format.dateTime(new Date(i.occurredAt), "short")}`]),
+    ),
+  };
+  // A exclusão segue uma infração registrada (Política 8.1 c e 8.2).
+  const missingInfraction = type === "Exclusao" && !infractionId;
 
   return (
     <DetailSheet open={open} onClose={onClose} title={t("applyMeasure")} description={t("applyMeasureHint")}>
@@ -432,13 +446,21 @@ function MeasureSheet({
           <Input id="measure-days" type="number" inputMode="numeric" min={1} max={365} value={days} onChange={(e) => setDays(e.target.value)} />
         </FormField>
       ) : null}
-      {type === "Exclusao" ? <p className="rounded-md bg-danger-soft p-3 text-body-sm text-danger">{t("exclusionWarning")}</p> : null}
+      <FormField id="measure-infraction" label={t("measureInfraction")} hint={t("measureInfractionHint")} optional={type !== "Exclusao"}>
+        <Choice id="measure-infraction" value={infractionId} onChange={setInfractionId} items={infractionItems} />
+      </FormField>
+      {type === "Exclusao" ? (
+        <p className="rounded-md bg-danger-soft p-3 text-body-sm text-danger">
+          {missingInfraction ? t("exclusionNeedsInfraction") : t("exclusionWarning")}
+        </p>
+      ) : null}
       <FormField id="measure-reason" label={t("measureReason")} hint={t("measureReasonHint")}>
         <Textarea id="measure-reason" rows={3} maxLength={1000} value={reason} onChange={(e) => setReason(e.target.value)} />
       </FormField>
       <Button
         variant="primary"
         loading={applyMeasure.isPending}
+        disabled={missingInfraction}
         onClick={() =>
           applyMeasure.mutate(
             {
@@ -446,7 +468,7 @@ function MeasureSheet({
               body: {
                 type,
                 reason,
-                infractionId: recommendation?.infractionId ?? null,
+                infractionId: infractionId || null,
                 productId: type === "RemocaoAnuncio" ? productId || null : null,
                 suspensionDays: type === "SuspensaoTemporaria" ? Number(days) || null : null,
               },

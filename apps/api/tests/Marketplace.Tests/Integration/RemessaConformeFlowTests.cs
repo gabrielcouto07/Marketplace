@@ -160,7 +160,7 @@ public sealed class RemessaConformeFlowTests : IClassFixture<ApiFactory>
     }
 
     [Fact]
-    public async Task UpheldReport_BlocksProduct_AndCreatesOccurrence()
+    public async Task UpheldReport_BlocksProduct_AndRegistersInfraction_OutsideReceitaIndicators()
     {
         var buyer = await _factory.LoginAsync();
         var target = await buyer.GetFromJsonAsync<JsonElement>("/api/products/bola-de-futebol-oficial-termocolada-esp8", Json);
@@ -177,13 +177,33 @@ public sealed class RemessaConformeFlowTests : IClassFixture<ApiFactory>
         Assert.Equal("Procedente", dto.GetProperty("status").GetString());
         Assert.Equal("Bloqueado", dto.GetProperty("productStatus").GetString());
 
-        var occurrences = await admin.GetFromJsonAsync<JsonElement>("/api/admin/compliance/occurrences?indicator=Contrafacao", Json);
-        Assert.Contains(occurrences.GetProperty("items").EnumerateArray(), o => o.GetProperty("productId").GetGuid() == productId);
+        Assert.Equal(JsonValueKind.Null, dto.GetProperty("occurrenceId").ValueKind);
         Assert.Equal(HttpStatusCode.NotFound, (await buyer.GetAsync("/api/products/bola-de-futebol-oficial-termocolada-esp8")).StatusCode);
+
+        // A denúncia é julgada pela equipe: vira infração da loja (Política 6.7), não ocorrência dos indicadores da Receita.
+        var occurrences = await admin.GetFromJsonAsync<JsonElement>("/api/admin/compliance/occurrences?pageSize=100", Json);
+        Assert.DoesNotContain(occurrences.GetProperty("items").EnumerateArray(),
+            o => o.GetProperty("productId").ValueKind == JsonValueKind.String && o.GetProperty("productId").GetGuid() == productId);
+        var sellerId = dto.GetProperty("sellerId").GetGuid();
+        var seller = await admin.GetFromJsonAsync<JsonElement>($"/api/admin/sellers/{sellerId}", Json);
+        Assert.Contains(seller.GetProperty("governance").GetProperty("infractions").EnumerateArray(), i => i.GetProperty("code").GetString() == "CONTRAFACAO");
+        Assert.DoesNotContain(seller.GetProperty("occurrences").EnumerateArray(), o => o.GetProperty("source").GetString() == "Denuncia");
     }
 
     [Fact]
-    public async Task RepeatedOccurrences_SuspendTheSeller()
+    public async Task OccurrenceFromReport_IsRejected()
+    {
+        var admin = await AdminAsync();
+        var r = await admin.PostAsJsonAsync("/api/admin/compliance/occurrences", new
+        {
+            indicator = "Contrafacao", source = "Denuncia", code = "DENUNCIA", description = "Denúncia julgada procedente.",
+        }, Json);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, r.StatusCode);
+        Assert.Contains("source", await r.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task RepeatedOccurrences_OpenAlertForTheTeam_WithoutSuspendingTheSeller()
     {
         var admin = await AdminAsync();
         var sellers = await admin.GetFromJsonAsync<JsonElement>("/api/admin/sellers?q=Game", Json);
@@ -196,13 +216,31 @@ public sealed class RemessaConformeFlowTests : IClassFixture<ApiFactory>
             }, Json);
             Assert.Equal(HttpStatusCode.Created, r.StatusCode);
         }
+        // Nenhuma medida automática: a loja segue vendendo e a equipe recebe um alerta para avaliar a medida (Política 8.2).
         var detail = await admin.GetFromJsonAsync<JsonElement>($"/api/admin/sellers/{sellerId}", Json);
-        Assert.Equal("Suspenso", detail.GetProperty("summary").GetProperty("status").GetString());
-        Assert.Contains("Descredenciada automaticamente", detail.GetProperty("verification").GetProperty("suspensionReason").GetString());
+        Assert.Equal("Aprovado", detail.GetProperty("summary").GetProperty("status").GetString());
+        Assert.DoesNotContain(detail.GetProperty("governance").GetProperty("measures").EnumerateArray(), m => m.GetProperty("automatic").GetBoolean());
+
+        var alerts = await admin.GetFromJsonAsync<JsonElement>("/api/admin/compliance/alerts?type=OcorrenciasReceita&status=Aberto", Json);
+        var mine = alerts.GetProperty("items").EnumerateArray()
+            .Where(a => a.GetProperty("sellerId").ValueKind == JsonValueKind.String && a.GetProperty("sellerId").GetGuid() == sellerId).ToList();
+        Assert.Single(mine);
+        Assert.False(mine[0].GetProperty("holdsShipments").GetBoolean());
+
+        // Nova ocorrência atualiza o alerta aberto em vez de abrir outro.
+        await admin.PostAsJsonAsync("/api/admin/compliance/occurrences", new
+        {
+            indicator = "Subvaloracao", source = "Interna", code = "VALOR", description = "Valor majorado comunicado pela Receita.", sellerId,
+        }, Json);
+        alerts = await admin.GetFromJsonAsync<JsonElement>("/api/admin/compliance/alerts?type=OcorrenciasReceita&status=Aberto", Json);
+        Assert.Single(alerts.GetProperty("items").EnumerateArray(),
+            a => a.GetProperty("sellerId").ValueKind == JsonValueKind.String && a.GetProperty("sellerId").GetGuid() == sellerId);
 
         var dashboard = await admin.GetFromJsonAsync<JsonElement>("/api/admin/compliance", Json);
         Assert.Equal(3, dashboard.GetProperty("cycleIndicators").GetArrayLength());
-        Assert.Contains(dashboard.GetProperty("sellersAtRisk").EnumerateArray(), s => s.GetProperty("sellerId").GetGuid() == sellerId);
+        var row = dashboard.GetProperty("sellersAtRisk").EnumerateArray().First(s => s.GetProperty("sellerId").GetGuid() == sellerId);
+        Assert.Equal(4, row.GetProperty("occurrences").GetInt32());
+        Assert.True(row.GetProperty("openAlert").GetBoolean());
     }
 
     [Fact]

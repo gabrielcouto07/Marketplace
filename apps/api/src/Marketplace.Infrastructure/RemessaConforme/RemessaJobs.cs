@@ -74,7 +74,7 @@ public sealed class SiscomexSyncJob(
             _pendingProtocol = null;
             var summary = await sync.ApplyAsync(result, o.OccurrenceMap, ct);
             LastSuccessAt = clock.GetUtcNow().UtcDateTime;
-            LastResult = $"{summary.Updated} remessa(s) atualizada(s), {summary.NewOccurrences} ocorrência(s) nova(s), {summary.SuspendedSellers} loja(s) descredenciada(s)";
+            LastResult = $"{summary.Updated} remessa(s) atualizada(s), {summary.NewOccurrences} ocorrência(s) nova(s), {summary.SellerAlerts} alerta(s) de acompanhamento de loja";
             logger.LogInformation("Siscomex: {Result}", LastResult);
             foreach (var error in result.Errors) logger.LogWarning("Siscomex (erro na consulta): {Error}", error);
             return;

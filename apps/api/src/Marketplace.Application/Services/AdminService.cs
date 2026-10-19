@@ -351,7 +351,7 @@ public sealed class AdminService(
             OrdersCount = db.Orders.Count(o => o.SellerId == s.Id),
             Gross30d = db.Orders.Where(o => o.SellerId == s.Id && o.CreatedAt >= from && PaidStatuses.Contains(o.Status)).Sum(o => o.SubtotalAmount + o.ShippingAmount - o.DiscountAmount),
             OpenDisputes = db.Orders.Count(o => o.SellerId == s.Id && o.Status == OrderStatus.EmDisputa),
-            Occurrences = db.ComplianceOccurrences.Count(o => o.SellerId == s.Id && o.Status != OccurrenceStatus.Anulada && o.OccurredAt >= from.AddDays(-335)),
+            Occurrences = db.ComplianceOccurrences.Count(o => o.SellerId == s.Id && o.Source != OccurrenceSource.Denuncia && o.Status != OccurrenceStatus.Anulada && o.OccurredAt >= from.AddDays(-335)),
             Infractions12m = db.SellerInfractions.Count(i => i.SellerId == s.Id && i.OccurredAt >= from.AddDays(-335)),
         });
 
@@ -441,8 +441,9 @@ public sealed class AdminService(
     }
 
     /// <summary>
-    /// Edição da loja pelo admin. Suspender e excluir são medidas da Política (8.1): ficam registradas, com o motivo
-    /// comunicado ao vendedor e prazo de resposta (8.5 e 8.6); liberar revoga as medidas ativas.
+    /// Edição da loja pelo admin. Suspender é medida da Política (8.1 b): fica registrada, com o motivo comunicado ao
+    /// vendedor e prazo de resposta (8.5 e 8.6); liberar revoga as medidas ativas. A exclusão não sai daqui: ela segue a
+    /// infração registrada na ficha da loja (8.1 c e 8.2).
     /// </summary>
     public async Task<AdminSellerDetailDto> UpdateSellerAsync(Guid id, AdminSellerUpdateRequest request, CancellationToken ct)
     {
@@ -455,6 +456,8 @@ public sealed class AdminService(
             .AddIf(changingStatus && request.Status is SellerStatus.Suspenso or SellerStatus.Excluido && (reason is null || reason.Length < 10),
                 "suspensionReason", "Informe o motivo (fica no histórico e o vendedor recebe este texto).")
             .AddIf(changingStatus && request.Status == SellerStatus.Pendente, "status", "Use a verificação de documentos para voltar a loja à análise.")
+            .AddIf(changingStatus && request.Status == SellerStatus.Excluido, "status",
+                "A exclusão é medida da Política (8.1 c): registre a infração e aplique a medida graduada na ficha da loja (8.2).")
             .AddIf(changingStatus && request.Status == SellerStatus.Aprovado && seller.VerifiedAt is null, "status", "Verifique os documentos da loja antes de aprovar.")
             .ThrowIfAny();
         if (request.Name is not null) seller.Name = request.Name.Trim();
@@ -471,10 +474,6 @@ public sealed class AdminService(
                 case SellerStatus.Suspenso:
                     await governance.ApplyMeasureAsync(seller.Id,
                         new SellerMeasureInput(SellerMeasureType.SuspensaoTemporaria, reason, null, null, request.SuspensionDays), automatic: false, ct, save: false);
-                    break;
-                case SellerStatus.Excluido:
-                    await governance.ApplyMeasureAsync(seller.Id,
-                        new SellerMeasureInput(SellerMeasureType.Exclusao, reason, null, null, null), automatic: false, ct, save: false);
                     break;
                 case SellerStatus.Aprovado:
                     if (!await governance.RevokeActiveSuspensionsAsync(seller.Id, reason ?? "Loja liberada pela administração.", ct))

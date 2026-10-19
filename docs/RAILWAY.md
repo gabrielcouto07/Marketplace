@@ -74,8 +74,9 @@ NEXT_PUBLIC_API_MOCKING=false
 NEXT_PUBLIC_API_URL=/api
 NEXT_PUBLIC_SITE_URL=https://${{RAILWAY_PUBLIC_DOMAIN}}
 API_PROXY_URL=http://${{api.RAILWAY_PRIVATE_DOMAIN}}:${{api.PORT}}
-# Selo Remessa Conforme: simulacao (prévia com a etiqueta "Simulação") até o ADE; depois true + o número do ADE
-NEXT_PUBLIC_REMESSA_CONFORME=simulacao
+# Selo Remessa Conforme: só depois da certificação (Portaria Coana 130/2023, art. 13), com true + o número do ADE.
+# Até lá, deixe sem valor: nenhuma página mostra o selo.
+# NEXT_PUBLIC_REMESSA_CONFORME=true
 # NEXT_PUBLIC_REMESSA_CONFORME_ADE=<número>
 # NEXT_PUBLIC_REMESSA_CONFORME_SELO=ouro|prata|bronze   (só depois do resultado do ciclo, em dezembro)
 # NEXT_PUBLIC_REMESSA_CONFORME_CICLO=2026/2027

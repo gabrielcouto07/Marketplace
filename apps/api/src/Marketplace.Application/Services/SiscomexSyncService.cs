@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging;
 
 namespace Marketplace.Application.Services;
 
-public sealed record SiscomexSyncSummary(int Shipments, int Updated, int NewOccurrences, int SuspendedSellers);
+public sealed record SiscomexSyncSummary(int Shipments, int Updated, int NewOccurrences, int SellerAlerts);
 
 /// <summary>
 /// Lê no Portal Único (consulta de remessas da ECE) a situação de cada remessa, as ocorrências e as divergências do
@@ -121,10 +121,10 @@ public sealed class SiscomexSyncService(
 
         await db.SaveChangesAsync(ct);
         var created = db.ComplianceOccurrences.Local.Count - before;
-        var suspended = 0;
+        var alerts = 0;
         foreach (var seller in sellers)
-            if (await compliance.EvaluateSellerStrikesAsync(seller, ct)) suspended++;
-        return new SiscomexSyncSummary(result.Shipments.Count, updated, Math.Max(0, created), suspended);
+            if (await compliance.ReviewSellerOccurrencesAsync(seller, ct)) alerts++;
+        return new SiscomexSyncSummary(result.Shipments.Count, updated, Math.Max(0, created), alerts);
     }
 
     /// <summary>

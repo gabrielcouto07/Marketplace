@@ -14,8 +14,9 @@ namespace Marketplace.Application.Services;
 /// Programa de conformidade (Portaria Coana 130/2023, art. 8º, IV e V; Portaria Coana 193/2026; Programa de Conformidade
 /// Tributária e Aduaneira, itens 6 a 8 e 11): regras que um anúncio cumpre antes da vitrine e enquanto está publicado
 /// (Anexo I da Política de Vendedores, descrição da declaração, contrafação, subvaloração), canal de denúncias aberto a
-/// qualquer pessoa e decidido em 2 dias úteis, ocorrências dos três indicadores, apuração mensal por faixa e medidas
-/// automáticas para vendedores reincidentes.
+/// qualquer pessoa e decidido em 2 dias úteis, ocorrências dos três indicadores (só as que vêm da Receita), apuração
+/// mensal por faixa e o acompanhamento de cada loja. Denúncia julgada aqui é infração da loja, não ocorrência dos
+/// indicadores; nenhuma contagem suspende ou exclui a loja sozinha: a medida segue a Política (8.2, 8.5 e 8.6).
 /// </summary>
 public sealed class ComplianceService(
     IAppDbContext db,
@@ -24,6 +25,7 @@ public sealed class ComplianceService(
     ICatalogCache catalogCache,
     SellerGovernanceService governance,
     ReceitaRelationsService receita,
+    MonitoringService monitoring,
     ICurrentUser currentUser,
     TimeProvider clock,
     ILogger<ComplianceService> logger)
@@ -51,6 +53,13 @@ public sealed class ComplianceService(
         [ReasonProtectedBrand, ReasonPriceFloor, ReasonRestricted, ReasonBannedTerm, ReasonDeclarationData];
 
     private DateTime Now => clock.GetUtcNow().UtcDateTime;
+
+    /// <summary>
+    /// Ocorrências que vêm da Receita (despacho, consulta do Siscomex, ouvidoria e comunicações registradas pela equipe):
+    /// as únicas que entram nos indicadores da Portaria Coana 193/2026. Linhas antigas de denúncia ficam de fora.
+    /// </summary>
+    public static IQueryable<ComplianceOccurrence> FromReceita(IQueryable<ComplianceOccurrence> source) =>
+        source.Where(o => o.Source != OccurrenceSource.Denuncia);
 
     private void Audit(string action, string? target, string? details = null) =>
         db.AuditLogs.Add(new AuditLog { UserId = currentUser.UserId, Action = action, Target = target, OccurredAt = Now, IpAddress = currentUser.IpAddress, Details = details });
@@ -330,13 +339,6 @@ public sealed class ComplianceService(
         return new PagedResult<ProductReportDto>(items, p, size, total);
     }
 
-    public static ComplianceIndicator IndicatorFor(ProductReportReason reason) => reason switch
-    {
-        ProductReportReason.Falsificado or ProductReportReason.PropriedadeIntelectual => ComplianceIndicator.Contrafacao,
-        ProductReportReason.PrecoSuspeito => ComplianceIndicator.Subvaloracao,
-        _ => ComplianceIndicator.QualidadeDeclaracao,
-    };
-
     private static (string Code, InfractionSeverity Severity, string Moderation) InfractionFor(ProductReportReason reason) => reason switch
     {
         ProductReportReason.Falsificado => ("CONTRAFACAO", InfractionSeverity.Grave, ReasonCounterfeit),
@@ -349,8 +351,10 @@ public sealed class ComplianceService(
     };
 
     /// <summary>
-    /// Decisão da denúncia (em até 2 dias úteis). Procedente: ocorrência no indicador, infração do vendedor (6.7) e,
-    /// com bloqueio, remoção do anúncio comunicada ao vendedor (8.5). Quem denunciou com e-mail recebe a decisão.
+    /// Decisão da denúncia (em até 2 dias úteis). Procedente: infração do vendedor (6.7) e, com bloqueio, remoção do
+    /// anúncio comunicada ao vendedor (8.5). A denúncia é julgada pela equipe e não entra nos indicadores da Receita; outras
+    /// medidas (suspensão, exclusão) são graduadas pela equipe na ficha da loja (8.2). Quem denunciou com e-mail recebe a
+    /// decisão.
     /// </summary>
     public async Task<ProductReportDto> ResolveReportAsync(Guid id, ProductReportResolveRequest request, CancellationToken ct)
     {
@@ -367,21 +371,17 @@ public sealed class ComplianceService(
 
         if (request.Upheld)
         {
-            var indicator = request.Indicator ?? IndicatorFor(report.Reason);
-            var occurrence = await AddOccurrenceAsync(indicator, OccurrenceSource.Denuncia, $"DENUNCIA_{report.Reason.ToString().ToUpperInvariant()}",
-                note ?? $"Denúncia procedente: {report.Reason}.", report.SellerId, report.ProductId, null, null, $"report:{report.Id}", Now, ct);
-            report.OccurrenceId = occurrence.Id;
             var (code, severity, moderation) = InfractionFor(report.Reason);
             var infraction = await governance.AddInfractionAsync(report.SellerId, code,
                 note ?? $"Denúncia {report.Protocol} julgada procedente ({report.Reason}).", severity, false, Now, report.ProductId,
-                occurrenceId: occurrence.Id, reportId: report.Id, ct: ct);
+                reportId: report.Id, ct: ct);
             if (request.BlockProduct)
                 await governance.ApplyMeasureAsync(report.SellerId,
                     new SellerMeasureInput(SellerMeasureType.RemocaoAnuncio, note ?? $"Denúncia {report.Protocol} julgada procedente ({report.Reason}).",
                         infraction.Id, report.ProductId, null),
                     automatic: false, ct, save: false, moderationReason: moderation);
             governance.LogAction(EnforcementActionKind.DenunciaProcedente, note ?? report.Reason.ToString(),
-                request.BlockProduct ? "Anúncio removido; ocorrência e infração registradas." : "Ocorrência e infração registradas.",
+                request.BlockProduct ? "Anúncio removido; infração registrada." : "Infração registrada.",
                 report.SellerId, report.ProductId, report.Id);
         }
         else
@@ -391,7 +391,6 @@ public sealed class ComplianceService(
         }
         Audit("admin.report.resolve", report.Id.ToString(), $"{report.Status}{(request.BlockProduct ? "+block" : "")}");
         await db.SaveChangesAsync(ct);
-        if (request.Upheld) await EvaluateSellerStrikesAsync(report.SellerId, ct);
         await catalogCache.InvalidateAsync(ct);
         return await ReportsQuery(db.ProductReports.AsNoTracking().Where(r => r.Id == id)).FirstAsync(ct);
     }
@@ -438,6 +437,8 @@ public sealed class ComplianceService(
         var description = input.Description?.Trim() ?? string.Empty;
         var code = (input.Code ?? string.Empty).Trim().ToUpperInvariant().Replace(' ', '_');
         new ValidationErrors()
+            .AddIf(input.Source == OccurrenceSource.Denuncia, "source",
+                "Denúncia julgada procedente é infração da loja (Política 6.7), registrada no julgamento, e não entra nos indicadores da Receita.")
             .AddIf(code.Length is < 3 or > 60, "code", "Informe o código da ocorrência (ex.: CPF_DESTINATARIO).")
             .AddIf(description.Length < 5, "description", "Descreva a ocorrência.")
             .AddIf(input.OccurredAt > Now.AddDays(1), "occurredAt", "A data não pode estar no futuro.")
@@ -460,7 +461,7 @@ public sealed class ComplianceService(
             null, input.OccurredAt ?? Now, ct);
         Audit("admin.occurrence.create", occurrence.Id.ToString(), $"{input.Indicator}/{code}");
         await db.SaveChangesAsync(ct);
-        if (sellerId is { } seller) await EvaluateSellerStrikesAsync(seller, ct);
+        if (sellerId is { } seller) await ReviewSellerOccurrencesAsync(seller, ct);
         return await OccurrencesQuery(db.ComplianceOccurrences.AsNoTracking().Where(o => o.Id == occurrence.Id)).FirstAsync(ct);
     }
 
@@ -513,7 +514,7 @@ public sealed class ComplianceService(
     public async Task<PagedResult<ComplianceOccurrenceDto>> ListOccurrencesAsync(
         ComplianceIndicator? indicator, Guid? sellerId, OccurrenceStatus? status, int? page, int? pageSize, CancellationToken ct)
     {
-        var source = db.ComplianceOccurrences.AsNoTracking();
+        var source = FromReceita(db.ComplianceOccurrences.AsNoTracking());
         if (indicator is { } i) source = source.Where(o => o.Indicator == i);
         if (sellerId is { } sid) source = source.Where(o => o.SellerId == sid);
         if (status is { } st) source = source.Where(o => o.Status == st);
@@ -524,39 +525,51 @@ public sealed class ComplianceService(
     }
 
     public async Task<IReadOnlyList<ComplianceOccurrenceDto>> SellerOccurrencesAsync(Guid sellerId, int take, CancellationToken ct) =>
-        await OccurrencesQuery(db.ComplianceOccurrences.AsNoTracking().Where(o => o.SellerId == sellerId).OrderByDescending(o => o.OccurredAt).Take(take)).ToListAsync(ct);
+        await OccurrencesQuery(FromReceita(db.ComplianceOccurrences.AsNoTracking()).Where(o => o.SellerId == sellerId).OrderByDescending(o => o.OccurredAt).Take(take)).ToListAsync(ct);
 
     // =================================================================================================================
-    // Reincidência
+    // Acompanhamento por loja (Política 6.6 e 7.2)
     // =================================================================================================================
 
-    public async Task<int> CountSellerOccurrencesAsync(Guid sellerId, CancellationToken ct)
-    {
-        var settings = await settingsProvider.GetAsync(ct);
-        var from = Now.AddDays(-settings.StrikeWindowDays);
-        return await db.ComplianceOccurrences.CountAsync(o => o.SellerId == sellerId && o.Status != OccurrenceStatus.Anulada && o.OccurredAt >= from, ct);
-    }
+    private IQueryable<ComplianceOccurrence> SellerWindowOccurrences(Guid sellerId, DateTime from) =>
+        FromReceita(db.ComplianceOccurrences).Where(o => o.SellerId == sellerId && o.Status != OccurrenceStatus.Anulada && o.OccurredAt >= from);
 
     /// <summary>
-    /// Suspende a loja que atingiu o limite de ocorrências na janela: medida automática, comunicada ao vendedor com o
-    /// motivo e prazo de resposta (Política 8.5 e 8.6). Devolve true se suspendeu.
+    /// Loja que chegou ao limite de acompanhamento (ocorrências da Receita na janela) ganha um alerta de monitoramento para
+    /// a equipe. Nada é aplicado sozinho: a equipe registra a infração e escolhe a medida graduada (Política 8.2), que é
+    /// comunicada com o motivo e prazo de 10 dias para resposta (8.5 e 8.6). Devolve true se abriu um alerta novo. Salva.
     /// </summary>
-    public async Task<bool> EvaluateSellerStrikesAsync(Guid sellerId, CancellationToken ct)
+    public async Task<bool> ReviewSellerOccurrencesAsync(Guid sellerId, CancellationToken ct)
     {
         var settings = await settingsProvider.GetAsync(ct);
         if (settings.SellerStrikeLimit <= 0) return false;
-        var count = await CountSellerOccurrencesAsync(sellerId, ct);
-        if (count < settings.SellerStrikeLimit) return false;
-        var seller = await db.Sellers.AsNoTracking().FirstOrDefaultAsync(s => s.Id == sellerId, ct);
-        if (seller is null || seller.Status is SellerStatus.Suspenso or SellerStatus.Excluido) return false;
+        var occurrences = await SellerWindowOccurrences(sellerId, Now.AddDays(-settings.StrikeWindowDays)).AsNoTracking()
+            .OrderByDescending(o => o.OccurredAt)
+            .Select(o => new { o.Id, o.Indicator, o.OrderId })
+            .ToListAsync(ct);
+        if (occurrences.Count < settings.SellerStrikeLimit) return false;
+        if (!await db.Sellers.AnyAsync(s => s.Id == sellerId && s.Status != SellerStatus.Excluido, ct)) return false;
 
-        var reason = $"Descredenciada automaticamente: {count} ocorrências de conformidade em {settings.StrikeWindowDays} dias (limite {settings.SellerStrikeLimit}). A suspensão vale até a revisão da equipe.";
-        await governance.ApplyMeasureAsync(sellerId, new SellerMeasureInput(SellerMeasureType.SuspensaoTemporaria, reason, null, null, null), automatic: true, ct);
-        db.AuditLogs.Add(new AuditLog { UserId = null, Action = "compliance.seller.suspend", Target = seller.Slug, OccurredAt = Now, Details = reason });
+        // Uma ocorrência nova atualiza o alerta aberto; julgado o alerta, a próxima ocorrência abre outro.
+        var prefix = $"ocorr:{sellerId:N}:";
+        var openKey = await db.MonitoringAlerts.Where(a => a.Status == MonitoringAlertStatus.Aberto && a.DedupKey.StartsWith(prefix))
+            .Select(a => a.DedupKey).FirstOrDefaultAsync(ct);
+        var byIndicator = occurrences.GroupBy(o => o.Indicator).Select(g => $"{IndicatorName(g.Key)}: {g.Count()}");
+        var (_, created) = await monitoring.RaiseAsync(MonitoringAlertType.OcorrenciasReceita, openKey ?? $"{prefix}{occurrences[0].Id:N}", sellerId, null,
+            $"{occurrences.Count} ocorrências da Receita nas remessas da loja em {settings.StrikeWindowDays} dias ({string.Join("; ", byIndicator)}). " +
+            "Avaliar a infração e a medida pela Política (8.2); a loja é comunicada e pode responder em 10 dias (8.5 e 8.6).",
+            occurrences.Where(o => o.OrderId is not null).Select(o => o.OrderId!.Value).ToList(),
+            new { occurrences = occurrences.Count, windowDays = settings.StrikeWindowDays, limit = settings.SellerStrikeLimit }, holdsShipments: false, ct);
         await db.SaveChangesAsync(ct);
-        logger.LogWarning("Loja {Seller} descredenciada por reincidência ({Count} ocorrências)", seller.Slug, count);
-        return true;
+        return created;
     }
+
+    private static string IndicatorName(ComplianceIndicator indicator) => indicator switch
+    {
+        ComplianceIndicator.Contrafacao => "contrafação",
+        ComplianceIndicator.Subvaloracao => "subvaloração",
+        _ => "qualidade da declaração",
+    };
 
     // =================================================================================================================
     // Indicadores
@@ -574,7 +587,7 @@ public sealed class ComplianceService(
             .GroupBy(e => e.OrderId)
             .Select(g => g.Min(e => e.OccurredAt))
             .ToListAsync(ct);
-        var occurrences = await db.ComplianceOccurrences.AsNoTracking()
+        var occurrences = await FromReceita(db.ComplianceOccurrences.AsNoTracking())
             .Where(o => o.Status != OccurrenceStatus.Anulada && o.OccurredAt >= start && o.OccurredAt < end)
             .Select(o => new { o.Indicator, o.OccurredAt })
             .ToListAsync(ct);
@@ -595,21 +608,37 @@ public sealed class ComplianceService(
             .Select(i => Indicator(i, shippedAt.Count, occurrences.Count(o => o.Indicator == i)))
             .ToList();
 
+        // Acompanhamento por loja: ocorrências da Receita na janela e infrações apuradas pela equipe nos últimos 12 meses
+        // (denúncias procedentes, monitoramento, auditoria), com a reincidência da Política 8.3.
         var windowStart = Now.AddDays(-settings.StrikeWindowDays);
-        var risk = await db.ComplianceOccurrences.AsNoTracking()
+        var occurrencesBySeller = await FromReceita(db.ComplianceOccurrences.AsNoTracking())
             .Where(o => o.SellerId != null && o.Status != OccurrenceStatus.Anulada && o.OccurredAt >= windowStart)
             .GroupBy(o => o.SellerId!.Value)
             .Select(g => new { SellerId = g.Key, Count = g.Count() })
-            .OrderByDescending(x => x.Count).Take(10)
-            .ToListAsync(ct);
-        var riskIds = risk.Select(r => r.SellerId).ToList();
+            .ToDictionaryAsync(x => x.SellerId, x => x.Count, ct);
+        var infractionsSince = Now.AddMonths(-ProgramDeadlines.RecidivismMonths);
+        var infractionsBySeller = await db.SellerInfractions.AsNoTracking()
+            .Where(i => i.OccurredAt >= infractionsSince)
+            .GroupBy(i => i.SellerId)
+            .Select(g => new { SellerId = g.Key, Count = g.Count(), Recidivist = g.Any(i => i.Recidivist) })
+            .ToDictionaryAsync(x => x.SellerId, ct);
+        int Weight(Guid id) => occurrencesBySeller.GetValueOrDefault(id) + (infractionsBySeller.TryGetValue(id, out var i) ? i.Count : 0);
+        var riskIds = occurrencesBySeller.Keys.Union(infractionsBySeller.Keys).OrderByDescending(Weight).Take(10).ToList();
         var sellers = await db.Sellers.AsNoTracking().Where(s => riskIds.Contains(s.Id)).ToDictionaryAsync(s => s.Id, ct);
         var openReportsBySeller = await db.ProductReports.AsNoTracking()
             .Where(r => r.Status == ProductReportStatus.Aberta && riskIds.Contains(r.SellerId))
             .GroupBy(r => r.SellerId).Select(g => new { g.Key, Count = g.Count() })
             .ToDictionaryAsync(x => x.Key, x => x.Count, ct);
-        var atRisk = risk.Where(r => sellers.ContainsKey(r.SellerId))
-            .Select(r => new SellerRiskDto(r.SellerId, sellers[r.SellerId].Name, sellers[r.SellerId].Status, r.Count, openReportsBySeller.GetValueOrDefault(r.SellerId)))
+        var withOpenAlert = (await db.MonitoringAlerts.AsNoTracking()
+            .Where(a => a.Status == MonitoringAlertStatus.Aberto && a.SellerId != null && riskIds.Contains(a.SellerId.Value))
+            .Select(a => a.SellerId!.Value).ToListAsync(ct)).ToHashSet();
+        var atRisk = riskIds.Where(sellers.ContainsKey)
+            .Select(id =>
+            {
+                var infractions = infractionsBySeller.GetValueOrDefault(id);
+                return new SellerRiskDto(id, sellers[id].Name, sellers[id].Status, occurrencesBySeller.GetValueOrDefault(id),
+                    openReportsBySeller.GetValueOrDefault(id), infractions?.Count ?? 0, infractions?.Recidivist ?? false, withOpenAlert.Contains(id));
+            })
             .ToList();
 
         return new ComplianceDashboardDto(

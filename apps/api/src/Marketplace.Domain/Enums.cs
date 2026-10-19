@@ -107,10 +107,14 @@ public enum OccurrenceSource
     Despacho,
     /// <summary>Consulta de remessas da ECE no Portal Único Siscomex (remx).</summary>
     Siscomex,
+    /// <summary>Reclamação da ouvidoria repassada pela Receita.</summary>
     Ouvidoria,
-    /// <summary>Denúncia de comprador julgada procedente.</summary>
+    /// <summary>
+    /// Legado: versões anteriores gravavam a denúncia procedente como ocorrência. Não entra nos indicadores da Receita nem
+    /// é mais aceita; a denúncia procedente é infração da loja (Política 6.7), julgada internamente.
+    /// </summary>
     Denuncia,
-    /// <summary>Registrada pela equipe (ex.: comunicação da Coana no DTE).</summary>
+    /// <summary>Registrada pela equipe a partir de informação da Receita (ex.: comunicação da Coana no DTE).</summary>
     Interna,
 }
 
@@ -290,6 +294,11 @@ public enum MonitoringAlertType
     ValorDeclarado,
     /// <summary>Dados do remetente incompletos ou divergentes do cadastro: risco de ocultação de remetente (6.1).</summary>
     Remetente,
+    /// <summary>
+    /// Ocorrências da Receita nas remessas da loja no limite de acompanhamento (Política 7.2). Não aplica medida: a equipe
+    /// avalia a infração e a medida graduada (8.2), comunicada com prazo de resposta (8.5 e 8.6).
+    /// </summary>
+    OcorrenciasReceita,
 }
 
 public enum MonitoringAlertStatus

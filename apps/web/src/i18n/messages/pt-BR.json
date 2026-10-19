@@ -1238,7 +1238,7 @@
     "rating": "Avaliação",
     "categories": "Categorias",
     "editSeller": "Editar loja",
-    "sellerStatusHint": "Suspender tira todos os produtos da vitrine imediatamente.",
+    "sellerStatusHint": "Suspender tira todos os produtos da vitrine imediatamente. A exclusão é aplicada em Medidas, a partir de uma infração registrada (Política 8.1 c e 8.2).",
     "reputation": "Reputação",
     "reputationLevel": "Nível {level}",
     "city": "Cidade",
@@ -1343,14 +1343,14 @@
     "monthlyHint": "Entre parênteses, as ocorrências do mês. A apuração é mensal e restrita à empresa.",
     "colMonth": "Mês",
     "colShipments": "Remessas",
-    "sellersAtRisk": "Lojas com ocorrências",
-    "strikeRule": "Descredenciamento automático ao atingir {limit} ocorrências em {days} dias.",
-    "noSellersAtRisk": "Nenhuma loja com ocorrências na janela.",
+    "sellersAtRisk": "Acompanhamento por loja",
+    "strikeRule": "Ao chegar a {limit} ocorrências da Receita em {days} dias, a loja ganha um alerta para a equipe avaliar a infração e a medida (Política 8.2). Nada é suspenso ou excluído sozinho: a medida é comunicada à loja, que pode responder em 10 dias (8.5 e 8.6).",
+    "noSellersAtRisk": "Nenhuma loja com ocorrências da Receita ou infrações no período.",
     "colOccurrences": "Ocorrências",
     "colOpenReports": "Denúncias abertas",
     "occurrences": "Ocorrências",
     "registerOccurrence": "Registrar ocorrência",
-    "registerOccurrenceHint": "Ocorrências do despacho, da ouvidoria ou comunicadas pela Coana. Elas entram nos indicadores e na contagem de reincidência da loja.",
+    "registerOccurrenceHint": "Ocorrências informadas pela Receita: despacho, ouvidoria ou comunicação da Coana. Entram nos indicadores e no acompanhamento da loja, sem medida automática. Denúncia procedente é registrada no julgamento, como infração.",
     "indicatorFilter": "Indicador",
     "allIndicators": "Todos os indicadores",
     "noOccurrences": "Nenhuma ocorrência",
@@ -1362,7 +1362,7 @@
       "Despacho": "Despacho (rastreio)",
       "Siscomex": "Siscomex",
       "Ouvidoria": "Ouvidoria",
-      "Denuncia": "Denúncia",
+      "Denuncia": "Denúncia (registro antigo)",
       "Interna": "Equipe"
     },
     "occurrenceStatus": {
@@ -1394,7 +1394,6 @@
     "judgeTitle": "Julgar denúncia",
     "reporter": "Denunciante",
     "ifUpheld": "Se procedente",
-    "reportIndicatorHint": "Indicador em que a ocorrência entra.",
     "blockProduct": "Bloquear o produto",
     "resolutionNote": "Observação",
     "uphold": "Procedente",
@@ -1434,10 +1433,10 @@
     "missingConfig": "Falta configurar",
     "nothingMissing": "Nada faltando",
     "sealIntegration": "Selo no site",
-    "sealIntegrationHint": "Selo do programa no header, na página de produto, no checkout e no rodapé (variáveis do build do site).",
+    "sealIntegrationHint": "Selo do programa no header, na página de produto, no checkout e no rodapé. Só aparece com a certificação: NEXT_PUBLIC_REMESSA_CONFORME=true e o número do ADE (Portaria Coana 130/2023, art. 13).",
     "sealMode": {
       "off": "Desligado",
-      "simulacao": "Simulação",
+      "semAde": "Falta o número do ADE",
       "certificado": "Certificado"
     },
     "integrationsDocs": "Passo a passo de cada credencial em docs/REMESSA_CONFORME.md.",
@@ -1506,9 +1505,9 @@
     "settings_importDutyHighTierDeductionUsdCents": "Dedução acima de US$ 50",
     "settings_importDutyHighTierDeductionUsdCents_hint": "Valor fixo em dólar descontado do II. Portaria MF 1.342/2026: US$ 30.",
     "settingsCompliance": "Conformidade dos vendedores",
-    "settingsComplianceHint": "Regras automáticas da política de monitoramento: descredenciamento por reincidência, análise de preço e marcas protegidas.",
-    "settings_sellerStrikeLimit": "Limite de ocorrências",
-    "settings_strikeWindowDays": "Janela (dias)",
+    "settingsComplianceHint": "Regras da política de monitoramento: alerta de acompanhamento por ocorrências da Receita (a medida é decidida pela equipe, Política 8.2), análise de preço e marcas protegidas.",
+    "settings_sellerStrikeLimit": "Ocorrências para o alerta",
+    "settings_strikeWindowDays": "Janela do alerta (dias)",
     "settings_priceFloorPercent": "Piso de preço (% da mediana)",
     "settings_protectedBrands": "Marcas protegidas",
     "settings_protectedBrands_hint": "Separadas por vírgula. Produto com uma delas no nome vai para análise antes da vitrine.",
@@ -1799,7 +1798,8 @@
       "PrecoMuitoAbaixo": "Preço muito abaixo",
       "DivergenciaReiterada": "Divergência reiterada",
       "ValorDeclarado": "Valor declarado diferente do cobrado",
-      "Remetente": "Dados do remetente"
+      "Remetente": "Dados do remetente",
+      "OcorrenciasReceita": "Ocorrências da Receita no limite"
     },
     "alertStatus": {
       "Aberto": "Aberto",
@@ -1883,7 +1883,17 @@
     "settings_abruptIncreaseMinShipments": "Mínimo de remessas na semana para o alerta",
     "settings_concentrationThreshold": "Remessas para o mesmo destinatário em 30 dias",
     "settings_auditSamplePercent": "Amostra da auditoria anual (%)",
-    "noticeRejectDataHint": "Recusar mantém o prazo da solicitação original: dentro dele, a loja recebe novo pedido de correção; vencido, a loja é suspensa (Política 8.4)."
+    "noticeRejectDataHint": "Recusar mantém o prazo da solicitação original: dentro dele, a loja recebe novo pedido de correção; vencido, a loja é suspensa (Política 8.4).",
+    "strikeRuleOff": "Alerta de acompanhamento desligado em Configurações. As ocorrências da Receita e as infrações continuam registradas por loja.",
+    "colReceitaOccurrences": "Ocorrências da Receita ({days} dias)",
+    "colInfractions12m": "Infrações (12 meses)",
+    "colFollowUp": "Acompanhamento",
+    "followUpAlert": "Alerta aberto",
+    "reportUpheldEffect": "Procedente, a denúncia vira infração da loja (Política 6.7), com a gravidade do motivo. Ela é julgada pela equipe e não entra nos indicadores da Receita. Suspensão ou exclusão são decididas na ficha da loja, graduadas pela Política (8.2).",
+    "measureInfraction": "Infração",
+    "measureInfractionHint": "A infração que motiva a medida. Obrigatória para a exclusão (Política 8.1 c e 8.2).",
+    "noInfraction": "Sem infração vinculada",
+    "exclusionNeedsInfraction": "A exclusão segue uma infração registrada. Registre a infração da loja (gravidade e intenção) e escolha-a acima."
   },
   "trust": {
     "guaranteedTitle": "Compra garantida",
@@ -1897,11 +1907,9 @@
     "onTimeShort": "{percent}% no prazo",
     "remessaConformeTitle": "Remessa Conforme",
     "remessaConformeHint": "Loja certificada no programa da Receita Federal: os impostos são pagos aqui, na compra, e a entrega chega sem cobrança extra.",
-    "remessaConformeProgram": "Programa da Receita Federal",
     "remessaConformeAde": "Certificação ADE Coana nº {number}",
     "importTaxLabelFinal": "Impostos de importação",
     "importTaxHintFinal": "Pagos aqui, na compra, pelo Remessa Conforme. Nada a pagar na entrega.",
-    "simulationTag": "Simulação",
     "tier": {
       "ouro": "Selo Ouro",
       "prata": "Selo Prata",
@@ -2009,7 +2017,7 @@
     "sellers1": "Toda loja passa por verificação de documentos (responsável, RUC e endereço de origem) antes de vender.",
     "sellers2": "Cada produto tem o NCM conferido na tabela oficial da Receita.",
     "sellers3": "Marcas sensíveis e preços muito abaixo do normal passam por análise antes de ir à vitrine.",
-    "sellers4": "Denúncias são julgadas pela equipe; lojas reincidentes são descredenciadas."
+    "sellers4": "Denúncias são julgadas pela equipe; infrações levam a medidas graduadas, comunicadas à loja com prazo de resposta."
   },
   "publicReport": {
     "title": "Canal de denúncias",

@@ -43,7 +43,8 @@ public sealed record ProductReportDto(
     bool Overdue = false);
 
 /// <summary>Procedente gera ocorrência no indicador escolhido (padrão: o que a denúncia aponta) e pode bloquear o produto.</summary>
-public sealed record ProductReportResolveRequest(bool Upheld, ComplianceIndicator? Indicator, bool BlockProduct, string? Note);
+/// <summary>Procedente vira infração da loja (Política 6.7); a denúncia não entra nos indicadores da Receita.</summary>
+public sealed record ProductReportResolveRequest(bool Upheld, bool BlockProduct, string? Note);
 
 // ----- Ocorrências e indicadores (Portaria Coana 193/2026) -----
 
@@ -101,7 +102,12 @@ public sealed record ComplianceIndicatorDto(
 
 public sealed record ComplianceMonthDto(int Year, int Month, int Shipments, IReadOnlyList<ComplianceIndicatorDto> Indicators);
 
-public sealed record SellerRiskDto(Guid SellerId, string SellerName, SellerStatus Status, int Occurrences, int OpenReports);
+/// <summary>
+/// Acompanhamento da loja: ocorrências da Receita na janela, infrações dos últimos 12 meses (reincidência da Política 8.3)
+/// e alerta em aberto para a equipe avaliar a medida.
+/// </summary>
+public sealed record SellerRiskDto(Guid SellerId, string SellerName, SellerStatus Status, int Occurrences, int OpenReports,
+    int Infractions, bool Recidivist, bool OpenAlert);
 
 public sealed record ComplianceDashboardDto(
     int CycleStartYear,
@@ -116,6 +122,7 @@ public sealed record ComplianceDashboardDto(
     int OpenReports,
     int ProductsInReview,
     int PendingSellerVerifications,
+    /// <summary>Ocorrências da Receita na janela que abrem alerta de acompanhamento da loja (sem medida automática).</summary>
     int StrikeLimit,
     int StrikeWindowDays);
 

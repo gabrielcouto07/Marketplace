@@ -57,6 +57,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
+import { env } from "@/lib/env";
 import { formatCep, formatCpf } from "@/lib/validation/documents";
 
 import {
@@ -408,12 +409,18 @@ export function TrustSection() {
             variant="card"
           />
           <DeliveryWindow range={{ min: 7, max: 12 }} variant="card" />
-          <RemessaConformeBadge variant="card" preview />
+          <RemessaConformeBadge variant="card" />
           <div className="rounded-lg bg-brand-deep p-4">
             <p className="mb-3 text-caption font-medium text-white/80 uppercase">
-              Selo no rodapé (só com NEXT_PUBLIC_REMESSA_CONFORME=true)
+              Selo no rodapé (só com NEXT_PUBLIC_REMESSA_CONFORME=true e o número do ADE)
             </p>
-            <RemessaConformeSeal preview />
+            <RemessaConformeSeal />
+            {env.remessaConforme ? null : (
+              <p className="text-caption text-white/80">
+                O selo do Remessa Conforme só aparece depois da certificação (Portaria Coana 130/2023, art. 13), nem
+                aqui no styleguide.
+              </p>
+            )}
           </div>
           <div className="rounded-lg border border-border bg-surface p-4 shadow-xs">
             <p className="mb-3 text-caption font-medium text-foreground-secondary uppercase">

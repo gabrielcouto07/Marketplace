@@ -420,7 +420,8 @@ public sealed class SellerGovernanceService(
 
     /// <summary>
     /// Aplica a medida (8.1), comunica o motivo ao vendedor com prazo de resposta de 10 dias (8.5 e 8.6) e registra a ação.
-    /// Não salva quando <paramref name="save"/> é falso (uso interno numa transação maior).
+    /// A exclusão exige a infração que a motiva, para a medida ser graduada pela gravidade, pelo número de infrações e pela
+    /// intenção (8.2). Não salva quando <paramref name="save"/> é falso (uso interno numa transação maior).
     /// </summary>
     public async Task<SellerMeasure> ApplyMeasureAsync(Guid sellerId, SellerMeasureInput input, bool automatic, CancellationToken ct, bool save = true,
         string? moderationReason = null)
@@ -432,6 +433,8 @@ public sealed class SellerGovernanceService(
             .AddIf(input.Type == SellerMeasureType.RemocaoAnuncio && input.ProductId is null, "productId", "Escolha o anúncio a remover.")
             .AddIf(input.SuspensionDays is < 1 or > 365, "suspensionDays", "Suspensão entre 1 e 365 dias (vazio = até a revisão da equipe).")
             .AddIf(seller.Status == SellerStatus.Excluido && input.Type != SellerMeasureType.RemocaoAnuncio, "type", "A loja já foi excluída.")
+            .AddIf(input.Type == SellerMeasureType.Exclusao && input.InfractionId is null, "infractionId",
+                "A exclusão segue uma infração registrada, com a medida graduada pela gravidade, pelo número de infrações e pela intenção (Política 8.1 c e 8.2). Escolha a infração.")
             .ThrowIfAny();
         // A infração pode ter sido registrada nesta mesma operação (ainda não gravada).
         if (input.InfractionId is { } infractionId

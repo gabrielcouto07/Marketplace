@@ -18,6 +18,7 @@ import {
   type ShipmentStatus,
 } from "@marketplace/contracts";
 import {
+  Award,
   BadgeCheck,
   Building2,
   CheckCircle2,
@@ -47,7 +48,7 @@ import { DocumentList } from "@/components/shared/document-upload";
 import { FormField } from "@/components/shared/form-field";
 import { FilterSelect, PanelCard, PanelToolbar, SearchInput } from "@/components/shared/panel-widgets";
 import { EmptyState, ErrorState, SectionHeader } from "@/components/shared/states";
-import { ComplianceMedal, RemessaConformeEmblem } from "@/components/shared/trust-badge";
+import { ComplianceMedal } from "@/components/shared/trust-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -86,7 +87,8 @@ import {
 } from "./admin-widgets";
 
 const INDICATORS: ComplianceIndicator[] = ["Contrafacao", "Subvaloracao", "QualidadeDeclaracao"];
-const SOURCES: OccurrenceSource[] = ["Despacho", "Siscomex", "Ouvidoria", "Denuncia", "Interna"];
+/** Origens que a equipe registra: todas vêm da Receita. Denúncia procedente vira infração da loja, no julgamento. */
+const SOURCES: OccurrenceSource[] = ["Despacho", "Siscomex", "Ouvidoria", "Interna"];
 
 /** "julho de 2026" → "Julho de 2026" (o `capitalize` do CSS poria "De" em maiúscula). */
 const upperFirst = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
@@ -179,7 +181,9 @@ export function AdminCompliance() {
           <section className="grid gap-4 lg:grid-cols-[2fr_1fr]">
             <div className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-5 shadow-xs">
               <div className="flex items-center gap-3">
-                <RemessaConformeEmblem className="size-10" />
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary">
+                  <Award className="size-5" strokeWidth={1.75} aria-hidden />
+                </span>
                 <div className="flex flex-col">
                   <span className="text-body font-semibold text-foreground">{t("sealEligibilityTitle")}</span>
                   <span className="text-caption text-foreground-secondary">{t("sealEligibilityHint")}</span>
@@ -243,8 +247,8 @@ export function AdminCompliance() {
 
           <section>
             <SectionHeader title={t("sellersAtRisk")} />
-            <p className="-mt-2 mb-3 text-body-sm text-foreground-secondary">
-              {t("strikeRule", { limit: d.strikeLimit, days: d.strikeWindowDays })}
+            <p className="-mt-2 mb-3 max-w-3xl text-body-sm text-foreground-secondary">
+              {d.strikeLimit > 0 ? t("strikeRule", { limit: d.strikeLimit, days: d.strikeWindowDays }) : t("strikeRuleOff")}
             </p>
             {d.sellersAtRisk.length === 0 ? (
               <p className="text-body-sm text-foreground-secondary">{t("noSellersAtRisk")}</p>
@@ -254,8 +258,10 @@ export function AdminCompliance() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>{t("colSeller")}</TableHead>
-                      <TableHead className="text-right">{t("colOccurrences")}</TableHead>
+                      <TableHead className="text-right">{t("colReceitaOccurrences", { days: d.strikeWindowDays })}</TableHead>
+                      <TableHead className="text-right">{t("colInfractions12m")}</TableHead>
                       <TableHead className="text-right">{t("colOpenReports")}</TableHead>
+                      <TableHead>{t("colFollowUp")}</TableHead>
                       <TableHead>{t("colStatus")}</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -268,9 +274,21 @@ export function AdminCompliance() {
                           </Link>
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {s.occurrences} / {d.strikeLimit}
+                          {d.strikeLimit > 0 ? `${s.occurrences} / ${d.strikeLimit}` : s.occurrences}
                         </TableCell>
+                        <TableCell className="text-right tabular-nums">{s.infractions}</TableCell>
                         <TableCell className="text-right tabular-nums">{s.openReports}</TableCell>
+                        <TableCell>
+                          <span className="flex flex-wrap gap-1.5">
+                            {s.openAlert ? (
+                              <Link href="/admin/conformidade/monitoramento">
+                                <Badge variant="warning">{t("followUpAlert")}</Badge>
+                              </Link>
+                            ) : null}
+                            {s.recidivist ? <Badge variant="danger">{t("recidivist")}</Badge> : null}
+                            {!s.openAlert && !s.recidivist ? <span className="text-caption text-foreground-muted">—</span> : null}
+                          </span>
+                        </TableCell>
                         <TableCell>
                           <Badge variant={s.status === "Suspenso" || s.status === "Excluido" ? "danger" : s.status === "Pendente" ? "warning" : "success"}>
                             {t(`sellerStatus.${s.status}`)}
@@ -688,16 +706,6 @@ export function AdminReports() {
   );
 }
 
-const DEFAULT_INDICATOR: Record<ProductReportDto["reason"], ComplianceIndicator> = {
-  Falsificado: "Contrafacao",
-  PropriedadeIntelectual: "Contrafacao",
-  OrigemIlicita: "QualidadeDeclaracao",
-  PrecoSuspeito: "Subvaloracao",
-  DescricaoIncorreta: "QualidadeDeclaracao",
-  ProdutoProibido: "QualidadeDeclaracao",
-  Outro: "QualidadeDeclaracao",
-};
-
 /** Motivos que, procedentes, tiram o anúncio do ar por padrão (Política 5.3 e 6.3). */
 const BLOCK_BY_DEFAULT: ProductReportDto["reason"][] = ["Falsificado", "PropriedadeIntelectual", "OrigemIlicita", "ProdutoProibido"];
 
@@ -707,14 +715,13 @@ function ResolveReportSheet({ report, onClose }: { report: ProductReportDto | nu
   const format = useFormatter();
   const { resolveReport } = useComplianceMutations();
   const onError = useAdminErrorToast();
-  const [indicator, setIndicator] = useState<ComplianceIndicator>(report ? DEFAULT_INDICATOR[report.reason] : "Contrafacao");
   const [block, setBlock] = useState(report ? BLOCK_BY_DEFAULT.includes(report.reason) : false);
   const [note, setNote] = useState("");
 
   const resolve = (upheld: boolean) =>
     report &&
     resolveReport.mutate(
-      { id: report.id, body: { upheld, indicator: upheld ? indicator : null, blockProduct: upheld && block, note: note || null } },
+      { id: report.id, body: { upheld, blockProduct: upheld && block, note: note || null } },
       { onSuccess: () => { toast.success(upheld ? t("reportUpheld") : t("reportDismissed")); onClose(); }, onError },
     );
 
@@ -757,10 +764,7 @@ function ResolveReportSheet({ report, onClose }: { report: ProductReportDto | nu
             </ul>
           ) : null}
           <SheetSection title={t("ifUpheld")}>
-            <FormField id="report-indicator" label={t("colIndicator")} hint={t("reportIndicatorHint")}>
-              <SimpleSelect id="report-indicator" value={indicator} onChange={(v) => setIndicator(v as ComplianceIndicator)}
-                items={Object.fromEntries(INDICATORS.map((i) => [i, t(`indicator.${i}`)]))} />
-            </FormField>
+            <p className="text-body-sm text-foreground-secondary">{t("reportUpheldEffect")}</p>
             <label className="flex min-h-12 cursor-pointer items-center justify-between gap-3 rounded-md border border-border px-3 text-body-sm">
               <span>{t("blockProduct")}</span>
               <Switch checked={block} onCheckedChange={setBlock} />
@@ -1042,12 +1046,14 @@ export function AdminIntegrations() {
           })}
           <article className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-5 shadow-xs">
             <div className="flex items-start gap-3">
-              <RemessaConformeEmblem className="size-10" />
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary">
+                <BadgeCheck className="size-5" strokeWidth={1.75} aria-hidden />
+              </span>
               <div className="flex min-w-0 flex-1 flex-col gap-0.5">
                 <h2 className="text-body font-semibold text-foreground">{t("sealIntegration")}</h2>
                 <p className="text-caption text-foreground-secondary">{t("sealIntegrationHint")}</p>
               </div>
-              <Badge variant={sealMode === "certificado" ? "success" : sealMode === "simulacao" ? "warning" : "neutral"}>
+              <Badge variant={sealMode === "certificado" ? "success" : sealMode === "semAde" ? "warning" : "neutral"}>
                 {t(`sealMode.${sealMode}`)}
               </Badge>
             </div>

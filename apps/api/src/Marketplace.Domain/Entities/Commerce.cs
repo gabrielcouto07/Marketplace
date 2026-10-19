@@ -301,7 +301,10 @@ public class PlatformSettings
     public int InsuranceBasisPoints { get; set; }
     /// <summary>Outras despesas fixas por remessa, em centavos (entram no valor aduaneiro).</summary>
     public long OtherExpensesAmount { get; set; }
-    /// <summary>Ocorrências confirmadas na janela que descredenciam a loja automaticamente.</summary>
+    /// <summary>
+    /// Ocorrências da Receita nas remessas da loja, na janela, que abrem alerta de acompanhamento para a equipe (0 =
+    /// desligado). Não suspende nem exclui: a medida segue a Política (8.2, 8.5 e 8.6).
+    /// </summary>
     public int SellerStrikeLimit { get; set; } = 3;
     public int StrikeWindowDays { get; set; } = 365;
     /// <summary>Produto com preço abaixo deste % da mediana do mesmo NCM vai para análise (risco de subvaloração).</summary>

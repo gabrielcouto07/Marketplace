@@ -115,7 +115,7 @@ public sealed class TrackingService(
             record.Error = null;
             var hasOccurrence = PendingOccurrences() > before;
             await db.SaveChangesAsync(ct);
-            if (hasOccurrence) await compliance.EvaluateSellerStrikesAsync(order.SellerId, ct);
+            if (hasOccurrence) await compliance.ReviewSellerOccurrencesAsync(order.SellerId, ct);
             return (true, changed);
         }
         catch (Exception ex) when (ex is not AppException)
@@ -154,7 +154,7 @@ public sealed class TrackingService(
                 {
                     var hasOccurrence = PendingOccurrences() > before;
                     await db.SaveChangesAsync(ct);
-                    if (hasOccurrence) await compliance.EvaluateSellerStrikesAsync(order.SellerId, ct);
+                    if (hasOccurrence) await compliance.ReviewSellerOccurrencesAsync(order.SellerId, ct);
                     updated++;
                 }
             }

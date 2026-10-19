@@ -176,11 +176,34 @@ public sealed class ComplianceProgramFlowTests : IClassFixture<ApiFactory>
         var admin = await AdminAsync();
         var sellers = await admin.GetFromJsonAsync<JsonElement>("/api/admin/sellers?q=Sport", Json);
         var sellerId = sellers.GetProperty("items")[0].GetProperty("id").GetGuid();
-        var excluded = await admin.PutAsJsonAsync($"/api/admin/sellers/{sellerId}", new
+        // A exclusão segue a Política: não sai pela edição da loja nem sem a infração que a motiva (8.1 c e 8.2).
+        var direct = await admin.PutAsJsonAsync($"/api/admin/sellers/{sellerId}", new
         {
             status = "Excluido", suspensionReason = "Reincidência em contrafação comprovada (Política 8.1 c).",
         }, Json);
-        Assert.Equal("Excluido", (await ReadAsync(excluded)).GetProperty("summary").GetProperty("status").GetString());
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, direct.StatusCode);
+        var withoutInfraction = await admin.PostAsJsonAsync($"/api/admin/sellers/{sellerId}/measures", new
+        {
+            type = "Exclusao", reason = "Reincidência em contrafação comprovada (Política 8.1 c).",
+        }, Json);
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, withoutInfraction.StatusCode);
+        Assert.Contains("infractionId", await withoutInfraction.Content.ReadAsStringAsync());
+
+        var infraction = await ReadAsync(await admin.PostAsJsonAsync($"/api/admin/sellers/{sellerId}/infractions", new
+        {
+            code = "CONTRAFACAO", description = "Reincidência em contrafação comprovada por perícia do titular da marca.", severity = "Grave", intentional = true,
+        }, Json));
+        Assert.Equal("Exclusao", infraction.GetProperty("recommendation").GetProperty("type").GetString());
+        var excluded = await admin.PostAsJsonAsync($"/api/admin/sellers/{sellerId}/measures", new
+        {
+            type = "Exclusao", reason = "Reincidência em contrafação comprovada (Política 8.1 c).",
+            infractionId = infraction.GetProperty("infraction").GetProperty("id").GetGuid(),
+        }, Json);
+        Assert.Equal(HttpStatusCode.Created, excluded.StatusCode);
+        var afterExclusion = await admin.GetFromJsonAsync<JsonElement>($"/api/admin/sellers/{sellerId}", Json);
+        Assert.Equal("Excluido", afterExclusion.GetProperty("summary").GetProperty("status").GetString());
+        var notice = afterExclusion.GetProperty("governance").GetProperty("notices").EnumerateArray().First(n => n.GetProperty("type").GetString() == "Medida");
+        Assert.True(notice.GetProperty("dueAt").GetDateTime() > DateTime.UtcNow.AddDays(9));
 
         // Mesmo representante (cédula do seed da Sport House: índice 6) com outro RUC.
         var client = _factory.CreateClient();

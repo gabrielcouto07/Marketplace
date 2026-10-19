@@ -23,25 +23,29 @@ export const env = {
   /** Public key do Mercado Pago (tokenização de cartão no navegador). */
   mercadoPagoPublicKey: process.env.NEXT_PUBLIC_MERCADOPAGO_PUBLIC_KEY || null,
   /**
-   * Selo do Programa Remessa Conforme. Só ligar ("true") em produção depois do Ato Declaratório Executivo da Coana:
-   * exibir o selo sem a certificação é propaganda enganosa. "simulacao" mostra o selo com a etiqueta "Simulação"
-   * (pré-visualização de como o site fica certificado).
+   * Selo do Programa Remessa Conforme. A Portaria Coana 130/2023 (art. 13) só permite o selo à empresa certificada:
+   * ele aparece com NEXT_PUBLIC_REMESSA_CONFORME=true e o número do Ato Declaratório Executivo (ADE) em
+   * NEXT_PUBLIC_REMESSA_CONFORME_ADE. Sem os dois, nenhuma página mostra o selo (não há modo de simulação).
    */
-  remessaConforme: remessaConformeMode() !== "off",
+  remessaConforme: remessaConformeMode() === "certificado",
   remessaConformeMode: remessaConformeMode(),
-  /** Número do ADE de certificação, mostrado no rodapé e no header junto ao selo (opcional). */
-  remessaConformeAde: process.env.NEXT_PUBLIC_REMESSA_CONFORME_ADE || null,
+  /** Número do ADE de certificação, mostrado no rodapé e na página do programa junto ao selo. */
+  remessaConformeAde: remessaConformeAde(),
   /** Faixa conquistada no ciclo (Portaria Coana 193/2026): selos saem em dezembro para quem passa de 100 mil remessas. */
   remessaConformeSelo: complianceTier(process.env.NEXT_PUBLIC_REMESSA_CONFORME_SELO),
   /** Ciclo do selo (ex.: "2026/2027"), mostrado junto da medalha. */
   remessaConformeCiclo: process.env.NEXT_PUBLIC_REMESSA_CONFORME_CICLO || null,
 } as const;
 
-function remessaConformeMode(): "off" | "simulacao" | "certificado" {
+function remessaConformeAde(): string | null {
+  return process.env.NEXT_PUBLIC_REMESSA_CONFORME_ADE?.trim() || null;
+}
+
+/** "semAde": ligado sem o número do ADE, o selo continua desligado (o painel de integrações avisa). */
+function remessaConformeMode(): "off" | "semAde" | "certificado" {
   const raw = (process.env.NEXT_PUBLIC_REMESSA_CONFORME ?? "").trim().toLowerCase();
-  if (raw === "true" || raw === "certificado") return "certificado";
-  if (raw === "simulacao" || raw === "simulação" || raw === "preview") return "simulacao";
-  return "off";
+  if (raw !== "true" && raw !== "certificado") return "off";
+  return remessaConformeAde() ? "certificado" : "semAde";
 }
 
 function complianceTier(raw: string | undefined): "ouro" | "prata" | "bronze" | null {

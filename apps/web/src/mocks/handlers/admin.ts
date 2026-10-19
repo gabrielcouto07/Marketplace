@@ -665,7 +665,11 @@ export const adminHandlers = [
       const reason = body.suspensionReason?.trim() ?? "";
       if (current === "Excluido")
         return validation({ status: ["Loja excluída não volta a vender (Política de Vendedores 3.5 e 8.1 c)."] });
-      if (body.status === "Suspenso" || body.status === "Excluido") {
+      if (body.status === "Excluido")
+        return validation({
+          status: ["A exclusão é medida da Política (8.1 c): registre a infração e aplique a medida graduada na ficha da loja (8.2)."],
+        });
+      if (body.status === "Suspenso") {
         if (reason.length < 10)
           return validation({
             suspensionReason: [
@@ -674,11 +678,11 @@ export const adminHandlers = [
           });
         if (body.suspensionDays != null && (body.suspensionDays < 1 || body.suspensionDays > 365))
           return validation({ suspensionDays: ["Suspensão entre 1 e 365 dias (vazio = até a revisão da equipe)."] });
-        // Suspensão e exclusão são medidas da Política (8.1): ficam registradas e são comunicadas ao vendedor (8.5).
+        // Suspensão é medida da Política (8.1 b): fica registrada e é comunicada ao vendedor (8.5).
         applyMeasure(seller.id, {
-          type: body.status === "Suspenso" ? "SuspensaoTemporaria" : "Exclusao",
+          type: "SuspensaoTemporaria",
           reason: reason.slice(0, 500),
-          suspensionDays: body.status === "Suspenso" ? (body.suspensionDays ?? null) : null,
+          suspensionDays: body.suspensionDays ?? null,
         });
         measured = true;
       } else if (body.status === "Aprovado") {

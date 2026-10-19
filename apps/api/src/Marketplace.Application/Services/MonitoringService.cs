@@ -114,7 +114,7 @@ public sealed class MonitoringService(
     // Padrões das lojas (Política 7.3 a, b, e) — rotina diária
     // =================================================================================================================
 
-    private static readonly string[] DivergenceCodes = ["CONTEUDO", "DIVERGENCIA", "DESCRICAO", "DECLARATION_ERROR", "DENUNCIA_DESCRICAOINCORRETA"];
+    private static readonly string[] DivergenceCodes = ["CONTEUDO", "DIVERGENCIA", "DESCRICAO", "DECLARATION_ERROR"];
 
     public async Task<int> DetectSellerPatternsAsync(CancellationToken ct)
     {
@@ -160,17 +160,22 @@ public sealed class MonitoringService(
             }
         }
 
-        // e) Divergência reiterada entre o produto anunciado e o enviado (ocorrências e denúncias procedentes em 90 dias).
+        // e) Divergência reiterada entre o produto anunciado e o enviado: ocorrências da Receita e infrações de divergência
+        //    (denúncias procedentes, alertas julgados) em 90 dias.
         var since = now.AddDays(-90);
-        var divergences = await db.ComplianceOccurrences.AsNoTracking()
+        var divergences = await ComplianceService.FromReceita(db.ComplianceOccurrences.AsNoTracking())
             .Where(o => o.SellerId != null && o.Status != OccurrenceStatus.Anulada && o.OccurredAt >= since)
             .Select(o => new { SellerId = o.SellerId!.Value, o.Code, o.OrderId })
             .ToListAsync(ct);
+        divergences.AddRange(await db.SellerInfractions.AsNoTracking()
+            .Where(i => i.OccurredAt >= since && i.Code == "DIVERGENCIA")
+            .Select(i => new { i.SellerId, i.Code, i.OrderId })
+            .ToListAsync(ct));
         foreach (var bySeller in divergences.Where(d => DivergenceCodes.Any(c => d.Code.Contains(c, StringComparison.OrdinalIgnoreCase))).GroupBy(d => d.SellerId))
         {
             if (bySeller.Count() < 2) continue;
             var (_, isNew) = await RaiseAsync(MonitoringAlertType.DivergenciaReiterada, $"div:{bySeller.Key:N}:{now:yyyyMM}", bySeller.Key, null,
-                $"{bySeller.Count()} ocorrências de divergência entre o anunciado e o enviado em 90 dias.",
+                $"{bySeller.Count()} registros de divergência entre o anunciado e o enviado em 90 dias.",
                 bySeller.Where(d => d.OrderId is not null).Select(d => d.OrderId!.Value).ToList(), new { codes = bySeller.Select(d => d.Code) }, false, ct);
             if (isNew) created++;
         }
@@ -239,6 +244,7 @@ public sealed class MonitoringService(
                 MonitoringAlertType.PrecoMuitoAbaixo or MonitoringAlertType.ValorDeclarado => "SUBFATURAMENTO",
                 MonitoringAlertType.DivergenciaReiterada => "DIVERGENCIA",
                 MonitoringAlertType.Remetente => "OCULTACAO_REMETENTE",
+                MonitoringAlertType.OcorrenciasReceita => "OCORRENCIAS_RECEITA",
                 _ => "PADRAO_ANOMALO",
             };
             var infraction = await governance.AddInfractionAsync(sellerId, code, $"{alert.Summary} Conclusão: {note}",

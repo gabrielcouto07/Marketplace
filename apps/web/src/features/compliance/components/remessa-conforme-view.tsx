@@ -12,8 +12,8 @@ import { env } from "@/lib/env";
 const EXAMPLE_AMOUNT = 20000;
 
 /**
- * "Como funcionam os impostos": o que o comprador paga, discriminado, e por que não há cobrança na entrega. Com a
- * certificação (ou em simulação) mostra o selo e o número do ADE.
+ * "Como funcionam os impostos": o que o comprador paga, discriminado, e por que não há cobrança na entrega. O emblema do
+ * selo e o número do ADE só aparecem com a certificação (Portaria Coana 130/2023, art. 13); antes dela, um ícone neutro.
  */
 export function RemessaConformeView() {
   const t = useTranslations("remessaConformePage");
@@ -28,14 +28,20 @@ export function RemessaConformeView() {
   return (
     <PageContainer className="flex max-w-3xl flex-col gap-6 py-6">
       <section className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-5 shadow-xs md:flex-row md:items-center">
-        <RemessaConformeEmblem className="size-16" />
+        {env.remessaConforme ? (
+          <RemessaConformeEmblem className="size-16" />
+        ) : (
+          <span className="flex size-16 shrink-0 items-center justify-center rounded-full bg-primary-soft text-primary">
+            <Landmark className="size-8" strokeWidth={1.75} aria-hidden />
+          </span>
+        )}
         <div className="flex flex-col gap-1">
           <h1 className="text-title-1 text-foreground">{t("title")}</h1>
           <p className="text-body text-foreground-secondary">{t("intro")}</p>
-          {env.remessaConforme && env.remessaConformeAde ? (
+          {env.remessaConforme ? (
             <p className="flex items-center gap-1.5 text-body-sm font-medium text-success">
               <BadgeCheck className="size-4" strokeWidth={2} aria-hidden />
-              {t("certified", { ade: env.remessaConformeAde })}
+              {t("certified", { ade: env.remessaConformeAde ?? "" })}
             </p>
           ) : null}
         </div>

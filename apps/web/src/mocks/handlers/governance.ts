@@ -386,7 +386,12 @@ export const governanceHandlers = [
     alert.resolvedAt = nowIso();
     if (body.upheld && body.attribution === "Vendedor" && body.registerInfraction && alert.sellerId)
       addInfraction(alert.sellerId, {
-        code: alert.type === "Fracionamento" ? "FRACIONAMENTO" : "MONITORAMENTO",
+        code:
+          alert.type === "Fracionamento"
+            ? "FRACIONAMENTO"
+            : alert.type === "OcorrenciasReceita"
+              ? "OCORRENCIAS_RECEITA"
+              : "MONITORAMENTO",
         description: alert.resolutionNote ?? alert.summary,
         severity: body.severity ?? "Media",
         intentional: false,
@@ -797,6 +802,10 @@ export const governanceHandlers = [
     if (input.suspensionDays != null && (input.suspensionDays < 1 || input.suspensionDays > 365))
       errors.suspensionDays = ["Suspensão entre 1 e 365 dias (vazio = até a revisão da equipe)."];
     if (sellerStatus(seller.id) === "Excluido" && input.type !== "RemocaoAnuncio") errors.type = ["A loja já foi excluída."];
+    if (input.type === "Exclusao" && !input.infractionId)
+      errors.infractionId = [
+        "A exclusão segue uma infração registrada, com a medida graduada pela gravidade, pelo número de infrações e pela intenção (Política 8.1 c e 8.2). Escolha a infração.",
+      ];
     if (Object.keys(errors).length) return validation(errors);
     const measure = applyMeasure(seller.id, { ...input, reason });
     audit("admin.measure.apply", `${seller.slug}/${input.type}`);

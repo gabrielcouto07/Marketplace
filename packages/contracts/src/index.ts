@@ -1461,6 +1461,7 @@ export interface AdminAuditListQuery extends PagedQuery {
 // Remessa Conforme — conformidade (Portarias Coana 130/2023 e 193/2026)
 // ---------------------------------------------------------------------------
 export type ComplianceIndicator = "Contrafacao" | "Subvaloracao" | "QualidadeDeclaracao";
+/** "Denuncia" só aparece em registros antigos: denúncia procedente é infração da loja e não entra nos indicadores. */
 export type OccurrenceSource = "Despacho" | "Siscomex" | "Ouvidoria" | "Denuncia" | "Interna";
 export type OccurrenceStatus = "Confirmada" | "Contestada" | "Anulada";
 export type ProductReportReason =
@@ -1521,9 +1522,9 @@ export interface ProductReportDto {
   overdue?: boolean;
 }
 
+/** Procedente vira infração da loja (Política 6.7); a denúncia não entra nos indicadores da Receita. */
 export interface ProductReportResolveRequest {
   upheld: boolean;
-  indicator?: ComplianceIndicator | null;
   blockProduct: boolean;
   note?: string | null;
 }
@@ -1593,12 +1594,19 @@ export interface ComplianceMonthDto {
   indicators: ComplianceIndicatorDto[];
 }
 
+/**
+ * Acompanhamento da loja (Política 6.6 e 7.2): ocorrências da Receita na janela, infrações apuradas pela equipe nos
+ * últimos 12 meses (reincidência, 8.3) e alerta em aberto para a equipe avaliar a medida (8.2).
+ */
 export interface SellerRiskDto {
   sellerId: string;
   sellerName: string;
   status: SellerStatus;
   occurrences: number;
   openReports: number;
+  infractions: number;
+  recidivist: boolean;
+  openAlert: boolean;
 }
 
 export interface ComplianceDashboardDto {
@@ -1613,6 +1621,7 @@ export interface ComplianceDashboardDto {
   openReports: number;
   productsInReview: number;
   pendingSellerVerifications: number;
+  /** Ocorrências da Receita na janela que abrem alerta de acompanhamento da loja (nada é aplicado sozinho). */
   strikeLimit: number;
   strikeWindowDays: number;
 }
@@ -1711,7 +1720,9 @@ export type MonitoringAlertType =
   | "PrecoMuitoAbaixo"
   | "DivergenciaReiterada"
   | "ValorDeclarado"
-  | "Remetente";
+  | "Remetente"
+  /** Ocorrências da Receita da loja no limite de acompanhamento: a equipe avalia a medida (Política 8.2). */
+  | "OcorrenciasReceita";
 export type MonitoringAlertStatus = "Aberto" | "Procedente" | "Improcedente";
 export type AlertAttribution = "Vendedor" | "Comprador" | "Plataforma";
 export type RfInteractionType =

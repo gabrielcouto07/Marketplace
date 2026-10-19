@@ -3,6 +3,7 @@ import type {
   ComplianceDashboardDto,
   ComplianceIndicator,
   ComplianceIndicatorDto,
+  MonitoringAlertDto,
   ComplianceMonthDto,
   ComplianceOccurrenceDto,
   ComplianceOccurrenceInput,
@@ -63,6 +64,7 @@ import {
   contest,
   createReport,
   holdingAlertFor,
+  infractionsIn12Months,
   logAction,
   withOverdue,
 } from "../governance";
@@ -334,7 +336,7 @@ function dashboard(cycle: number | undefined): ComplianceDashboardDto {
     return t >= start && t < end;
   };
   const shipped = db.orders.map(shippedAtOf).filter((d): d is string => d !== null && inCycle(d));
-  const occurrences = db.occurrences.filter((o) => o.status !== "Anulada" && inCycle(o.occurredAt));
+  const occurrences = receitaOccurrences().filter((o) => o.status !== "Anulada" && inCycle(o.occurredAt));
 
   const firstMonth = year * 12 + 6;
   const lastMonth = Math.min(now.getUTCFullYear() * 12 + now.getUTCMonth(), (year + 1) * 12 + 5);
@@ -350,16 +352,19 @@ function dashboard(cycle: number | undefined): ComplianceDashboardDto {
     });
   }
 
-  const windowStart = Date.now() - db.settings.strikeWindowDays * DAY_MS;
+  // Acompanhamento por loja: ocorrências da Receita na janela e infrações apuradas pela equipe em 12 meses.
   const counts = new Map<string, number>();
-  for (const o of db.occurrences) {
-    if (!o.sellerId || o.status === "Anulada" || new Date(o.occurredAt).getTime() < windowStart) continue;
+  for (const o of receitaOccurrences()) {
+    if (!o.sellerId || !inWindow(o)) continue;
     counts.set(o.sellerId, (counts.get(o.sellerId) ?? 0) + 1);
   }
-  const sellersAtRisk: SellerRiskDto[] = [...counts.entries()]
-    .sort((a, b) => b[1] - a[1])
+  const ids = new Set([...counts.keys(), ...db.infractions.map((i) => i.sellerId)]);
+  const sellersAtRisk: SellerRiskDto[] = [...ids]
+    .map((sellerId) => ({ sellerId, infractions: infractionsIn12Months(sellerId) }))
+    .filter((r) => counts.has(r.sellerId) || r.infractions.length > 0)
+    .sort((a, b) => (counts.get(b.sellerId) ?? 0) + b.infractions.length - (counts.get(a.sellerId) ?? 0) - a.infractions.length)
     .slice(0, 10)
-    .flatMap(([sellerId, count]) => {
+    .flatMap(({ sellerId, infractions }) => {
       const seller = findSellerById(sellerId);
       return seller
         ? [
@@ -367,8 +372,11 @@ function dashboard(cycle: number | undefined): ComplianceDashboardDto {
               sellerId,
               sellerName: seller.name,
               status: sellerStatus(sellerId),
-              occurrences: count,
+              occurrences: counts.get(sellerId) ?? 0,
               openReports: db.reports.filter((r) => r.sellerId === sellerId && r.status === "Aberta").length,
+              infractions: infractions.length,
+              recidivist: infractions.some((i) => i.recidivist),
+              openAlert: db.alerts.some((a) => a.sellerId === sellerId && a.status === "Aberto"),
             },
           ]
         : [];
@@ -393,28 +401,55 @@ function dashboard(cycle: number | undefined): ComplianceDashboardDto {
   };
 }
 
-/** Ocorrências da loja na janela de reincidência (as anuladas não contam). */
+/** Só as ocorrências que vêm da Receita entram nos indicadores (registros antigos de denúncia ficam de fora). */
+const receitaOccurrences = () => db.occurrences.filter((o) => o.source !== "Denuncia");
+
+const inWindow = (o: ComplianceOccurrenceDto) =>
+  o.status !== "Anulada" && new Date(o.occurredAt).getTime() >= Date.now() - db.settings.strikeWindowDays * DAY_MS;
+
+/** Ocorrências da Receita da loja na janela de acompanhamento (as anuladas não contam). */
 export function sellerOccurrences(sellerId: string): ComplianceOccurrenceDto[] {
-  const from = Date.now() - db.settings.strikeWindowDays * DAY_MS;
-  return db.occurrences.filter(
-    (o) => o.sellerId === sellerId && o.status !== "Anulada" && new Date(o.occurredAt).getTime() >= from,
-  );
+  return receitaOccurrences().filter((o) => o.sellerId === sellerId && inWindow(o));
 }
 
 export const openReportsFor = (productId: string) =>
   db.reports.filter((r) => r.productId === productId && r.status === "Aberta").length;
 
-/** Descredencia (suspende) a loja que atingiu o limite de ocorrências na janela. */
-function evaluateStrikes(sellerId: string | null): void {
-  if (!sellerId || db.settings.sellerStrikeLimit <= 0) return;
-  const count = sellerOccurrences(sellerId).length;
-  if (count < db.settings.sellerStrikeLimit || sellerStatus(sellerId) === "Suspenso") return;
-  db.sellerOverrides[sellerId] = { ...db.sellerOverrides[sellerId], status: "Suspenso" };
-  db.sellerKyc[sellerId] = {
-    ...sellerKyc(sellerId),
-    suspensionReason: `Descredenciada automaticamente: ${count} ocorrências de conformidade em ${db.settings.strikeWindowDays} dias (limite ${db.settings.sellerStrikeLimit}).`,
+/**
+ * Loja no limite de acompanhamento ganha alerta para a equipe (ReviewSellerOccurrencesAsync da API). Nada é aplicado
+ * sozinho: a medida é graduada pela equipe e comunicada com prazo de resposta (Política 8.2, 8.5 e 8.6).
+ */
+function reviewSellerOccurrences(sellerId: string | null): void {
+  if (!sellerId || db.settings.sellerStrikeLimit <= 0 || sellerStatus(sellerId) === "Excluido") return;
+  const occurrences = sellerOccurrences(sellerId);
+  if (occurrences.length < db.settings.sellerStrikeLimit) return;
+  const summary =
+    `${occurrences.length} ocorrências da Receita nas remessas da loja em ${db.settings.strikeWindowDays} dias. ` +
+    "Avaliar a infração e a medida pela Política (8.2); a loja é comunicada e pode responder em 10 dias (8.5 e 8.6).";
+  const orderNumbers = occurrences.flatMap((o) => (o.orderNumber ? [o.orderNumber] : []));
+  const open = db.alerts.find((a) => a.type === "OcorrenciasReceita" && a.sellerId === sellerId && a.status === "Aberto");
+  if (open) {
+    Object.assign(open, { summary, orderNumbers });
+    return;
+  }
+  const alert: MonitoringAlertDto = {
+    id: crypto.randomUUID(),
+    type: "OcorrenciasReceita",
+    status: "Aberto",
+    sellerId,
+    sellerName: findSellerById(sellerId)?.name ?? null,
+    buyerUserId: null,
+    buyerEmail: null,
+    summary,
+    orderNumbers,
+    holdsShipments: false,
+    detectedAt: nowIso(),
+    attribution: null,
+    resolutionNote: null,
+    resolvedAt: null,
   };
-  audit("compliance.seller.suspend", findSellerById(sellerId)?.slug ?? sellerId);
+  db.alerts.unshift(alert);
+  logAction("AlertaMonitoramento", summary, "Alerta aberto para análise da equipe.", { sellerId, automatic: true });
 }
 
 function newOccurrence(
@@ -438,14 +473,6 @@ function newOccurrence(
     ...fields,
   };
 }
-
-/** Falsificado ou propriedade intelectual → contrafação; preço suspeito → subvaloração; o resto → qualidade da declaração. */
-const indicatorFor = (reason: ProductReportReason): ComplianceIndicator =>
-  reason === "Falsificado" || reason === "PropriedadeIntelectual"
-    ? "Contrafacao"
-    : reason === "PrecoSuspeito"
-      ? "Subvaloracao"
-      : "QualidadeDeclaracao";
 
 /** Infração do vendedor por motivo da denúncia procedente (InfractionFor da API). */
 const INFRACTION_FOR: Record<ProductReportReason, [code: string, severity: "Leve" | "Media" | "Grave", moderation: string]> = {
@@ -679,7 +706,7 @@ export const remessaHandlers = [
     const indicator = url.searchParams.get("indicator");
     const sellerId = url.searchParams.get("sellerId");
     const status = url.searchParams.get("status");
-    const items = db.occurrences
+    const items = receitaOccurrences()
       .filter(
         (o) =>
           (!indicator || o.indicator === indicator) &&
@@ -700,6 +727,10 @@ export const remessaHandlers = [
     const code = (body.code ?? "").trim().toUpperCase().replace(/ /g, "_");
     const description = body.description?.trim() ?? "";
     const errors: Record<string, string[]> = {};
+    if (body.source === "Denuncia")
+      errors.source = [
+        "Denúncia julgada procedente é infração da loja (Política 6.7), registrada no julgamento, e não entra nos indicadores da Receita.",
+      ];
     if (code.length < 3 || code.length > 60)
       errors.code = ["Informe o código da ocorrência (ex.: CPF_DESTINATARIO)."];
     if (description.length < 5) errors.description = ["Descreva a ocorrência."];
@@ -730,7 +761,7 @@ export const remessaHandlers = [
     });
     db.occurrences.unshift(occurrence);
     audit("admin.occurrence.create", `${occurrence.indicator}/${code}`);
-    evaluateStrikes(sellerId);
+    reviewSellerOccurrences(sellerId);
     persistDb();
     return HttpResponse.json(occurrence, { status: 201 });
   }),
@@ -809,19 +840,8 @@ export const remessaHandlers = [
     report.resolvedAt = now;
     report.resolutionNote = note;
     if (body.upheld) {
-      const occurrence = newOccurrence({
-        indicator: body.indicator ?? indicatorFor(report.reason),
-        source: "Denuncia",
-        code: `DENUNCIA_${report.reason.toUpperCase()}`,
-        description: note ?? `Denúncia procedente: ${report.reason}.`,
-        sellerId: report.sellerId,
-        productId: report.productId,
-        externalId: `report:${report.id}`,
-        occurredAt: now,
-      });
-      db.occurrences.unshift(occurrence);
-      report.occurrenceId = occurrence.id;
-      // Política 6.7: denúncia procedente é infração; com bloqueio, o anúncio é removido e o vendedor comunicado (8.5).
+      // Política 6.7: denúncia procedente é infração da loja (não ocorrência dos indicadores da Receita); com bloqueio, o
+      // anúncio é removido e o vendedor comunicado (8.5). Suspensão ou exclusão são graduadas na ficha da loja (8.2).
       const [code, severity, moderation] = INFRACTION_FOR[report.reason];
       const why = note ?? `Denúncia ${report.protocol ?? ""} julgada procedente (${report.reason}).`;
       const infraction = addInfraction(report.sellerId, {
@@ -841,10 +861,9 @@ export const remessaHandlers = [
       logAction(
         "DenunciaProcedente",
         note ?? report.reason,
-        body.blockProduct ? "Anúncio removido; ocorrência e infração registradas." : "Ocorrência e infração registradas.",
+        body.blockProduct ? "Anúncio removido; infração registrada." : "Infração registrada.",
         { sellerId: report.sellerId, productId: report.productId, reportId: report.id },
       );
-      evaluateStrikes(report.sellerId);
     } else {
       logAction("DenunciaImprocedente", note ?? report.reason, "Anúncio mantido.", {
         sellerId: report.sellerId,

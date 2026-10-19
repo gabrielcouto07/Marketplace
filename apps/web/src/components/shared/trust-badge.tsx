@@ -162,29 +162,14 @@ export function RemessaConformeEmblem({ className }: { className?: string }) {
 }
 
 interface RemessaConformeProps {
-  /** Mostra mesmo sem NEXT_PUBLIC_REMESSA_CONFORME (só o styleguide `/design`). */
-  preview?: boolean;
   className?: string;
 }
 
-const showSeal = (preview?: boolean) => env.remessaConforme || Boolean(preview);
-
-/** Etiqueta "Simulação" que acompanha o selo enquanto a empresa não tem o ADE (NEXT_PUBLIC_REMESSA_CONFORME=simulacao). */
-export function SimulationTag({ onDark, className }: { onDark?: boolean; className?: string }) {
-  const t = useTranslations("trust");
-  if (env.remessaConformeMode !== "simulacao") return null;
-  return (
-    <span
-      className={cn(
-        "inline-flex h-5 shrink-0 items-center rounded-sm px-1.5 text-caption font-bold uppercase",
-        onDark ? "bg-white/15 text-white" : "bg-warning-soft text-warning",
-        className,
-      )}
-    >
-      {t("simulationTag")}
-    </span>
-  );
-}
+/**
+ * O selo é exclusivo da empresa certificada (Portaria Coana 130/2023, art. 13): sem o ADE nenhum dos componentes abaixo
+ * renderiza, nem no styleguide.
+ */
+const showSeal = () => env.remessaConforme;
 
 type Tier = "ouro" | "prata" | "bronze";
 
@@ -217,46 +202,37 @@ function useTierLabel(): string | null {
 
 /**
  * Selo Remessa Conforme na lista de confiança (PDP, resumo do checkout): emblema + o que o programa garante.
- * Some sozinho enquanto a loja não for certificada (`env.remessaConforme`).
+ * Some sozinho enquanto a empresa não for certificada (`env.remessaConforme`).
  */
 export function RemessaConformeBadge({
   variant,
-  preview,
   className,
 }: RemessaConformeProps & { variant?: TrustRowProps["variant"] }) {
   const t = useTranslations("trust");
   const tierLabel = useTierLabel();
-  if (!showSeal(preview)) return null;
+  if (!showSeal()) return null;
   return (
     <TrustRow
       media={<RemessaConformeEmblem />}
       title={t("remessaConformeTitle")}
       hint={tierLabel ? `${t("remessaConformeHint")} ${tierLabel}.` : t("remessaConformeHint")}
-      trailing={env.remessaConformeMode === "simulacao" ? t("simulationTag") : undefined}
       variant={variant}
       className={className}
     />
   );
 }
 
-/** Selo compacto para o rodapé Marinho: emblema, nome do programa e o número do ADE quando houver. */
-export function RemessaConformeSeal({ preview, className }: RemessaConformeProps) {
+/** Selo compacto para o rodapé Marinho: emblema, nome do programa e o número do ADE. */
+export function RemessaConformeSeal({ className }: RemessaConformeProps) {
   const t = useTranslations("trust");
   const tierLabel = useTierLabel();
-  if (!showSeal(preview)) return null;
+  if (!showSeal()) return null;
   return (
     <div className={cn("flex items-center gap-3 text-left", className)}>
       <RemessaConformeEmblem />
       <span className="flex flex-col">
-        <span className="flex items-center gap-2 text-body-sm font-bold whitespace-nowrap text-white">
-          {t("remessaConformeTitle")}
-          <SimulationTag onDark />
-        </span>
-        <span className="text-caption text-white/80">
-          {env.remessaConformeAde
-            ? t("remessaConformeAde", { number: env.remessaConformeAde })
-            : t("remessaConformeProgram")}
-        </span>
+        <span className="text-body-sm font-bold whitespace-nowrap text-white">{t("remessaConformeTitle")}</span>
+        <span className="text-caption text-white/80">{t("remessaConformeAde", { number: env.remessaConformeAde ?? "" })}</span>
       </span>
       {env.remessaConformeSelo ? (
         <span className="flex items-center gap-1.5">
@@ -270,21 +246,18 @@ export function RemessaConformeSeal({ preview, className }: RemessaConformeProps
 
 /**
  * Selo no header, sem roubar espaço da busca. `nav`: na faixa de departamentos (≥ md), à direita — só o emblema
- * no md; emblema + nome + medalha da faixa + etiqueta "Simulação" a partir do lg (a frase completa fica no `title`);
- * `strip`: faixa fina sob a busca na home mobile, com "impostos pagos na compra". Leva à página que explica os impostos
- * do programa.
+ * no md; emblema + nome + medalha da faixa a partir do lg (a frase completa fica no `title`); `strip`: faixa fina sob a
+ * busca na home mobile, com "impostos pagos na compra". Leva à página que explica os impostos do programa.
  */
 export function RemessaConformeHeaderSeal({
   variant,
-  preview,
   className,
 }: RemessaConformeProps & { variant: "nav" | "strip" }) {
   const t = useTranslations("trust");
   const tierLabel = useTierLabel();
-  if (!showSeal(preview)) return null;
+  if (!showSeal()) return null;
   const tier = env.remessaConformeSelo;
-  const base = tierLabel ? `${t("headerSealLabel")} · ${tierLabel}` : t("headerSealLabel");
-  const label = env.remessaConformeMode === "simulacao" ? `${base} (${t("simulationTag")})` : base;
+  const label = tierLabel ? `${t("headerSealLabel")} · ${tierLabel}` : t("headerSealLabel");
 
   if (variant === "strip") {
     return (
@@ -301,7 +274,6 @@ export function RemessaConformeHeaderSeal({
           <span className="font-bold text-white">{t("remessaConformeTitle")}</span> · {t("remessaConformeStrip")}
         </span>
         {tier ? <ComplianceMedal tier={tier} className="ml-auto h-6 w-5" /> : null}
-        <SimulationTag onDark className={tier ? "" : "ml-auto"} />
       </Link>
     );
   }
@@ -319,7 +291,6 @@ export function RemessaConformeHeaderSeal({
       <RemessaConformeEmblem className="size-6" />
       <span className="hidden font-bold lg:inline">{t("remessaConformeTitle")}</span>
       {tier ? <ComplianceMedal tier={tier} className="hidden h-6 w-5 lg:block" /> : null}
-      <SimulationTag onDark className="hidden lg:inline-flex" />
     </Link>
   );
 }

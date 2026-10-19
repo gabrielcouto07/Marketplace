@@ -165,7 +165,7 @@ function SellerDetail({ id, onClose }: { id: string | null; onClose: () => void 
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {STATUSES.map((s) => (
+                  {STATUSES.filter((s) => s !== "Excluido" || d.summary.status === "Excluido").map((s) => (
                     <SelectItem key={s} value={s}>
                       {t(`sellerStatus.${s}`)}
                     </SelectItem>
@@ -197,7 +197,7 @@ function SellerDetail({ id, onClose }: { id: string | null; onClose: () => void 
                 <Switch checked={official} onCheckedChange={setOfficial} />
               </label>
             </div>
-            {(status === "Suspenso" || status === "Excluido") && d.summary.status !== status ? (
+            {status === "Suspenso" && d.summary.status !== status ? (
               <>
                 <FormField id="seller-suspension" label={t("suspensionReason")} hint={t("suspensionReasonHint")}>
                   <Textarea
@@ -207,21 +207,17 @@ function SellerDetail({ id, onClose }: { id: string | null; onClose: () => void 
                     onChange={(e) => setSuspensionReason(e.target.value)}
                   />
                 </FormField>
-                {status === "Suspenso" ? (
-                  <FormField id="seller-suspension-days" label={t("suspensionDays")} optional hint={t("suspensionDaysHint")}>
-                    <Input
-                      id="seller-suspension-days"
-                      type="number"
-                      inputMode="numeric"
-                      min={1}
-                      max={365}
-                      value={suspensionDays}
-                      onChange={(e) => setSuspensionDays(e.target.value)}
-                    />
-                  </FormField>
-                ) : (
-                  <p className="rounded-md bg-danger-soft p-3 text-body-sm text-danger">{t("exclusionWarning")}</p>
-                )}
+                <FormField id="seller-suspension-days" label={t("suspensionDays")} optional hint={t("suspensionDaysHint")}>
+                  <Input
+                    id="seller-suspension-days"
+                    type="number"
+                    inputMode="numeric"
+                    min={1}
+                    max={365}
+                    value={suspensionDays}
+                    onChange={(e) => setSuspensionDays(e.target.value)}
+                  />
+                </FormField>
               </>
             ) : null}
             <FormField id="seller-name" label={t("colSeller")}>
