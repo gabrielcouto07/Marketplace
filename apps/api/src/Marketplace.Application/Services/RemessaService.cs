@@ -53,7 +53,11 @@ public sealed class RemessaService(
         return shipment.ToDto(remittance, IsSandbox(shipment), labelUrl);
     }
 
-    private bool IsSandbox(Shipment s) => s.Provider.Equals("sandbox", StringComparison.OrdinalIgnoreCase);
+    private bool IsSandbox(Shipment s) => IsTestProvider(s.Provider);
+
+    /// <summary>Remessa de teste: o sandbox local ou um operador em homologação (nome terminado em "-hom").</summary>
+    public static bool IsTestProvider(string provider) =>
+        provider.Equals("sandbox", StringComparison.OrdinalIgnoreCase) || provider.EndsWith("-hom", StringComparison.OrdinalIgnoreCase);
 
     // ----- Emissão (vendedor) -----
 
@@ -282,7 +286,8 @@ public sealed class RemessaService(
         var address = order.ShippingAddress;
         var recipient = new RemessaParty(address.RecipientName, "CPF", recipientCpf,
             $"{address.Street}, {address.Number}{(address.Complement is null ? "" : " – " + address.Complement)} – {address.Neighborhood}",
-            address.City, address.State, address.PostalCode, address.Country, address.Phone ?? buyer.Phone, buyer.Email);
+            address.City, address.State, address.PostalCode, address.Country, address.Phone ?? buyer.Phone, buyer.Email,
+            address.Street, address.Number, address.Complement, address.Neighborhood);
         var sender = new RemessaParty(seller.SenderName, "RUC", seller.Ruc, seller.LegalAddress ?? seller.City, seller.City, null, seller.OriginPostalCode,
             seller.Country, seller.Phone, seller.Email);
 

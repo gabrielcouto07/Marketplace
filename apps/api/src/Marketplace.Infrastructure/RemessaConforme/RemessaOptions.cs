@@ -31,7 +31,7 @@ public sealed class PlatformIdentityOptions
 /// <summary>Operador logístico (Correios ou courier) que recebe a declaração, emite a etiqueta e recebe o repasse.</summary>
 public sealed class CarrierOptions
 {
-    /// <summary>"Sandbox" (padrão: sem rede, etiqueta de teste) ou "Http" (contrato de integração v1, ver docs).</summary>
+    /// <summary>"Sandbox" (padrão: sem rede, etiqueta de teste), "Http" (contrato de integração v1, ver docs) ou "Correios" (API Packet).</summary>
     public string Provider { get; set; } = "Sandbox";
     /// <summary>Sandbox fora de Development só com esta chave ligada (as etiquetas não valem para postagem).</summary>
     public bool AllowSandboxOutsideDevelopment { get; set; }
@@ -48,6 +48,31 @@ public sealed class CarrierOptions
     /// <summary>Nome da transportadora quando o operador não informar.</summary>
     public string CarrierName { get; set; } = "Operador logístico";
     public int TimeoutSeconds { get; set; } = 25;
+    public CorreiosPacketOptions Correios { get; set; } = new();
+}
+
+/// <summary>
+/// Correios Packet, importação direta (Provider "Correios"): credenciais do contrato PACKET, conforme o Guia de Integração
+/// da API v2.9.1. A homologação usa as credenciais de teste do guia (item 2.2); as de produção vêm do consultor dos Correios.
+/// </summary>
+public sealed class CorreiosPacketOptions
+{
+    /// <summary>Homologação: https://apihom.correios.com.br · Produção: https://api.correios.com.br</summary>
+    public string BaseUrl { get; set; } = "https://apihom.correios.com.br";
+    /// <summary>Usuário idCorreios e senha do token (Basic).</summary>
+    public string User { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+    /// <summary>Cartão de postagem (10 dígitos) vinculado ao contrato.</summary>
+    public string PostageCard { get; set; } = string.Empty;
+    /// <summary>Pacote não nacionalizado: "RETURNTOORIGIN" (devolver à origem) ou "TREATASABANDONED" (tratar como abandonado).</summary>
+    public string NonNationalizationInstruction { get; set; } = "RETURNTOORIGIN";
+    /// <summary>
+    /// senderCodeEce dos pacotes de teste enquanto a empresa não tem CNPJ/TIN configurado (o código do exemplo do guia).
+    /// Só vale na homologação; em produção falta de CNPJ recusa a remessa.
+    /// </summary>
+    public string HomologationEceCode { get; set; } = "123456789";
+
+    public bool IsHomologation => BaseUrl.Contains("apihom.", StringComparison.OrdinalIgnoreCase);
 }
 
 /// <summary>

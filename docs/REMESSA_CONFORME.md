@@ -184,7 +184,7 @@ cada uma. Variáveis no formato do .NET (`Seção__Chave`), definidas no serviç
 | **Tabela NCM oficial** (Siscomex, pública) | ✅ ativa: baixa a nomenclatura vigente (10.516 códigos em 05/10/2026) a cada 24 h, com cache em `.data/ncm.json` | nada | — |
 | **PTAX** (Banco Central, pública) | ✅ ativa: cotação de venda USD→BRL a cada 3 h, usada na faixa de US$ 50 e no valor em dólar da declaração | nada | — |
 | **Identidade da empresa (ECE)** | etiqueta sai com marca e nome comercial; CNPJ "não configurado" | `RemessaConforme__Platform__LegalName`, `RemessaConforme__Platform__Document` (CNPJ, só dígitos), `RemessaConforme__Platform__AdeNumber`; opcionais: `__DocumentType` (`CNPJ` ou `TIN`), `__AddressLine`, `__OperatorCode` e `__OperatorName` (codigoOND quando houver intermediária) | contrato social e o ADE publicado pela Coana |
-| **Operador logístico** (Correios, courier ou intermediária) | **sandbox** em Development: rastreio `SB…PY`, declaração `SBX-…`, etiqueta "SANDBOX · NÃO POSTAR", repasse confirmado na hora. Fora de Development fica desligado (sem etiqueta, sem envio) | `RemessaConforme__Carrier__Provider=Http`, `RemessaConforme__Carrier__BaseUrl`, `RemessaConforme__Carrier__ApiKey`; opcionais: `__ApiKeyHeader` (`Authorization`), `__ApiKeyScheme` (`Bearer`), `__ShipmentsPath`, `__CancelPathTemplate`, `__RemittancesPath`, `__CarrierName`, `__TimeoutSeconds` | contrato com o operador; ele implementa o **contrato v1** abaixo ou a plataforma escreve um adaptador |
+| **Operador logístico** (Correios, courier ou intermediária) | **sandbox** em Development: rastreio `SB…PY`, declaração `SBX-…`, etiqueta "SANDBOX · NÃO POSTAR", repasse confirmado na hora. Fora de Development fica desligado (sem etiqueta, sem envio) | `RemessaConforme__Carrier__Provider=Http`, `RemessaConforme__Carrier__BaseUrl`, `RemessaConforme__Carrier__ApiKey`; opcionais: `__ApiKeyHeader` (`Authorization`), `__ApiKeyScheme` (`Bearer`), `__ShipmentsPath`, `__CancelPathTemplate`, `__RemittancesPath`, `__CarrierName`, `__TimeoutSeconds`. **Correios Packet** direto: `RemessaConforme__Carrier__Provider=Correios` e `RemessaConforme__Carrier__Correios__*` (5.4) | contrato com o operador; ele implementa o **contrato v1** abaixo ou a plataforma escreve um adaptador. Para os Correios, o contrato PACKET (o adaptador já existe) |
 | **Portal Único Siscomex — Remessas Internacionais** | desligado | `Siscomex__ClientId`, `Siscomex__ClientSecret`, `Siscomex__Cnpj`; para produção, `Siscomex__BaseUrl=https://portalunico.siscomex.gov.br` (o padrão é o ambiente de validação `val.`) | Portal Único › chave de acesso do perfil **EMPRCOMEL** (representante da ECE) |
 | **Serpro — Consulta CPF** | só o dígito verificador do CPF é conferido | `Serpro__ConsumerKey`, `Serpro__ConsumerSecret` | loja Serpro (API Consulta CPF v3), contrato da empresa |
 | **Selo no site** (build do `web`) | desligado: nenhuma página mostra o selo | depois do ADE: `NEXT_PUBLIC_REMESSA_CONFORME=true`, `NEXT_PUBLIC_REMESSA_CONFORME_ADE=<número>`; em dezembro, se houver selo: `NEXT_PUBLIC_REMESSA_CONFORME_SELO=ouro\|prata\|bronze` e `NEXT_PUBLIC_REMESSA_CONFORME_CICLO=2026/2027` | o ADE e o resultado do ciclo publicados pela Coana |
@@ -264,6 +264,51 @@ remessa em `Falhou`, e o admin reenvia em **Remessas**.
 
 Resposta: `{ "referencia": "rep-987", "confirmado": true }`. Sem confirmação, o job tenta de novo (até 8 vezes);
 depois o repasse aparece *com falha* em **Remessas**.
+
+### 5.4 Correios Packet (`Provider=Correios`)
+
+Adaptador da API Packet de importação direta (Guia de Integração da API v2.9.1):
+`Infrastructure/RemessaConforme/CorreiosPacketCarrierGateway.cs`.
+
+| Variável | Homologação (testes) | Produção |
+| --- | --- | --- |
+| `RemessaConforme__Carrier__Provider` | `Correios` | `Correios` |
+| `RemessaConforme__Carrier__Correios__BaseUrl` | `https://apihom.correios.com.br` (padrão) | `https://api.correios.com.br` |
+| `RemessaConforme__Carrier__Correios__User` / `__Password` / `__PostageCard` | credenciais de teste do item 2.2 do guia | entregues pelo consultor dos Correios com o contrato PACKET |
+| `RemessaConforme__Carrier__Correios__NonNationalizationInstruction` | `RETURNTOORIGIN` (padrão) ou `TREATASABANDONED` | idem |
+| `RemessaConforme__Platform__LegalName` / `__Document` | opcionais: sem CNPJ, `senderCodeEce` leva `__Correios__HomologationEceCode` (`123456789`, o do exemplo do guia) | obrigatórios: os da empresa (o CNPJ/TIN vai em `senderCodeEce`) |
+
+- **Token**: `POST /token/v1/autentica/cartaopostagem` (Basic usuário:senha, corpo `{"numero": cartão}`), válido por
+  24 h e guardado em memória. Token inválido volta **403** `GTW-006`; o adaptador renova e repete uma vez.
+- **Etiqueta**: `POST /packet/v1/packages` com `taxPaymentMethod: "PRC"`, `currency: "BRL"`, NCM de 8 dígitos e II/ICMS
+  provisionados. A API devolve só o `trackingNumber` (ex.: `NL000502909BR`); a etiqueta em PDF é gerada pela plataforma
+  com esse código. `customerControlCode` = número do pedido. `senderWebsite` leva o nome da ECE (razão social se couber
+  em 30 caracteres, senão o nome comercial). Serviço `express` vira `33170` (PACKET EXPRESS); o resto, `33162`
+  (PACKET STANDARD).
+- **Valores**: o pacote não tem campo de desconto, então frete + seguro + itens somam exatamente o valor aduaneiro (o
+  desconto é rateado nos itens). `value` de cada item é o **valor unitário** (item 5.1 do guia). A API recusa frete
+  abaixo de R$ 0,01: no frete grátis, um centavo sai dos itens para o frete. Mais de 20 mercadorias por pacote é
+  recusado antes do envio.
+- **Endereços**: o destinatário vai com rua, número, complemento + bairro separados. O remetente tem uma linha só; o
+  número sai do primeiro grupo de dígitos seguido de vírgula, hífen ou fim ("Av. San Blas 455, Km 4" → `455`), ou `0`
+  (a API só aceita dígitos no número do remetente). Telefone: DDD + número, sem o 55 (10 ou 11 dígitos). Produto sem
+  medidas vai com a caixa mínima do guia (16 × 11 × 2 cm).
+- **Erros**: 400 com `msgs` (`SUA-121: CPF number is invalid.`, `NEG-112: HS code not found.`…) vira "O operador
+  recusou a remessa: …" e a remessa fica `Falhou`.
+- **Não é idempotente**: reenviar o mesmo pedido cria outro rastreio. Num timeout o pacote pode ter sido criado; antes de
+  reenviar, confira no SSII pelo número do pedido.
+- **Cancelar**: a API não cancela pacote (só unitizador e despacho). Pacote fora de CN35/CN38 não é postado nem cobrado,
+  então o cancelamento só é registrado na plataforma.
+- **Tributos**: não há repasse à parte. II e ICMS vão no pacote e entram na fatura da CN38. O job consulta
+  `GET /packet/v1/packages/provisioned-values` e marca o repasse *confirmado* quando a DIR aparece (referência
+  `DIR <número>`); até lá fica *enviado*.
+- **Homologação = sandbox**: o provedor se chama `correios-hom`, as remessas aparecem com o selo "sandbox", a etiqueta
+  sai com a faixa "SANDBOX · NÃO POSTAR" e o CPF só precisa do dígito verificador na plataforma. Por isso, fora de
+  Development a homologação só liga com `RemessaConforme__Carrier__AllowSandboxOutsideDevelopment=true`, como o sandbox.
+  Os Correios conferem o CPF numa base mesmo em homologação: CPFs de dígito válido mas desconhecidos (o
+  `529.982.247-25` da demonstração) voltam `SUA-121`; use o do guia, `339.085.978-03`, no endereço do comprador.
+- Fora do escopo do adaptador: unitização (CN35), fatura (CN38) e confirmação de embarque. Ficam no SSII ou num passo
+  futuro.
 
 ---
 

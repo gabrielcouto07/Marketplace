@@ -35,18 +35,31 @@ public sealed class IntegrationStatusReporter(
             $"{p.Brand} · {p.TradeName}{(string.IsNullOrWhiteSpace(p.Document) ? "" : $" · {p.DocumentType} {p.Document}")}", Docs));
 
         var c = remessa.Value.Carrier;
+        var correios = c.Provider.Equals("Correios", StringComparison.OrdinalIgnoreCase);
         var carrierMissing = new List<string>();
-        if (carrier.IsSandbox || !carrier.IsConfigured)
+        if ((carrier.IsSandbox || !carrier.IsConfigured) && correios)
+        {
+            if (string.IsNullOrWhiteSpace(c.Correios.User)) carrierMissing.Add("RemessaConforme__Carrier__Correios__User");
+            if (string.IsNullOrWhiteSpace(c.Correios.Password)) carrierMissing.Add("RemessaConforme__Carrier__Correios__Password");
+            if (string.IsNullOrWhiteSpace(c.Correios.PostageCard)) carrierMissing.Add("RemessaConforme__Carrier__Correios__PostageCard");
+            if (c.Correios.IsHomologation) carrierMissing.Add("RemessaConforme__Carrier__Correios__BaseUrl=https://api.correios.com.br");
+        }
+        else if (carrier.IsSandbox || !carrier.IsConfigured)
         {
             if (string.IsNullOrWhiteSpace(c.BaseUrl)) carrierMissing.Add("RemessaConforme__Carrier__BaseUrl");
             if (string.IsNullOrWhiteSpace(c.ApiKey)) carrierMissing.Add("RemessaConforme__Carrier__ApiKey");
             if (!c.Provider.Equals("Http", StringComparison.OrdinalIgnoreCase)) carrierMissing.Add("RemessaConforme__Carrier__Provider=Http");
         }
+        var carrierBaseUrl = correios ? c.Correios.BaseUrl : c.BaseUrl;
         list.Add(new IntegrationStatusDto("carrier", "Operador logístico (Correios/courier)",
             "Recebe os dados da declaração antecipada, devolve a etiqueta e recebe o repasse dos tributos (critério i).",
             carrier.Name, carrier.IsConfigured && !carrier.IsSandbox, true,
-            carrier.IsSandbox ? "Sandbox" : carrier.IsConfigured ? "Produção" : "Desligado", carrierMissing,
-            carrier.IsSandbox ? "Etiquetas de teste, marcadas \"SANDBOX · NÃO POSTAR\"." : c.BaseUrl, Docs));
+            carrier.IsSandbox ? correios ? "Homologação" : "Sandbox" : carrier.IsConfigured ? "Produção" : "Desligado", carrierMissing,
+            carrier.IsSandbox
+                ? correios
+                    ? $"Correios Packet em homologação ({carrierBaseUrl}): rastreios de teste, etiquetas marcadas \"SANDBOX · NÃO POSTAR\"."
+                    : "Etiquetas de teste, marcadas \"SANDBOX · NÃO POSTAR\"."
+                : carrierBaseUrl, Docs));
 
         var s = siscomex.Value;
         var sisMissing = new List<string>();

@@ -39,6 +39,7 @@ public interface IPlatformIdentityProvider
 
 /// <summary>Pessoa da remessa (remetente ou destinatário), no formato do layout "Pessoa" da DIR.</summary>
 /// <param name="DocumentType">CPF, CNPJ, PASSAPORTE, TIN ou RUC.</param>
+/// <param name="Street">Partes do endereço, quando cadastradas separadas (operadores que pedem rua e número em campos próprios).</param>
 public sealed record RemessaParty(
     string Name,
     string DocumentType,
@@ -49,7 +50,11 @@ public sealed record RemessaParty(
     string? PostalCode,
     string Country,
     string? Phone,
-    string? Email);
+    string? Email,
+    string? Street = null,
+    string? Number = null,
+    string? Complement = null,
+    string? District = null);
 
 /// <summary>Mercadoria da remessa (layout "Mercadoria" da DIR): NCM de 8 dígitos, descrição, quantidade e valor total.</summary>
 public sealed record RemessaItem(

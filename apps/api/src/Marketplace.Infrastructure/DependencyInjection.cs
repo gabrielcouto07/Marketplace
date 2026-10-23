@@ -181,15 +181,22 @@ public static class DependencyInjection
         // Sem retry automático: criar remessa não é idempotente do lado de todos os operadores (vai Idempotency-Key, mas
         // a nova tentativa fica com o vendedor/admin).
         services.AddHttpClient<HttpRemessaCarrierGateway>(c => c.Timeout = TimeSpan.FromSeconds(carrierTimeout));
+        services.AddHttpClient(CorreiosPacketCarrierGateway.HttpClientName, c => c.Timeout = TimeSpan.FromSeconds(carrierTimeout));
+        services.AddSingleton<CorreiosPacketCarrierGateway>();
         services.AddSingleton<SandboxRemessaCarrierGateway>();
         var carrierProvider = config["RemessaConforme:Carrier:Provider"] ?? "Sandbox";
         var allowSandbox = env.IsDevelopment() || config.GetValue("RemessaConforme:Carrier:AllowSandboxOutsideDevelopment", false);
         services.AddScoped<IRemessaCarrierGateway>(sp =>
-            carrierProvider.Equals("Http", StringComparison.OrdinalIgnoreCase)
-                ? sp.GetRequiredService<HttpRemessaCarrierGateway>()
-                : allowSandbox
-                    ? sp.GetRequiredService<SandboxRemessaCarrierGateway>()
-                    : new DisabledRemessaCarrierGateway());
+        {
+            if (carrierProvider.Equals("Http", StringComparison.OrdinalIgnoreCase)) return sp.GetRequiredService<HttpRemessaCarrierGateway>();
+            if (carrierProvider.Equals("Correios", StringComparison.OrdinalIgnoreCase))
+            {
+                // A homologação dos Correios afrouxa as conferências como o sandbox (CPF só pelo dígito): mesma trava.
+                var correios = sp.GetRequiredService<CorreiosPacketCarrierGateway>();
+                return !correios.IsSandbox || allowSandbox ? correios : new DisabledRemessaCarrierGateway();
+            }
+            return allowSandbox ? sp.GetRequiredService<SandboxRemessaCarrierGateway>() : new DisabledRemessaCarrierGateway();
+        });
 
         services.AddHttpClient(PortalUnicoSiscomexClient.HttpClientName, c => c.Timeout = TimeSpan.FromSeconds(Math.Max(5, config.GetValue("Siscomex:TimeoutSeconds", 30))));
         services.AddSingleton<ISiscomexRemessaClient, PortalUnicoSiscomexClient>();

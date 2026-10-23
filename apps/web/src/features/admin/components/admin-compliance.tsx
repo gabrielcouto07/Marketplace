@@ -985,7 +985,7 @@ function modeVariant(i: IntegrationStatusDto): "success" | "soft" | "warning" | 
   if (i.configured && !i.missing.length) return i.mode === "Validação" ? "soft" : "success";
   // Sem a consulta de CPF na Receita, o checkout recusa as vendas (Programa 7.2).
   if (i.mode === "Vendas bloqueadas") return "danger";
-  if (i.mode === "Sandbox" || i.mode === "Incompleto" || i.mode.startsWith("Só dígito verificador") || i.mode === "Carregando") return "warning";
+  if (i.mode === "Sandbox" || i.mode === "Homologação" || i.mode === "Incompleto" || i.mode.startsWith("Só dígito verificador") || i.mode === "Carregando") return "warning";
   return "neutral";
 }
 

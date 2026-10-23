@@ -670,7 +670,7 @@ public sealed class SellerPanelService(
     }
 
     private OrderDto ToSellerDto(Order o) =>
-        o.ToDto(currentUser.Locale, o.Shipment?.ToDto(null, remessa.CarrierIsSandbox && o.Shipment.Provider == "sandbox", RemessaService.SellerLabelUrl(o.Id)));
+        o.ToDto(currentUser.Locale, o.Shipment?.ToDto(null, remessa.CarrierIsSandbox && RemessaService.IsTestProvider(o.Shipment.Provider), RemessaService.SellerLabelUrl(o.Id)));
 
     private async Task<Order> RequireOrderAsync(Guid id, CancellationToken ct)
     {
