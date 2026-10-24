@@ -413,6 +413,8 @@ export function CheckoutView() {
             <CheckoutSummary
               quote={quote}
               quoting={quoting}
+              hasAddress={Boolean(selectedAddress)}
+              failed={quoteFailed}
               remaining={remaining}
               expired={quoteExpired}
               onRefresh={() => {
@@ -438,6 +440,8 @@ export function CheckoutView() {
             <span className="text-title-3 text-foreground tabular-nums">
               {formatMoney(quote.total)}
             </span>
+          ) : !selectedAddress || (quoteFailed && !quoting) ? (
+            <span className="text-title-3 text-foreground-muted">—</span>
           ) : (
             <Skeleton className="mt-1 h-5 w-24" />
           )}

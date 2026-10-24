@@ -21,6 +21,10 @@ import { cn } from "@/lib/utils";
 interface CheckoutSummaryProps {
   quote: CheckoutQuoteDto | undefined;
   quoting: boolean;
+  /** Sem endereço não há cotação: o resumo pede o endereço em vez de ficar carregando. */
+  hasAddress: boolean;
+  /** A cotação falhou: o erro detalhado aparece no frete; aqui, aviso curto e "tentar novamente". */
+  failed: boolean;
   /** Segundos restantes do câmbio travado. */
   remaining: number;
   expired: boolean;
@@ -36,6 +40,8 @@ interface CheckoutSummaryProps {
 export function CheckoutSummary({
   quote,
   quoting,
+  hasAddress,
+  failed,
   remaining,
   expired,
   onRefresh,
@@ -43,6 +49,32 @@ export function CheckoutSummary({
 }: CheckoutSummaryProps) {
   const t = useTranslations("checkout");
   const tCatalog = useTranslations("catalog");
+  const tErrors = useTranslations("errors");
+
+  if (!quote && !hasAddress) {
+    return (
+      <p className="text-body-sm text-foreground-secondary">
+        {t("summaryNeedsAddress")}{" "}
+        <a href="#checkout-address" className="font-medium text-primary underline-offset-2 hover:underline">
+          {t("summaryGoToAddress")}
+        </a>
+      </p>
+    );
+  }
+
+  if (!quote && failed && !quoting) {
+    return (
+      <div className="flex flex-col items-start gap-2" role="alert">
+        <p className="flex items-start gap-1.5 text-body-sm text-danger">
+          <AlertCircle className="mt-0.5 size-4 shrink-0" strokeWidth={1.75} aria-hidden />
+          {t("summaryUnavailable")}
+        </p>
+        <Button variant="secondary" size="sm" onClick={onRefresh}>
+          <RefreshCw data-icon="inline-start" /> {tErrors("retry")}
+        </Button>
+      </div>
+    );
+  }
 
   if (!quote) {
     return (
