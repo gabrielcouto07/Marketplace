@@ -21,6 +21,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useCategories } from "@/features/catalog/api";
+import { TestFillButton } from "@/features/testing/components/test-fill-button";
+import { testProduct } from "@/features/testing/test-data";
 import { formatMoney } from "@/lib/money";
 import { onlyDigits } from "@/lib/validation/documents";
 import {
@@ -257,8 +259,16 @@ export function ProductForm({
     hasError ? `${id}-error` : hasHint ? `${id}-hint` : undefined;
   const imagesError = errors.images?.message ?? errors.images?.root?.message;
 
+  // NCM 8518.30.00 (capítulo 85) só passa em categorias que aceitam eletrônicos.
+  const fillTestData = () => {
+    const all = categories.data ?? [];
+    const category = all.find((c) => c.slug === "eletronicos") ?? all[0];
+    form.reset(testProduct({ categoryId: category?.id ?? "" }));
+  };
+
   return (
     <form onSubmit={submit} noValidate className="flex flex-col gap-8">
+      {product ? null : <TestFillButton onFill={fillTestData} />}
       {product && (product.status === "EmAnalise" || product.status === "Bloqueado") ? (
         <ModerationNotice status={product.status} reason={product.moderationReason ?? null} note={product.moderationNote ?? null} />
       ) : null}

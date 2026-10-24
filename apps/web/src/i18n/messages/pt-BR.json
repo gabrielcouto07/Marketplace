@@ -470,6 +470,13 @@
     "estimatedTotalNote": "Sem o frete, que depende do seu CEP e da opção escolhida.",
     "estimatedTaxesItemized": "II {ii} · ICMS {icms} · IBS {ibs} · CBS {cbs}"
   },
+  "testing": {
+    "hint": "Modo de testes: pagamentos fictícios.",
+    "fill": "Preencher com dados de teste",
+    "filled": "Dados de teste preenchidos. Confira e envie.",
+    "passwordNote": "Senha de teste: {password}",
+    "cpfNote": "CPF de teste {cpf}: o único que a homologação dos Correios aceita."
+  },
   "checkout": {
     "title": "Checkout",
     "stepAddress": "Endereço",
@@ -570,8 +577,8 @@
     "approved": "Pagamento aprovado!",
     "declined": "Pagamento recusado",
     "refunded": "Pagamento estornado",
-    "simulateApproval": "Simular pagamento (mock)",
-    "simulateHint": "No ambiente de demonstração, o Pix é aprovado automaticamente após ~20 s, ou clique no botão.",
+    "simulateApproval": "Simular pagamento aprovado",
+    "simulateHint": "Modo de testes: nenhum dinheiro é cobrado. Aprove o pagamento agora para seguir com o pedido.",
     "boletoTitle": "Boleto bancário",
     "boletoInstructions": "Pague em qualquer banco, lotérica ou pelo app usando a linha digitável. Compensa em até 2 dias úteis.",
     "digitableLine": "Linha digitável",

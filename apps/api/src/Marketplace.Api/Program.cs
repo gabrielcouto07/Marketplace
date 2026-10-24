@@ -151,7 +151,10 @@ api.MapCatalog();
 api.MapSellers();
 api.MapShipping();
 api.MapCheckoutAndOrders();
-api.MapPayments(allowSimulation: app.Environment.IsDevelopment() && fakeGateway);
+// Gateway fake fora de Development só com Payments:AllowFakeOutsideDevelopment (validado na inicialização). Ele não
+// movimenta dinheiro, então a aprovação simulada vale onde ele vale: é o que permite testar o fluxo no site de demonstração.
+api.MapPayments(allowSimulation: fakeGateway);
+api.MapTestMode(fakeGateway);
 api.MapWebhooks();
 api.MapAuth();
 api.MapAccount();

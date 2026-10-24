@@ -89,6 +89,11 @@ export function SellerRegisterView() {
         submitLabel={t("registerSubmit")}
         submitting={register.isPending}
         serverErrors={serverErrors}
+        onTestFill={() => {
+          setAcceptPolicy(true);
+          setRepresentative(true);
+          setAcceptTerms(true);
+        }}
         footer={
           <div className="flex flex-col gap-3">
             {checkbox(

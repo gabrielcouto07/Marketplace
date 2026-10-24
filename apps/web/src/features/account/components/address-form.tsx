@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { usePostalCodeLookup } from "@/features/shipping/api";
+import { TestFillButton } from "@/features/testing/components/test-fill-button";
+import { TEST_CPF, testAddress } from "@/features/testing/test-data";
 import { formatCep, formatCpf, formatPhoneBr, onlyDigits } from "@/lib/validation/documents";
 import {
   addressSchema,
@@ -53,6 +55,7 @@ export function AddressForm({
 }: AddressFormProps) {
   const t = useTranslations("account");
   const tc = useTranslations("common");
+  const tTesting = useTranslations("testing");
   const form = useForm<AddressFormValues, unknown, AddressFormOutput>({
     resolver: zodResolver(addressSchema),
     defaultValues: { ...EMPTY, ...defaultValues },
@@ -106,6 +109,10 @@ export function AddressForm({
 
   return (
     <form onSubmit={submit} noValidate className="flex flex-col gap-4">
+      <TestFillButton
+        onFill={() => form.reset(testAddress())}
+        note={tTesting("cpfNote", { cpf: formatCpf(TEST_CPF) })}
+      />
       <div className="grid grid-cols-2 gap-4">
         <FormField id="addr-label" label={t("addressLabel")} error={errors.label?.message}>
           <Input

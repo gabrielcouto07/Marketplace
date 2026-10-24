@@ -12,6 +12,14 @@ public sealed class BuyerFlowTests : IClassFixture<ApiFactory>
     public BuyerFlowTests(ApiFactory factory) => _factory = factory;
 
     [Fact]
+    public async Task TestMode_IsPublicAndOnWithTheFakeGateway()
+    {
+        var client = _factory.CreateClient();
+        var mode = await client.GetFromJsonAsync<JsonElement>("/api/test-mode", Json);
+        Assert.True(mode.GetProperty("enabled").GetBoolean());
+    }
+
+    [Fact]
     public async Task Home_ReturnsSeededCatalog()
     {
         var client = _factory.CreateClient();

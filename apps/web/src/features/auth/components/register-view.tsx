@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { useRegister } from "@/features/auth/api";
+import { TestFillButton } from "@/features/testing/components/test-fill-button";
+import { TEST_PASSWORD, testRegister } from "@/features/testing/test-data";
 import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
 import { formatPhoneBr } from "@/lib/validation/documents";
@@ -28,6 +30,7 @@ import { useAuthRedirect, useRedirectIfAuthenticated } from "./use-auth-redirect
 
 export function RegisterView() {
   const t = useTranslations("auth");
+  const tTesting = useTranslations("testing");
   const translate = useValidationMessage();
   const registerMutation = useRegister();
   const redirect = useAuthRedirect();
@@ -86,6 +89,10 @@ export function RegisterView() {
     >
       <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
         <ApiErrorNotice message={apiError} />
+        <TestFillButton
+          onFill={() => form.reset(testRegister())}
+          note={tTesting("passwordNote", { password: TEST_PASSWORD })}
+        />
         <FormField label={t("fullName")} error={fieldError(formState.errors, "fullName")}>
           {(a11y) => <Input {...a11y} autoComplete="name" {...register("fullName")} />}
         </FormField>

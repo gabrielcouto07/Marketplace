@@ -26,6 +26,8 @@ import {
   type CardOnlyOutput,
 } from "@/features/checkout/components/card-utils";
 import { CheckoutSection, OptionCard } from "@/features/checkout/components/checkout-section";
+import { TestFillButton } from "@/features/testing/components/test-fill-button";
+import { TEST_CPF } from "@/features/testing/test-data";
 import { env } from "@/lib/env";
 import { formatMoney } from "@/lib/money";
 import { CARD_PAYMENT_ENABLED } from "@/lib/payments/card-token";
@@ -69,8 +71,17 @@ export function PaymentSection({
   onPayerDocumentChange,
 }: PaymentSectionProps) {
   const t = useTranslations("checkout");
+  const tTesting = useTranslations("testing");
   return (
     <CheckoutSection id="checkout-payment" title={t("paymentSectionTitle")}>
+      {/* Pix + CPF de teste: no modo de testes o pagamento é aprovado com "Simular aprovação". */}
+      <TestFillButton
+        onFill={() => {
+          onMethodChange("Pix");
+          onPayerDocumentChange(TEST_CPF);
+        }}
+        note={tTesting("cpfNote", { cpf: formatCpf(TEST_CPF) })}
+      />
       <RadioGroup
         aria-label={t("paymentTitle")}
         value={method}

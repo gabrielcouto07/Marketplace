@@ -20,6 +20,8 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { Textarea } from "@/components/ui/textarea";
 import { useCategories } from "@/features/catalog/api";
+import { TestFillButton } from "@/features/testing/components/test-fill-button";
+import { testStore } from "@/features/testing/test-data";
 import { formatRuc, onlyDigits } from "@/lib/validation/documents";
 import { storeSchema, type StoreFormOutput, type StoreFormValues } from "@/lib/validation/schemas";
 
@@ -51,6 +53,8 @@ export interface StoreFormProps {
   rucEditable?: boolean;
   /** Situação da verificação de documentos (perfil). */
   verification?: SellerVerificationDto | null;
+  /** Modo de testes: depois de preencher a loja, o cadastro marca os aceites que ficam fora do formulário. */
+  onTestFill?: () => void;
 }
 
 const EMPTY: StoreFormValues = {
@@ -96,6 +100,7 @@ export function StoreForm({
   footer,
   rucEditable = true,
   verification,
+  onTestFill,
 }: StoreFormProps) {
   const t = useTranslations("sellerPanel");
   const categories = useCategories();
@@ -147,12 +152,28 @@ export function StoreForm({
     }),
   );
 
+  const fillTestData = () => {
+    const current = form.getValues();
+    const all = categories.data ?? [];
+    const category = all.find((c) => c.slug === "eletronicos") ?? all[0];
+    const data = testStore({ categoryIds: category ? [category.id] : [], cities: cities.data ?? [] });
+    // O RUC não muda depois do cadastro; logo e banner ficam como estão.
+    form.reset({
+      ...data,
+      ruc: rucEditable ? data.ruc : current.ruc,
+      logoUrl: current.logoUrl,
+      bannerUrl: current.bannerUrl,
+    });
+    onTestFill?.();
+  };
+
   const cityItems = Object.fromEntries((cities.data ?? []).map((c) => [c, c]));
   const describedBy = (id: string, hasError: boolean, hasHint = false) =>
     hasError ? `${id}-error` : hasHint ? `${id}-hint` : undefined;
 
   return (
     <form onSubmit={submit} noValidate className="flex flex-col gap-8">
+      <TestFillButton onFill={fillTestData} />
       <section className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4 shadow-xs sm:p-6">
         <div className="flex flex-col gap-1">
           <h2 className="text-title-3 text-foreground">{t("storeIdentity")}</h2>

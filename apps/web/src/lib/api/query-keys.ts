@@ -46,6 +46,7 @@ export const queryKeys = {
   payments: {
     detail: (id: string) => ["payments", id] as const,
   },
+  testMode: ["test-mode"] as const,
   me: {
     profile: ["me"] as const,
     addresses: ["me", "addresses"] as const,

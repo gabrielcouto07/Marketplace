@@ -38,6 +38,9 @@ public sealed record AddressInput(
 
 public sealed record PostalCodeLookupDto(string PostalCode, string Street, string Neighborhood, string City, string State);
 
+/// <summary>Modo de testes: pagamentos fictícios (gateway fake), com "preencher com dados de teste" e aprovação simulada no site.</summary>
+public sealed record TestModeDto(bool Enabled);
+
 public sealed record ShippingQuoteItem(Guid ProductId, Guid? VariantId, int Quantity);
 
 public sealed record ShippingQuoteRequest(string? PostalCode, Guid SellerId, IReadOnlyList<ShippingQuoteItem>? Items);

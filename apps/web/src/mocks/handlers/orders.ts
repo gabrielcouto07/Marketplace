@@ -172,7 +172,10 @@ export const orderHandlers = [
     return payment ? HttpResponse.json(payment) : notFound("Pagamento");
   }),
 
-  /** Endpoint de conveniência só do mock: força aprovação imediata (botão "Simular pagamento"). */
+  /** O mock é sempre modo de testes (como a API com o gateway fake). */
+  http.get(`${API}/test-mode`, () => HttpResponse.json({ enabled: true })),
+
+  /** Força aprovação imediata (botão "Simular pagamento"); na API, só com o gateway fake. */
   http.post(`${API}/payments/:id/simulate-approval`, async ({ params, request }) => {
     await simulateLatency();
     if (!isAuthorized(request)) return unauthorized();

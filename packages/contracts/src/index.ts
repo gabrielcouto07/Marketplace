@@ -321,6 +321,11 @@ export interface PostalCodeLookupDto {
   state: string;
 }
 
+/** GET /test-mode — pagamentos fictícios: o site mostra "preencher com dados de teste" e a aprovação simulada. */
+export interface TestModeDto {
+  enabled: boolean;
+}
+
 export interface ShippingQuoteItem {
   productId: string;
   variantId: string | null;

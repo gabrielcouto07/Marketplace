@@ -23,8 +23,8 @@ import {
 } from "@/features/orders/components/purchase-order-card";
 import { formatCountdown, useCountdown } from "@/hooks/use-countdown";
 import { Link, useRouter } from "@/i18n/navigation";
+import { useTestMode } from "@/features/testing/api";
 import { downloadBlob, isApiUrl } from "@/lib/api/http";
-import { env } from "@/lib/env";
 import { formatMoney } from "@/lib/money";
 
 export function PaymentView({ paymentId }: { paymentId: string }) {
@@ -35,6 +35,7 @@ export function PaymentView({ paymentId }: { paymentId: string }) {
   const { data: payment, isPending, isError, error, refetch } = usePayment(paymentId);
   const orders = usePurchaseOrders(payment?.purchaseId ?? "");
   const simulate = useSimulatePaymentApproval(paymentId);
+  const testMode = useTestMode();
   const redirected = useRef(false);
 
   const confirmationHref = payment
@@ -157,7 +158,7 @@ export function PaymentView({ paymentId }: { paymentId: string }) {
         </section>
       )}
 
-      {env.apiMocking && payment.status === "Pendente" ? (
+      {testMode && payment.status === "Pendente" ? (
         <div className="flex flex-col items-start gap-2">
           <p className="text-caption text-foreground-secondary">{t("simulateHint")}</p>
           <Button

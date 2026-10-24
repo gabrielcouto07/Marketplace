@@ -69,6 +69,13 @@ public static class CommerceEndpoints
         return api;
     }
 
+    /// <summary>Público: o site mostra os atalhos de teste só quando os pagamentos são fictícios.</summary>
+    public static RouteGroupBuilder MapTestMode(this RouteGroupBuilder api, bool enabled)
+    {
+        api.MapGet("/test-mode", () => new TestModeDto(enabled)).WithTags("Pagamentos").AllowAnonymous();
+        return api;
+    }
+
     public static RouteGroupBuilder MapPayments(this RouteGroupBuilder api, bool allowSimulation)
     {
         var g = api.MapGroup("/payments").WithTags("Pagamentos");
@@ -103,7 +110,7 @@ public static class CommerceEndpoints
         {
             g.MapPost("/{id:guid}/simulate-approval", (Guid id, PaymentService svc, CancellationToken ct) => svc.SimulateApprovalAsync(id, ct))
                 .RequireAuthorization()
-                .WithDescription("Somente com o gateway fake (dev): aprova o pagamento imediatamente.");
+                .WithDescription("Somente com o gateway fake (Development ou Payments:AllowFakeOutsideDevelopment): aprova o pagamento imediatamente.");
         }
 
         return api;
